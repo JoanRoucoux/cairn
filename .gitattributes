@@ -1,0 +1,4 @@
+# Normalize line endings; the Maven wrapper scripts must keep their native ones.
+* text=auto eol=lf
+mvnw text eol=lf
+*.cmd text eol=crlf

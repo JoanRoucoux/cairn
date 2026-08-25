@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.roucoux.cairn</groupId>
+  <artifactId>cairn-aggregator</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>cairn-aggregator</name>
+  <description>Builds every module in one reactor. Deliberately NOT a parent: no module inherits
+    from it, so any module can be extracted into its own repository as-is.</description>
+
+  <!-- Modules are independent Maven projects, each parented by spring-boot-starter-parent.
+       This list only decides what a build from the repository root covers; a module never
+       references this file. Optional modules are framed by generator markers. -->
+  <modules>
+    <module>cairn-domain</module>
+    <module>cairn-adapter</module>
+    <module>cairn-api</module>
+    <module>cairn-schema</module>
+    <module>cairn-batch</module>
+  </modules>
+
+  <properties>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
+    <palantir-java-format.version>2.96.0</palantir-java-format.version>
+  </properties>
+
+  <build>
+    <plugins>
+      <!-- The build environment is checked once, here, for the whole reactor. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-environment</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Declared here as well as in every module: `spotless:check` from the repository root
+           resolves the plugin prefix per project, and a project without the plugin fails the
+           command. It formats nothing here (no src/**/*.java) — see AGENTS.md. -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-maven-plugin.version}</version>
+        <configuration>
+          <java>
+            <palantirJavaFormat>
+              <version>${palantir-java-format.version}</version>
+            </palantirJavaFormat>
+            <removeUnusedImports />
+            <formatAnnotations />
+          </java>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

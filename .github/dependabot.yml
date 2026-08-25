@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      spring:
+        patterns:
+          - 'org.springframework*'
+      dev-dependencies:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'org.springframework*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

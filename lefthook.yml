@@ -1,0 +1,5 @@
+pre-commit:
+  jobs:
+    - name: spotless
+      run: ./mvnw -ntp -B spotless:apply
+      stage_fixed: true

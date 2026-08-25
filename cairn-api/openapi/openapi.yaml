@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Cairn API
+  description: Contract-first API of the demo features. Edit this file, rebuild, implement.
+  version: 0.1.0
+tags:
+  - name: Quote
+    description: Instrument prices, read from an external market data provider
+  - name: Position
+    description: Portfolio positions
+paths:
+  /quote/{isin}:
+    get:
+      tags: [Quote]
+      operationId: getQuoteByIsin
+      summary: Get the current price of an instrument
+      parameters:
+        - name: isin
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'
+      responses:
+        '200':
+          description: The current quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '422':
+          description: Unknown instrument
+        '502':
+          description: Market data provider unavailable
+  /position:
+    post:
+      tags: [Position]
+      operationId: createPosition
+      summary: Open a new position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePositionRequest'
+      responses:
+        '201':
+          description: Position created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionResponse'
+        '422':
+          description: Unknown instrument
+  /position/{id}:
+    get:
+      tags: [Position]
+      operationId: getPositionById
+      summary: Get a position by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The position
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionResponse'
+        '404':
+          description: Position not found
+components:
+  schemas:
+    QuoteResponse:
+      type: object
+      required: [isin, price]
+      properties:
+        isin:
+          type: string
+          example: US0378331005
+        price:
+          type: number
+          example: 123.45
+    CreatePositionRequest:
+      type: object
+      required: [isin, quantity]
+      properties:
+        isin:
+          type: string
+          pattern: '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'
+          example: US0378331005
+        quantity:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 10
+    PositionResponse:
+      type: object
+      required: [id, isin, quantity, price, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        isin:
+          type: string
+        quantity:
+          type: number
+        price:
+          type: number
+        status:
+          type: string
+          enum: [OPEN, CLOSED]
+        createdAt:
+          type: string
+          format: date-time

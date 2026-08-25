@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Spring Batch's own metadata tables. They are part of the schema this module owns, so
+         the batch application can run with spring.batch.jdbc.initialize-schema=never — it never
+         creates a table, in any environment. A raw SQL script is the right shape here: it is
+         vendor-specific by nature and comes verbatim from Spring Batch. -->
+    <changeSet id="002-spring-batch-metadata" author="starter">
+        <sqlFile path="../sql/spring-batch-postgresql.sql" relativeToChangelogFile="true" splitStatements="true" endDelimiter=";"/>
+        <rollback>
+            <dropTable tableName="batch_step_execution_context"/>
+            <dropTable tableName="batch_job_execution_context"/>
+            <dropTable tableName="batch_step_execution"/>
+            <dropTable tableName="batch_job_execution_params"/>
+            <dropTable tableName="batch_job_execution"/>
+            <dropTable tableName="batch_job_instance"/>
+            <dropSequence sequenceName="batch_step_execution_seq"/>
+            <dropSequence sequenceName="batch_job_execution_seq"/>
+            <dropSequence sequenceName="batch_job_seq"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

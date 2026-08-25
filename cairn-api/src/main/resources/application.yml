@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: cairn-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app
+    username: app
+    password: app
+  jpa:
+    hibernate:
+      # The schema belongs to the schema module and is applied out-of-band: this application
+      # only ever checks that the mapping matches what is already there.
+      ddl-auto: validate
+    open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/local
+
+app:
+  client:
+    market-data:
+      base-url: http://localhost:8082
+      connect-timeout: 2s
+      read-timeout: 5s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: cairn-batch
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app
+    username: app
+    password: app
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  batch:
+    jdbc:
+      # The batch metadata tables are owned by the schema module like every other table:
+      # this application never creates them, whatever the environment.
+      initialize-schema: never
+
+app:
+  client:
+    market-data:
+      base-url: http://localhost:8082
+      connect-timeout: 2s
+      read-timeout: 5s

@@ -1,0 +1,18 @@
+{
+  "starter": "java-starter",
+  "template": "https://github.com/JoanRoucoux/java-starter.git",
+  "ref": null,
+  "modules": [
+    "api",
+    "domain",
+    "adapter",
+    "schema",
+    "batch"
+  ],
+  "tokens": {
+    "appName": "cairn",
+    "title": "Cairn",
+    "basePackage": "com.roucoux.cairn"
+  },
+  "generatedAt": "2026-08-25T19:57:36.850Z"
+}
