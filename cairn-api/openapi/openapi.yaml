@@ -4,34 +4,9 @@ info:
   description: Contract-first API of the demo features. Edit this file, rebuild, implement.
   version: 0.1.0
 tags:
-  - name: Quote
-    description: Instrument prices, read from an external market data provider
   - name: Position
     description: Portfolio positions
 paths:
-  /quote/{isin}:
-    get:
-      tags: [Quote]
-      operationId: getQuoteByIsin
-      summary: Get the current price of an instrument
-      parameters:
-        - name: isin
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'
-      responses:
-        '200':
-          description: The current quote
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuoteResponse'
-        '422':
-          description: Unknown instrument
-        '502':
-          description: Market data provider unavailable
   /position:
     post:
       tags: [Position]
@@ -75,16 +50,6 @@ paths:
           description: Position not found
 components:
   schemas:
-    QuoteResponse:
-      type: object
-      required: [isin, price]
-      properties:
-        isin:
-          type: string
-          example: US0378331005
-        price:
-          type: number
-          example: 123.45
     CreatePositionRequest:
       type: object
       required: [isin, quantity]
