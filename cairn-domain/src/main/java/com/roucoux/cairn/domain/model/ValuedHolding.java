@@ -2,12 +2,18 @@ package com.roucoux.cairn.domain.model;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
 public record ValuedHolding(Holding holding, Instrument instrument, Account account, Quote quote, Quote previousQuote) {
 
     private static final int RATIO_SCALE = 10;
+    private static final int FUND_FRESHNESS_DAYS = 4;
+    private static final Duration CRYPTO_FRESHNESS = Duration.ofHours(6);
 
     public ValuedHolding {
         Objects.requireNonNull(holding, "holding");
@@ -45,5 +51,22 @@ public record ValuedHolding(Holding holding, Instrument instrument, Account acco
 
     private Optional<BigDecimal> previousClose() {
         return Optional.ofNullable(previousQuote).map(Quote::price);
+    }
+
+    public boolean isStale(Clock clock) {
+        return switch (instrument.assetClass()) {
+            case CASH -> false;
+            case CRYPTO -> quote.fetchedAt().isBefore(clock.instant().minus(CRYPTO_FRESHNESS));
+            case FUND -> quote.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_FRESHNESS_DAYS));
+            case EQUITY, ETF -> quote.asOf().isBefore(previousBusinessDay(LocalDate.now(clock)));
+        };
+    }
+
+    private static LocalDate previousBusinessDay(LocalDate from) {
+        LocalDate day = from.minusDays(1);
+        while (day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            day = day.minusDays(1);
+        }
+        return day;
     }
 }
