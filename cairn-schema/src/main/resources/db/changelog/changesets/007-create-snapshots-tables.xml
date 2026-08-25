@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="007-create-snapshots-tables" author="cairn">
+        <createTable tableName="snapshots">
+            <column name="as_of" type="date">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="total_eur" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createTable tableName="snapshot_breakdowns">
+            <column name="as_of" type="date">
+                <constraints nullable="false" foreignKeyName="fk_breakdowns_snapshot"
+                             references="snapshots(as_of)" deleteCascade="true"/>
+            </column>
+            <column name="dimension" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="breakdown_key" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value_eur" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="snapshot_breakdowns"
+                       columnNames="as_of, dimension, breakdown_key"
+                       constraintName="pk_snapshot_breakdowns"/>
+    </changeSet>
+
+</databaseChangeLog>

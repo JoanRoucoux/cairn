@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="004-create-instruments-table" author="cairn">
+        <createTable tableName="instruments">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(160)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="isin" type="varchar(12)"/>
+            <column name="currency" type="char(3)" defaultValue="EUR">
+                <constraints nullable="false"/>
+            </column>
+            <column name="asset_class" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price_source" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_ref" type="varchar(64)"/>
+            <column name="description" type="varchar(280)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>
+            CREATE UNIQUE INDEX ux_instruments_isin
+                ON instruments (isin) WHERE isin IS NOT NULL;
+            CREATE UNIQUE INDEX ux_instruments_source
+                ON instruments (price_source, source_ref) WHERE source_ref IS NOT NULL;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

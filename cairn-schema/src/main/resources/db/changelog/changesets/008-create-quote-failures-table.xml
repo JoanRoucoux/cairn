@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="008-create-quote-failures-table" author="cairn">
+        <createTable tableName="quote_failures">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="instrument_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_failures_instrument"
+                             references="instruments(id)" deleteCascade="true"/>
+            </column>
+            <column name="occurred_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="quote_failures" indexName="ix_quote_failures_instrument">
+            <column name="instrument_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
