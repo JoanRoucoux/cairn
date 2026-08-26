@@ -17,4 +17,8 @@ public interface QuoteJpaRepository extends JpaRepository<QuoteEntity, QuoteId> 
 
     List<QuoteEntity> findByIdInstrumentIdAndIdAsOfBetweenOrderByIdAsOf(
             UUID instrumentId, LocalDate from, LocalDate to);
+
+    default long countAll() {
+        return count();
+    }
 }
