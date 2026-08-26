@@ -3,6 +3,7 @@ package com.roucoux.cairn.adapter.client.adapter;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,6 +123,22 @@ class CoinGeckoQuoteAdapterTest {
 
         assertThat(history).isNotEmpty();
         assertThat(history).extracting(Quote::asOf).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void raisesWhenThePriceProviderFails() {
+        wireMock.stubFor(get(urlPathEqualTo("/api/v3/simple/price")).willReturn(serverError()));
+
+        assertThatThrownBy(() -> adapter.fetch(crypto("ethereum"))).isInstanceOf(MarketDataUnavailableException.class);
+    }
+
+    @Test
+    void raisesWhenTheHistoryProviderFails() {
+        wireMock.stubFor(
+                get(urlPathEqualTo("/api/v3/coins/ethereum/market_chart")).willReturn(serverError()));
+
+        assertThatThrownBy(() -> adapter.fetchHistory(crypto("ethereum"), LocalDate.of(2026, 6, 1)))
+                .isInstanceOf(MarketDataUnavailableException.class);
     }
 
     private static class FakeLoadInstrumentsPort implements LoadInstrumentsPort {
