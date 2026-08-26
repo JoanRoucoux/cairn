@@ -1,11 +1,13 @@
 package com.roucoux.cairn.batch.config;
 
+import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.MarketDataPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import com.roucoux.cairn.domain.service.BackfillService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
 import com.roucoux.cairn.domain.service.RevaluePositionService;
 import java.time.Clock;
@@ -61,5 +63,10 @@ class BatchDomainConfig {
             SaveQuotePort saveQuote,
             RecordQuoteFailurePort recordFailure) {
         return new QuoteRefreshService(fetchers, loadInstruments, saveQuote, recordFailure);
+    }
+
+    @Bean
+    BackfillQuotesUseCase backfillQuotes(List<FetchQuotePort> fetchers, SaveQuotePort saveQuote) {
+        return new BackfillService(fetchers, saveQuote);
     }
 }
