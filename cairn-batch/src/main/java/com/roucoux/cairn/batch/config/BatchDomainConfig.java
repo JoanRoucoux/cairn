@@ -10,6 +10,7 @@ import com.roucoux.cairn.domain.service.QuoteRefreshService;
 import com.roucoux.cairn.domain.service.RevaluePositionService;
 import java.time.Clock;
 import java.util.List;
+import org.springframework.aop.scope.ScopedProxyUtils;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -46,7 +47,7 @@ class BatchDomainConfig {
     }
 
     private static void rescopeCoinGeckoQuoteAdapterToStep(ConfigurableListableBeanFactory beanFactory) {
-        String targetBeanName = "scopedTarget.coinGeckoQuoteAdapter";
+        String targetBeanName = ScopedProxyUtils.getTargetBeanName("coinGeckoQuoteAdapter");
         if (beanFactory.containsBeanDefinition(targetBeanName)) {
             BeanDefinition target = beanFactory.getBeanDefinition(targetBeanName);
             target.setScope("step");

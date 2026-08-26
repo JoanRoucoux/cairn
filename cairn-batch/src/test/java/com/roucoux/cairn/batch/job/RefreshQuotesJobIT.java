@@ -3,6 +3,7 @@ package com.roucoux.cairn.batch.job;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.roucoux.cairn.adapter.client.adapter.CoinGeckoQuoteAdapter;
 import com.roucoux.cairn.adapter.client.adapter.YahooQuoteAdapter;
 import com.roucoux.cairn.adapter.persistence.repository.InstrumentJpaRepository;
 import com.roucoux.cairn.adapter.persistence.repository.QuoteFailureJpaRepository;
@@ -39,8 +40,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Runs the real job against a real PostgreSQL migrated with the schema module's changelog. Yahoo
- * is the only source mocked, at the adapter: one instrument fails there so the fault-tolerant step
- * proves it does not stop the run.
+ * and CoinGecko are mocked at the adapter: one Yahoo instrument fails so the fault-tolerant step
+ * proves it does not stop the run, and a CoinGecko-sourced instrument exercises the second real
+ * source end to end. {@code @MockitoBean} replaces the adapter bean outright, so this does not
+ * exercise {@code BatchDomainConfig}'s request-to-step rescoping itself — that is covered by
+ * {@code BatchDomainConfigTest}, against the real target bean definition.
  */
 @SpringBootTest
 @TestPropertySource(
@@ -58,6 +62,9 @@ class RefreshQuotesJobIT {
 
     @MockitoBean
     private YahooQuoteAdapter yahooQuoteAdapter;
+
+    @MockitoBean
+    private CoinGeckoQuoteAdapter coinGeckoQuoteAdapter;
 
     @Autowired
     private SaveInstrumentPort instruments;
@@ -105,9 +112,26 @@ class RefreshQuotesJobIT {
                 null);
     }
 
+    private static Instrument crypto(String name, String sourceRef) {
+        return new Instrument(
+                UUID.randomUUID(),
+                name,
+                null,
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                sourceRef + "-" + UUID.randomUUID(),
+                null);
+    }
+
     private static Quote quoteOf(Instrument instrument, String price) {
         return new Quote(
                 instrument.id(), LocalDate.now(), new BigDecimal(price), "EUR", PriceSource.YAHOO, Instant.now());
+    }
+
+    private static Quote coinGeckoQuoteOf(Instrument instrument, String price) {
+        return new Quote(
+                instrument.id(), LocalDate.now(), new BigDecimal(price), "EUR", PriceSource.COINGECKO, Instant.now());
     }
 
     private JobParameters parameters(String assetClasses) {
@@ -142,6 +166,23 @@ class RefreshQuotesJobIT {
         when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
         when(yahooQuoteAdapter.fetch(working1)).thenReturn(quoteOf(working1, "456.78"));
         when(yahooQuoteAdapter.fetch(working2)).thenReturn(quoteOf(working2, "123.45"));
+    }
+
+    private void givenOneCryptoInstrument() {
+        Instrument bitcoin = instruments.save(crypto("Bitcoin", "bitcoin"));
+
+        when(coinGeckoQuoteAdapter.supports(PriceSource.COINGECKO)).thenReturn(true);
+        when(coinGeckoQuoteAdapter.fetch(bitcoin)).thenReturn(coinGeckoQuoteOf(bitcoin, "54321.00"));
+    }
+
+    @Test
+    void refreshesACryptoInstrumentThroughTheStepScopedCoinGeckoAdapter() throws Exception {
+        givenOneCryptoInstrument();
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters("CRYPTO"));
+
+        assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
+        assertThat(quotes.countAll()).isEqualTo(1);
     }
 
     @Test
