@@ -129,6 +129,9 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <excludedGroups>external</excludedGroups>
+        </configuration>
         <executions>
           <execution>
             <goals>
@@ -216,4 +219,25 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Runs MarketDataContractIT against the real providers instead of a WireMock stub.
+         Never activated by the default build: a provider outage must not fail a normal
+         verify. Reserved for the nightly CI job (see .github/workflows/nightly-external.yml). -->
+    <profile>
+      <id>external</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <excludedGroups combine.self="override" />
+              <groups>external</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
