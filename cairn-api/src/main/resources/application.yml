@@ -23,6 +23,21 @@ app:
       base-url: http://localhost:8082
       connect-timeout: 2s
       read-timeout: 5s
+    yahoo:
+      base-url: https://query1.finance.yahoo.com
+      connect-timeout: 3s
+      read-timeout: 10s
+      user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      pause-between-calls: 300ms
+    coingecko:
+      base-url: https://api.coingecko.com
+      connect-timeout: 3s
+      read-timeout: 10s
+    sg-sirius:
+      base-url: https://investmentsolutions.societegenerale.fr
+      connect-timeout: 5s
+      read-timeout: 30s
+      user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 management:
   endpoints:
