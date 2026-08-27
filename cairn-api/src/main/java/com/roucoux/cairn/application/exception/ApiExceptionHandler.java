@@ -38,4 +38,9 @@ class ApiExceptionHandler {
         problem.setTitle("Upstream dependency failed");
         return problem;
     }
+
+    @ExceptionHandler(LastPasskeyException.class)
+    ProblemDetail handleLastPasskey(LastPasskeyException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
 }

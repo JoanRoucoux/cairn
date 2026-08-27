@@ -16,6 +16,8 @@ tags:
     description: Read and record quote history, and refresh quotes on demand
   - name: Jobs
     description: Inspect recent batch job runs
+  - name: Session
+    description: The signed-in owner and their registered passkeys
 paths:
   /portfolio:
     get:
@@ -346,6 +348,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
+  /session:
+    get:
+      tags: [Session]
+      operationId: getSession
+      summary: Get the signed-in owner and their registered passkeys
+      responses:
+        '200':
+          description: The signed-in owner and the passkeys registered for them
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: No session
+  /session/passkeys/{credentialId}:
+    delete:
+      tags: [Session]
+      operationId: revokePasskey
+      summary: Revoke a passkey
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: The passkey no longer opens this account
+        '404':
+          description: No such passkey for this owner
+        '409':
+          description: This is the last passkey; revoking it would lock the owner out
 components:
   schemas:
     PortfolioResponse:
@@ -711,3 +745,35 @@ components:
               totalEur:
                 type: number
                 format: double
+    SessionResponse:
+      type: object
+      required: [displayName, initials, passkeys]
+      properties:
+        displayName:
+          type: string
+          example: Joan Roucoux
+        initials:
+          type: string
+          maxLength: 2
+          example: JR
+        passkeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/PasskeyResponse'
+    PasskeyResponse:
+      type: object
+      required: [credentialId, label, createdAt]
+      properties:
+        credentialId:
+          type: string
+          description: Base64url, as stored by Spring Security
+        label:
+          type: string
+          example: iPhone de Joan
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true

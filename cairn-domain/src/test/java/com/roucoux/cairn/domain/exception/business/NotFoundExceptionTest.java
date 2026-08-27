@@ -15,4 +15,11 @@ class NotFoundExceptionTest {
 
         assertThat(exception.getMessage()).isEqualTo("Account " + id + " not found");
     }
+
+    @Test
+    void buildsAMessageFromTheKindAndAStringId() {
+        NotFoundException exception = new NotFoundException("passkey", "aXBob25l");
+
+        assertThat(exception.getMessage()).isEqualTo("passkey aXBob25l not found");
+    }
 }

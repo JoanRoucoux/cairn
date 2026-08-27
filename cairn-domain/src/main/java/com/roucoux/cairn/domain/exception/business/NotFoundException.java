@@ -6,4 +6,8 @@ public class NotFoundException extends BusinessException {
     public NotFoundException(String what, UUID id) {
         super(what + " " + id + " not found");
     }
+
+    public NotFoundException(String what, String id) {
+        super(what + " " + id + " not found");
+    }
 }
