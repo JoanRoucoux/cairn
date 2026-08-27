@@ -12,6 +12,8 @@ tags:
     description: Manage the accounts holdings live in
   - name: Instrument
     description: Manage instruments and resolve them from an ISIN
+  - name: Quote
+    description: Read and record quote history, and refresh quotes on demand
 paths:
   /portfolio:
     get:
@@ -225,6 +227,69 @@ paths:
                   $ref: '#/components/schemas/InstrumentCandidateResponse'
         '422':
           description: No source knows this instrument
+  /instruments/{id}/quotes:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Quote]
+      operationId: listQuotes
+      summary: List an instrument's quote history over a date range
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: The quote history over the requested range
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuoteResponse'
+    post:
+      tags: [Quote]
+      operationId: recordQuote
+      summary: Record a manual quote for an instrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordQuoteRequest'
+      responses:
+        '201':
+          description: Quote recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+  /quotes/refresh:
+    post:
+      tags: [Quote]
+      operationId: refreshQuotes
+      summary: Refresh every refreshable instrument's quote synchronously
+      responses:
+        '200':
+          description: The outcome of the refresh
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshReportResponse'
 components:
   schemas:
     PortfolioResponse:
@@ -493,3 +558,55 @@ components:
           enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
         probePrice:
           type: number
+    QuoteResponse:
+      type: object
+      required: [instrumentId, asOf, price, currency, source]
+      properties:
+        instrumentId:
+          type: string
+          format: uuid
+        asOf:
+          type: string
+          format: date
+        price:
+          type: number
+        currency:
+          type: string
+        source:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+    RecordQuoteRequest:
+      type: object
+      required: [asOf, price]
+      properties:
+        asOf:
+          type: string
+          format: date
+        price:
+          type: number
+    RefreshReportResponse:
+      type: object
+      required: [refreshed, skipped, failures]
+      properties:
+        refreshed:
+          type: integer
+        skipped:
+          type: integer
+        failures:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefreshFailureResponse'
+    RefreshFailureResponse:
+      type: object
+      required: [instrumentId, instrumentName, source, message]
+      properties:
+        instrumentId:
+          type: string
+          format: uuid
+        instrumentName:
+          type: string
+        source:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        message:
+          type: string
