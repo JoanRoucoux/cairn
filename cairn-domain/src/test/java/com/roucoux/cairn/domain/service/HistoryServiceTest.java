@@ -31,7 +31,7 @@ class HistoryServiceTest {
 
     @Test
     void valuesEachDayAtTheQuantitiesHeldToday() {
-        // 29 CW8 : le 20 a 690.81, le 21 a 686.31
+        // 29 CW8 shares: 690.81 on the 20th, 686.31 on the 21st.
         HistoryService service = serviceWith(
                 holding(CW8_ID, new BigDecimal("29")),
                 quotes(
@@ -50,7 +50,7 @@ class HistoryServiceTest {
 
     @Test
     void carriesTheLastKnownPriceForwardOnDaysWithoutAQuote() {
-        // Un FCPE ne publie pas le week-end : la VL du vendredi vaut pour samedi et dimanche.
+        // A fund doesn't publish on weekends: Friday's price carries over to Saturday and Sunday.
         HistoryService service = serviceWith(
                 holding(FCPE_ID, new BigDecimal("100")),
                 quotes(FCPE_ID, Map.of(LocalDate.of(2026, 8, 21), new BigDecimal("68.34"))));
