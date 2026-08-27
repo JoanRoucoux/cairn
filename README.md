@@ -50,7 +50,7 @@ services reach it, over the compose network, by service name.
 
 ```bash
 cd apps/cairn
-export CAIRN_RP_ID=localhost CAIRN_ORIGIN=http://localhost:4200 CAIRN_PASSWORD=s0me-real-secret
+export CAIRN_PASSWORD=s0me-real-secret
 docker compose --profile migrate up --build schema   # one-shot: applies the Liquibase changelog
 docker compose up -d --build api                      # starts the API on :8080
 docker compose run --rm batch                          # runs the batch job once, on demand
@@ -59,6 +59,12 @@ docker compose run --rm batch                          # runs the batch job once
 `CAIRN_PASSWORD` is required outside the `local` profile — `WebAuthnConfig` refuses to boot with
 its default value once it detects it isn't running with `local` active (see AGENTS.md's Deviations
 from the starter, point 1).
+
+`CAIRN_RP_ID`/`CAIRN_ORIGIN` are optional: `compose.yaml` only forwards them to the container when
+set in the host shell, so leaving them unset lets `cairn-api/application.yml`'s own defaults
+(`localhost` / `http://localhost:4200`) apply, which is enough for the single-user local quickstart
+above. Export them (e.g. `export CAIRN_RP_ID=cairn.example.com
+CAIRN_ORIGIN=https://cairn.example.com`) to point the passkey ceremony at a real domain.
 
 `schema` and `batch` both carry a `profiles` entry so `docker compose up` alone never starts them:
 the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron

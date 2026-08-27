@@ -26,18 +26,23 @@ services:
   api:
     build: { context: ., dockerfile: cairn-api/Dockerfile }
     environment:
-      CAIRN_RP_ID: ${CAIRN_RP_ID}
-      CAIRN_ORIGIN: ${CAIRN_ORIGIN}
+      # Bare-name form: Compose forwards these only when set in the host shell, and omits the key
+      # entirely otherwise. Unlike `KEY: ${VAR}`, an unset CAIRN_RP_ID/CAIRN_ORIGIN never becomes
+      # an empty-string value here, so cairn-api/application.yml's own
+      # `${CAIRN_RP_ID:localhost}`/`${CAIRN_ORIGIN:http://localhost:4200}` defaults — both sane
+      # for local/single-user use — actually get to fire.
+      - CAIRN_RP_ID
+      - CAIRN_ORIGIN
       # WebAuthnConfig refuses to boot outside the local profile with the default password. An
       # unset variable must fail `docker compose up` itself, not resolve to an empty string that
       # would boot the app with a blank password instead (Compose's default ${VAR} behavior).
-      CAIRN_PASSWORD: ${CAIRN_PASSWORD:?CAIRN_PASSWORD must be set}
+      - CAIRN_PASSWORD=${CAIRN_PASSWORD:?CAIRN_PASSWORD must be set}
       # cairn-api/application.yml hardcodes localhost:5432, which only resolves inside the
       # container's own network namespace. Overridden here to the compose service name so the
       # container reaches the postgres service instead of itself.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app
+      - SPRING_DATASOURCE_USERNAME=app
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-app}
     ports:
       - '8080:8080'
     depends_on:
