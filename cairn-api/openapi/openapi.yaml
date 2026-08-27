@@ -6,6 +6,8 @@ info:
 tags:
   - name: Portfolio
     description: The aggregated, valued portfolio
+  - name: Holding
+    description: Manage the holdings that make up the portfolio
 paths:
   /portfolio:
     get:
@@ -21,6 +23,75 @@ paths:
                 $ref: '#/components/schemas/PortfolioResponse'
         '401':
           description: No session
+  /holdings:
+    get:
+      tags: [Holding]
+      operationId: listHoldings
+      summary: List every holding
+      responses:
+        '200':
+          description: Every holding
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HoldingResponse'
+    post:
+      tags: [Holding]
+      operationId: createHolding
+      summary: Create a holding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHoldingRequest'
+      responses:
+        '201':
+          description: Holding created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldingResponse'
+        '422':
+          description: Unknown account or instrument, or duplicate holding
+  /holdings/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Holding]
+      operationId: updateHolding
+      summary: Update a holding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHoldingRequest'
+      responses:
+        '200':
+          description: Holding updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldingResponse'
+        '404':
+          description: Unknown holding
+    delete:
+      tags: [Holding]
+      operationId: deleteHolding
+      summary: Delete a holding
+      responses:
+        '204':
+          description: Holding deleted
+        '404':
+          description: Unknown holding
 components:
   schemas:
     PortfolioResponse:
@@ -69,6 +140,30 @@ components:
           type: number
         share:
           type: number
+    CreateHoldingRequest:
+      type: object
+      required: [accountId, instrumentId, quantity]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        instrumentId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+        averageCost:
+          type: number
+          nullable: true
+    UpdateHoldingRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: number
+        averageCost:
+          type: number
+          nullable: true
     HoldingResponse:
       type: object
       required:
