@@ -78,6 +78,13 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+    <!-- JobExplorer only: read-only access to the BATCH_JOB_* tables that cairn-batch's jobs
+         (refreshQuotesJob, backfillQuotesJob) write to. Same cross-context reuse already applied
+         to RefreshQuotesUseCase — infrastructure with no dependency on the domain, not a port. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-batch</artifactId>
+    </dependency>
     <!-- Starts compose.yaml (PostgreSQL) on spring-boot:run; inactive in tests and packaged apps. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
