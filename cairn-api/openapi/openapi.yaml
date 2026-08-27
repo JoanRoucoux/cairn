@@ -753,15 +753,16 @@ components:
         points:
           type: array
           items:
-            type: object
-            required: [date, totalEur]
-            properties:
-              date:
-                type: string
-                format: date
-              totalEur:
-                type: number
-                format: double
+            $ref: '#/components/schemas/HistoryPoint'
+    HistoryPoint:
+      type: object
+      required: [date, totalEur]
+      properties:
+        date:
+          type: string
+          format: date
+        totalEur:
+          type: number
     SessionResponse:
       type: object
       required: [displayName, initials, passkeys]
