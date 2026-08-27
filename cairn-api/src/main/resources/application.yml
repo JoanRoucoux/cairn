@@ -34,10 +34,6 @@ app:
     username: ${CAIRN_USERNAME:joan}
     password: ${CAIRN_PASSWORD:changeme}
   client:
-    market-data:
-      base-url: http://localhost:8082
-      connect-timeout: 2s
-      read-timeout: 5s
     yahoo:
       base-url: https://query1.finance.yahoo.com
       connect-timeout: 3s
