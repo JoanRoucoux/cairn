@@ -23,7 +23,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-@TestPropertySource(properties = "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml")
+@TestPropertySource(
+        properties = {
+            "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml",
+            // A real value so WebAuthnConfig's startup guard against the default password doesn't
+            // trip: this context isn't the local profile, and shouldn't be.
+            "app.security.password=test-password"
+        })
 @Testcontainers
 class ApplicationIT {
 

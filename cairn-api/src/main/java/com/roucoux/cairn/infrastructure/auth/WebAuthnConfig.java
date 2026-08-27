@@ -3,6 +3,7 @@ package com.roucoux.cairn.infrastructure.auth;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
@@ -40,6 +41,16 @@ import org.springframework.security.web.webauthn.management.UserCredentialReposi
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 public class WebAuthnConfig {
+
+    /**
+     * A passkey is meant to be Cairn's only authentication factor (see Task 30): this password only
+     * bootstraps the very first passkey registration. Leaving it at its default outside the
+     * {@code local} profile would leave a permanent, guessable {@code joan}/{@code changeme}
+     * credential standing next to WebAuthn.
+     */
+    static final String DEFAULT_PASSWORD = "changeme";
+
+    static final String LOCAL_PROFILE = "local";
 
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -82,8 +93,13 @@ public class WebAuthnConfig {
     @Bean
     UserDetailsService userDetailsService(
             PasswordEncoder passwordEncoder,
+            Environment environment,
             @Value("${app.security.username:joan}") String username,
-            @Value("${app.security.password:changeme}") String password) {
+            @Value("${app.security.password:" + DEFAULT_PASSWORD + "}") String password) {
+        if (DEFAULT_PASSWORD.equals(password) && !environment.matchesProfiles(LOCAL_PROFILE)) {
+            throw new IllegalStateException(
+                    "app.security.password (CAIRN_PASSWORD) must be set outside the local profile");
+        }
         return new InMemoryUserDetailsManager(User.withUsername(username)
                 .password(passwordEncoder.encode(password))
                 .roles("USER")

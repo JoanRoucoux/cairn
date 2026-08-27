@@ -34,9 +34,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+@TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(PortfolioController.class)
 @Import({WebAuthnConfig.class, PortfolioRestMapper.class, PortfolioControllerTest.ClockConfig.class})
 class PortfolioControllerTest {
