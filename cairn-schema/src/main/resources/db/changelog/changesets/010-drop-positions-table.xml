@@ -6,6 +6,9 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
     <changeSet id="010-drop-positions-table" author="cairn">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="positions"/>
+        </preConditions>
         <dropTable tableName="positions"/>
     </changeSet>
 
