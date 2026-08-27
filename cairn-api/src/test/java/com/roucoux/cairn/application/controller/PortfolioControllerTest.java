@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
+import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -90,6 +91,13 @@ class PortfolioControllerTest {
 
         mockMvc.perform(get("/portfolio").with(user("joan")))
                 .andExpect(jsonPath("$.unrealizedGainEur").doesNotExist());
+    }
+
+    @Test
+    void mapsANonEurHoldingTo422InsteadOfCrashing() throws Exception {
+        when(getPortfolio.get()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
+
+        mockMvc.perform(get("/portfolio").with(user("joan"))).andExpect(status().isUnprocessableEntity());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.roucoux.cairn.domain.service;
 
+import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.model.Allocation;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Portfolio;
@@ -36,6 +37,7 @@ public class PortfolioService implements GetPortfolioUseCase {
         List<ValuedHolding> lines = loadHoldings.findAll().stream()
                 .flatMap(holding -> valueHolding.value(holding).stream())
                 .toList();
+        lines.forEach(PortfolioService::requireEur);
 
         Money total = lines.stream().map(ValuedHolding::marketValue).reduce(Money.zeroEur(), Money::plus);
 
@@ -47,6 +49,13 @@ public class PortfolioService implements GetPortfolioUseCase {
                 allocate(lines, total, line -> line.account().name()),
                 lines,
                 (int) lines.stream().filter(line -> line.isStale(clock)).count());
+    }
+
+    private static void requireEur(ValuedHolding line) {
+        String currency = line.marketValue().currency();
+        if (!Money.EUR.equals(currency)) {
+            throw new NonEurHoldingException(line.instrument().isin(), currency);
+        }
     }
 
     private static Optional<Money> unrealizedGain(List<ValuedHolding> lines) {

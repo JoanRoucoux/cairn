@@ -3,6 +3,7 @@ package com.roucoux.cairn.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.roucoux.cairn.domain.exception.business.CurrencyMismatchException;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,7 @@ class MoneyTest {
     @Test
     void refusesToAddDifferentCurrencies() {
         assertThatThrownBy(() -> Money.eur(BigDecimal.ONE).plus(new Money(BigDecimal.ONE, "USD")))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(CurrencyMismatchException.class);
     }
 
     @Test
@@ -38,7 +39,7 @@ class MoneyTest {
     @Test
     void refusesToSubtractDifferentCurrencies() {
         assertThatThrownBy(() -> Money.eur(BigDecimal.ONE).minus(new Money(BigDecimal.ONE, "USD")))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(CurrencyMismatchException.class);
     }
 
     @Test
