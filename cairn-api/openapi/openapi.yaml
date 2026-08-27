@@ -8,6 +8,10 @@ tags:
     description: The aggregated, valued portfolio
   - name: Holding
     description: Manage the holdings that make up the portfolio
+  - name: Account
+    description: Manage the accounts holdings live in
+  - name: Instrument
+    description: Manage instruments and resolve them from an ISIN
 paths:
   /portfolio:
     get:
@@ -92,6 +96,135 @@ paths:
           description: Holding deleted
         '404':
           description: Unknown holding
+  /accounts:
+    get:
+      tags: [Account]
+      operationId: listAccounts
+      summary: List every account
+      responses:
+        '200':
+          description: Every account
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountResponse'
+    post:
+      tags: [Account]
+      operationId: createAccount
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+  /instruments:
+    get:
+      tags: [Instrument]
+      operationId: listInstruments
+      summary: List every instrument
+      responses:
+        '200':
+          description: Every instrument
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentResponse'
+    post:
+      tags: [Instrument]
+      operationId: createInstrument
+      summary: Create an instrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstrumentRequest'
+      responses:
+        '201':
+          description: Instrument created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentResponse'
+  /instruments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Instrument]
+      operationId: getInstrument
+      summary: Get an instrument's detail
+      responses:
+        '200':
+          description: Instrument detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentDetailResponse'
+        '404':
+          description: Unknown instrument
+    patch:
+      tags: [Instrument]
+      operationId: updateInstrument
+      summary: Update an instrument's description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInstrumentRequest'
+      responses:
+        '200':
+          description: Instrument updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentDetailResponse'
+        '404':
+          description: Unknown instrument
+  /instruments/resolve:
+    post:
+      tags: [Instrument]
+      operationId: resolveInstrument
+      summary: Resolve a query into candidate price sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  description: An ISIN, a ticker or a name
+      responses:
+        '200':
+          description: Candidate price sources, each probed for a live price
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentCandidateResponse'
+        '422':
+          description: No source knows this instrument
 components:
   schemas:
     PortfolioResponse:
@@ -236,3 +369,127 @@ components:
         dayChangeRatio:
           type: number
           nullable: true
+    AccountResponse:
+      type: object
+      required: [id, name, type, institution]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [PEA, PEA_PME, CTO, PER, PEE, LIFE_INSURANCE, SAVINGS, CRYPTO]
+        institution:
+          type: string
+    CreateAccountRequest:
+      type: object
+      required: [name, type, institution]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [PEA, PEA_PME, CTO, PER, PEE, LIFE_INSURANCE, SAVINGS, CRYPTO]
+        institution:
+          type: string
+    InstrumentResponse:
+      type: object
+      required: [id, name, currency, assetClass, priceSource]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isin:
+          type: string
+          nullable: true
+        currency:
+          type: string
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        priceSource:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        sourceRef:
+          type: string
+          nullable: true
+    InstrumentDetailResponse:
+      type: object
+      required: [id, name, currency, assetClass, priceSource]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isin:
+          type: string
+          nullable: true
+        currency:
+          type: string
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        priceSource:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        sourceRef:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        externalUrl:
+          type: string
+          nullable: true
+          description: Absent for a manually priced instrument. Never a broken link.
+    CreateInstrumentRequest:
+      type: object
+      required: [name, currency, assetClass, priceSource]
+      properties:
+        name:
+          type: string
+        isin:
+          type: string
+          nullable: true
+        currency:
+          type: string
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        priceSource:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        sourceRef:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    UpdateInstrumentRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          nullable: true
+    InstrumentCandidateResponse:
+      type: object
+      required: [name, source, sourceRef, assetClass, probePrice]
+      properties:
+        name:
+          type: string
+        source:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        sourceRef:
+          type: string
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        probePrice:
+          type: number
