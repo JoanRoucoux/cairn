@@ -315,6 +315,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/JobRunResponse'
+  /history:
+    get:
+      tags: [History]
+      operationId: getHistory
+      summary: Get the portfolio value over time
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [snapshot, constant-mix]
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: The portfolio value over time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryResponse'
 components:
   schemas:
     PortfolioResponse:
@@ -656,3 +687,27 @@ components:
           format: date-time
           nullable: true
           description: Absent while the run is still in progress.
+    HistoryResponse:
+      type: object
+      required: [mode, reconstructed, points]
+      properties:
+        mode:
+          type: string
+          enum: [snapshot, constant-mix]
+        reconstructed:
+          type: boolean
+          description: >
+            True when the series is rebuilt at today's composition rather than measured.
+            The client warns the user when the requested range makes this material.
+        points:
+          type: array
+          items:
+            type: object
+            required: [date, totalEur]
+            properties:
+              date:
+                type: string
+                format: date
+              totalEur:
+                type: number
+                format: double
