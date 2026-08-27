@@ -1,4 +1,11 @@
 # Local development: no IdP required. Activate with --spring.profiles.active=local
+server:
+  servlet:
+    session:
+      cookie:
+        # The base config's Secure flag requires HTTPS; local development runs over plain HTTP.
+        secure: false
+
 app:
   security:
     permit-all: true
