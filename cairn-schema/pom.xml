@@ -27,6 +27,12 @@
     <!-- Opt-in: the seed changeset (011-seed-portfolio) carries context="seed" and is excluded by
          default. Pass -Dliquibase.contexts=seed to also apply it. -->
     <liquibase.contexts>!seed</liquibase.contexts>
+    <!-- Defaults match compose.yaml's postgres service reached from the host. The Docker image
+         (cairn-schema/Dockerfile) overrides these from the command line to target the compose
+         network's postgres hostname instead. -->
+    <liquibase.url>jdbc:postgresql://localhost:5432/app</liquibase.url>
+    <liquibase.username>app</liquibase.username>
+    <liquibase.password>app</liquibase.password>
   </properties>
 
   <build>
@@ -37,9 +43,9 @@
         <version>${liquibase.version}</version>
         <configuration>
           <changeLogFile>src/main/resources/db/changelog/changelog-master.xml</changeLogFile>
-          <url>jdbc:postgresql://localhost:5432/app</url>
-          <username>app</username>
-          <password>app</password>
+          <url>${liquibase.url}</url>
+          <username>${liquibase.username}</username>
+          <password>${liquibase.password}</password>
           <contexts>${liquibase.contexts}</contexts>
         </configuration>
         <dependencies>

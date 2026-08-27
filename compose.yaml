@@ -4,6 +4,55 @@ services:
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    volumes:
+      - cairn-data:/var/lib/postgresql/data
+    # no port published: only the compose network's own services reach it
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot migration: `docker compose --profile migrate up --build schema`. Never started by
+  # `up` alone, and never run by a long-lived application (see cairn-schema/AGENTS.md).
+  schema:
+    profiles: ['migrate']
+    build: { context: ., dockerfile: cairn-schema/Dockerfile }
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: { context: ., dockerfile: cairn-api/Dockerfile }
+    environment:
+      CAIRN_RP_ID: ${CAIRN_RP_ID}
+      CAIRN_ORIGIN: ${CAIRN_ORIGIN}
+      # WebAuthnConfig refuses to boot outside the local profile with the default password.
+      CAIRN_PASSWORD: ${CAIRN_PASSWORD}
+      # cairn-api/application.yml hardcodes localhost:5432, which only resolves inside the
+      # container's own network namespace. Overridden here to the compose service name so the
+      # container reaches the postgres service instead of itself.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-app}
     ports:
-      - '5432:5432'
+      - '8080:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Run on demand or by cron, never by `up`: `docker compose run --rm batch`.
+  batch:
+    profiles: ['batch']
+    build: { context: ., dockerfile: cairn-batch/Dockerfile }
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  cairn-data:

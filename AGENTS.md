@@ -39,7 +39,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 ## Testing
 
 - Naming drives the phase: `*Test` = surefire (unit, no Docker), `*IT` = failsafe (integration, Testcontainers).
-- Controllers: `@WebMvcTest` + `@Import(SecurityConfig.class)` + `@MockitoBean` ports + `spring-security-test`'s `jwt()` post-processor (and a `@MockitoBean JwtDecoder` so the context starts).
+- Controllers: `@WebMvcTest` + `@Import(SecurityConfig.class)` + `@MockitoBean` ports + `spring-security-test`'s `user()` post-processor (session-based, see Deviations from the starter) — no `@MockitoBean JwtDecoder`.
 - Persistence: `@DataJpaTest` + `@ServiceConnection` PostgreSQL container, schema generated from the JPA mapping (`spring.jpa.hibernate.ddl-auto=create-drop`, set locally on the test). `cairn-adapter` has a test-only `TestApplication` (`@SpringBootConfiguration`) because it contains no Spring Boot app.
 - Full boot: the `*IT` tests of the application modules migrate their Testcontainers database with the real `cairn-schema` changelog before `ddl-auto: validate` runs.
 - Business scenarios: `CucumberIT` (`cairn-api`, `cucumber/` package) runs every `.feature` file under `src/test/resources/features/` over real HTTP through the full Spring context (`CucumberSpringConfiguration`), security opened up via `app.security.permit-all`. It is a `*IT` like any other. Add a feature by adding a `.feature` file plus a step-definition class in `cucumber/`; a `@Before` hook (`Hooks`) resets shared fixtures between scenarios. Cucumber glue classes must be `public`, unlike the rest of this test suite.
@@ -47,6 +47,26 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - External clients: WireMockServer without any Spring context.
 - ArchUnit rules are plain JUnit `@Test` methods over a static `ClassFileImporter` on purpose — do not migrate them to `@AnalyzeClasses`/`@ArchTest`. A rule whose subject matches nothing fails, so keep rules next to the code they constrain.
 - Coverage gate: 70% lines per module (JaCoCo, merged unit+IT data).
+
+## Deviations from the starter
+
+Four points where Cairn intentionally diverges from the java-starter template. Read as decisions,
+not drift.
+
+1. **Session-based security, not JWT.** The starter is a stateless OAuth2 resource server; Cairn
+   authenticates with WebAuthn, which needs server-side state to hold the challenge between the
+   registration/assertion options call and its verification. Consequence on tests: controller
+   tests use spring-security-test's `user()` post-processor instead of `jwt()`, and carry no
+   `@MockitoBean JwtDecoder`.
+2. **CSRF is active**, where the starter disables it. Disabling CSRF is correct for a bearer token
+   carried in a header, which a browser never attaches on its own — but the WebAuthn session is
+   carried by a cookie, which the browser does attach automatically, so CSRF protection stays on.
+3. **`@Tag("external")` tests.** A Maven profile (`external`) and a nightly CI job, absent from
+   the starter, run these tests against the real upstream providers (Yahoo Finance, CoinGecko,
+   Societe Generale Sirius). They are the only tests that catch a provider changing its response
+   format; everything else runs against WireMock.
+4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
+   column would round a Bitcoin holding's quantity to four decimal places.
 
 ## Gotchas
 

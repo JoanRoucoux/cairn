@@ -10,7 +10,7 @@ There is no parent pom: the root `pom.xml` only aggregates, and every module is 
 | ---------------------------------------- | ----------------------------------------------------------- |
 | Spring Boot 4.1 / Java 25                | Application framework, Maven modules with wrapper           |
 | openapi-generator (contract-first)       | `cairn-api/openapi/openapi.yaml` → interfaces + DTOs  |
-| Spring Security (OAuth2 resource server) | Stateless JWT validation                                    |
+| Spring Security + WebAuthn               | Session-based passkey authentication (see AGENTS.md's Deviations from the starter) |
 | RestClient                               | External API client adapter (timeouts via properties)       |
 | Spring Data JPA + PostgreSQL             | Persistence adapter                                         |
 | Liquibase (`cairn-schema`)         | Versioned changelogs, applied out-of-band — never by an app |
@@ -30,7 +30,7 @@ Prerequisites: **JDK 25** and **Docker**. Maven comes with the wrapper (`./mvnw`
 The database schema is applied separately, and only when it changes:
 
 ```bash
-./mvnw liquibase:update -pl cairn-schema       # migrates the local PostgreSQL (compose.yaml)
+./mvnw liquibase:update -pl cairn-schema       # migrates a local PostgreSQL reachable at localhost:5432
 ```
 
 `liquibase:update` only needs to run once, and again after adding a changeset — starting or restarting an application never touches the schema.
@@ -42,6 +42,27 @@ The demo job runs on demand and exits when it is done:
 ```
 
 Without an identity provider, activate the `local` profile to disable authentication: `./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local`.
+
+## Running with Docker Compose
+
+`compose.yaml` runs the whole stack: `postgres` has no published port — only the other compose
+services reach it, over the compose network, by service name.
+
+```bash
+cd apps/cairn
+export CAIRN_RP_ID=localhost CAIRN_ORIGIN=http://localhost:4200 CAIRN_PASSWORD=changeme
+docker compose --profile migrate up --build schema   # one-shot: applies the Liquibase changelog
+docker compose up -d --build api                      # starts the API on :8080
+docker compose run --rm batch                          # runs the batch job once, on demand
+```
+
+`CAIRN_PASSWORD` is required outside the `local` profile — `WebAuthnConfig` refuses to boot with
+its default value once it detects it isn't running with `local` active (see AGENTS.md's Deviations
+from the starter, point 1).
+
+`schema` and `batch` both carry a `profiles` entry so `docker compose up` alone never starts them:
+the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron
+(`docker compose run --rm batch`), not to run continuously.
 
 ## Project structure
 
