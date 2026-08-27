@@ -11,6 +11,8 @@ spring:
       # only ever checks that the mapping matches what is already there.
       ddl-auto: validate
     open-in-view: false
+  jackson:
+    default-property-inclusion: non_null
   security:
     oauth2:
       resourceserver:

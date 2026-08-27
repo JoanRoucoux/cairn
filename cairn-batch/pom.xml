@@ -92,7 +92,7 @@
       <scope>test</scope>
     </dependency>
     <!-- LiquibaseAutoConfiguration: without it, liquibase-core alone never migrates the database
-         RevaluePositionsJobIT needs to validate against. -->
+         RefreshQuotesJobIT needs to validate against. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-liquibase</artifactId>

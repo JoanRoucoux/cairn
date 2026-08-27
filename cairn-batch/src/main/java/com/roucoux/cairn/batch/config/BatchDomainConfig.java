@@ -4,12 +4,10 @@ import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.MarketDataPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.service.BackfillService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
-import com.roucoux.cairn.domain.service.RevaluePositionService;
 import java.time.Clock;
 import java.util.List;
 import org.springframework.aop.scope.ScopedProxyUtils;
@@ -25,11 +23,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration(proxyBeanMethods = false)
 class BatchDomainConfig {
-
-    @Bean
-    RevaluePositionService revaluePositionService(MarketDataPort marketDataPort) {
-        return new RevaluePositionService(marketDataPort);
-    }
 
     @Bean
     Clock clock() {

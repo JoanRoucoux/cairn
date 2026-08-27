@@ -1,84 +1,143 @@
 openapi: 3.0.3
 info:
   title: Cairn API
-  description: Contract-first API of the demo features. Edit this file, rebuild, implement.
+  description: Contract-first API of the Cairn wealth-tracking application.
   version: 0.1.0
 tags:
-  - name: Position
-    description: Portfolio positions
+  - name: Portfolio
+    description: The aggregated, valued portfolio
 paths:
-  /position:
-    post:
-      tags: [Position]
-      operationId: createPosition
-      summary: Open a new position
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePositionRequest'
-      responses:
-        '201':
-          description: Position created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PositionResponse'
-        '422':
-          description: Unknown instrument
-  /position/{id}:
+  /portfolio:
     get:
-      tags: [Position]
-      operationId: getPositionById
-      summary: Get a position by id
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      tags: [Portfolio]
+      operationId: getPortfolio
+      summary: Get the valued portfolio
       responses:
         '200':
-          description: The position
+          description: The valued portfolio
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PositionResponse'
-        '404':
-          description: Position not found
+                $ref: '#/components/schemas/PortfolioResponse'
+        '401':
+          description: No session
 components:
   schemas:
-    CreatePositionRequest:
+    PortfolioResponse:
       type: object
-      required: [isin, quantity]
+      required: [totalEur, dayChangeEur, staleCount, generatedAt, byAssetClass, byAccount, holdings]
       properties:
-        isin:
-          type: string
-          pattern: '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'
-          example: US0378331005
-        quantity:
+        totalEur:
           type: number
-          minimum: 0
-          exclusiveMinimum: true
-          example: 10
-    PositionResponse:
+          example: 278146.45
+        dayChangeEur:
+          type: number
+        dayChangeRatio:
+          type: number
+          nullable: true
+        unrealizedGainEur:
+          type: number
+          nullable: true
+          description: Absent when no holding's cost basis is known enough to sum. Never 0.
+        unrealizedGainRatio:
+          type: number
+          nullable: true
+        staleCount:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+        byAssetClass:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllocationResponse'
+        byAccount:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllocationResponse'
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoldingResponse'
+    AllocationResponse:
       type: object
-      required: [id, isin, quantity, price, status, createdAt]
+      required: [label, valueEur, share]
+      properties:
+        label:
+          type: string
+        valueEur:
+          type: number
+        share:
+          type: number
+    HoldingResponse:
+      type: object
+      required:
+        - id
+        - accountId
+        - accountName
+        - accountType
+        - instrumentId
+        - instrumentName
+        - assetClass
+        - quantity
+        - price
+        - priceCurrency
+        - priceAsOf
+        - priceSource
+        - stale
+        - marketValueEur
       properties:
         id:
           type: string
           format: uuid
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+        accountType:
+          type: string
+          enum: [PEA, PEA_PME, CTO, PER, PEE, LIFE_INSURANCE, SAVINGS, CRYPTO]
+        instrumentId:
+          type: string
+          format: uuid
+        instrumentName:
+          type: string
         isin:
           type: string
+          nullable: true
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
         quantity:
           type: number
+        averageCost:
+          type: number
+          nullable: true
+          description: Absent when the cost basis is unknown. Never 0.
         price:
           type: number
-        status:
+        priceCurrency:
           type: string
-          enum: [OPEN, CLOSED]
-        createdAt:
+        priceAsOf:
           type: string
-          format: date-time
+          format: date
+        priceSource:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        stale:
+          type: boolean
+        marketValueEur:
+          type: number
+        unrealizedGainEur:
+          type: number
+          nullable: true
+        unrealizedGainRatio:
+          type: number
+          nullable: true
+        dayChangeEur:
+          type: number
+          nullable: true
+        dayChangeRatio:
+          type: number
+          nullable: true
