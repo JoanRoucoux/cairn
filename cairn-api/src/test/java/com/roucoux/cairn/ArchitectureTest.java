@@ -87,7 +87,7 @@ class ArchitectureTest {
     }
 
     @Test
-    void onlyControllersAndMappersDependOnGeneratedCode() {
+    void onlyControllersMappersAndCsvWritersDependOnGeneratedCode() {
         noClasses()
                 .that()
                 .resideOutsideOfPackages(
