@@ -50,7 +50,7 @@ services reach it, over the compose network, by service name.
 
 ```bash
 cd apps/cairn
-export CAIRN_RP_ID=localhost CAIRN_ORIGIN=http://localhost:4200 CAIRN_PASSWORD=changeme
+export CAIRN_RP_ID=localhost CAIRN_ORIGIN=http://localhost:4200 CAIRN_PASSWORD=s0me-real-secret
 docker compose --profile migrate up --build schema   # one-shot: applies the Liquibase changelog
 docker compose up -d --build api                      # starts the API on :8080
 docker compose run --rm batch                          # runs the batch job once, on demand

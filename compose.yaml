@@ -28,8 +28,10 @@ services:
     environment:
       CAIRN_RP_ID: ${CAIRN_RP_ID}
       CAIRN_ORIGIN: ${CAIRN_ORIGIN}
-      # WebAuthnConfig refuses to boot outside the local profile with the default password.
-      CAIRN_PASSWORD: ${CAIRN_PASSWORD}
+      # WebAuthnConfig refuses to boot outside the local profile with the default password. An
+      # unset variable must fail `docker compose up` itself, not resolve to an empty string that
+      # would boot the app with a blank password instead (Compose's default ${VAR} behavior).
+      CAIRN_PASSWORD: ${CAIRN_PASSWORD:?CAIRN_PASSWORD must be set}
       # cairn-api/application.yml hardcodes localhost:5432, which only resolves inside the
       # container's own network namespace. Overridden here to the compose service name so the
       # container reaches the postgres service instead of itself.
