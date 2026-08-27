@@ -90,7 +90,8 @@ class ArchitectureTest {
     void onlyControllersAndMappersDependOnGeneratedCode() {
         noClasses()
                 .that()
-                .resideOutsideOfPackages("..application.controller..", "..application.mapper..", "..generated..")
+                .resideOutsideOfPackages(
+                        "..application.controller..", "..application.mapper..", "..application.csv..", "..generated..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAPackage("..generated..")
