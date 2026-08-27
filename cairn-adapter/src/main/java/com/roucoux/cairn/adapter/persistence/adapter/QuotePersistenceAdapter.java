@@ -7,8 +7,11 @@ import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /** Outbound adapter: implements the domain's read and write ports for quotes with Spring Data JPA. */
@@ -40,6 +43,13 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
         return repository.findByIdInstrumentIdAndIdAsOfBetweenOrderByIdAsOf(instrumentId, from, to).stream()
                 .map(QuoteEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to) {
+        return repository.findAllBetween(instrumentIds, from, to).stream()
+                .map(QuoteEntity::toDomain)
+                .collect(Collectors.groupingBy(Quote::instrumentId));
     }
 
     @Override
