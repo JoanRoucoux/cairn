@@ -37,13 +37,18 @@ class SessionController implements SessionApi {
 
     @Override
     public ResponseEntity<SessionResponse> getSession() {
-        PublicKeyCredentialUserEntity owner = signedInOwner();
-        return ResponseEntity.ok(mapper.toResponse(owner.getDisplayName(), passkeysOf(owner)));
+        String username = signedInUsername();
+        PublicKeyCredentialUserEntity owner = userEntities.findByUsername(username);
+        // Right after the first form-login, before the first passkey registration ceremony
+        // completes, Spring Security has not created a PublicKeyCredentialUserEntity for this
+        // username yet: the caller is authenticated but owns no passkey, not an error state.
+        String displayName = owner == null ? username : owner.getDisplayName();
+        return ResponseEntity.ok(mapper.toResponse(displayName, passkeysOf(owner)));
     }
 
     @Override
     public ResponseEntity<Void> revokePasskey(String credentialId) {
-        List<CredentialRecord> owned = passkeysOf(signedInOwner());
+        List<CredentialRecord> owned = passkeysOf(userEntities.findByUsername(signedInUsername()));
 
         CredentialRecord target = owned.stream()
                 .filter(credential ->
@@ -59,14 +64,13 @@ class SessionController implements SessionApi {
         return ResponseEntity.noContent().build();
     }
 
-    private PublicKeyCredentialUserEntity signedInOwner() {
+    private String signedInUsername() {
         // The generated interface fixes the method signature, so the authentication cannot arrive
         // as a parameter: it is read from the context the security filter chain already populated.
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userEntities.findByUsername(username);
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
     private List<CredentialRecord> passkeysOf(PublicKeyCredentialUserEntity owner) {
-        return credentials.findByUserId(owner.getId());
+        return owner == null ? List.of() : credentials.findByUserId(owner.getId());
     }
 }

@@ -99,6 +99,28 @@ class SessionControllerTest {
     }
 
     @Test
+    void returnsAnEmptySessionWhenNoPasskeyWasRegisteredYet() throws Exception {
+        when(userEntities.findByUsername("joan")).thenReturn(null);
+
+        mockMvc.perform(get("/session").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("joan"))
+                .andExpect(jsonPath("$.passkeys.length()").value(0));
+    }
+
+    @Test
+    void revokingAPasskeyReturnsNotFoundWhenNoPasskeyWasRegisteredYet() throws Exception {
+        when(userEntities.findByUsername("joan")).thenReturn(null);
+
+        mockMvc.perform(delete("/session/passkeys/{id}", "aXBob25l")
+                        .with(user("joan"))
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+
+        verify(credentials, never()).delete(any());
+    }
+
+    @Test
     void revokesAPasskeyWhenAnotherOneRemains() throws Exception {
         givenOwner("joan", "Joan Roucoux");
         givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
