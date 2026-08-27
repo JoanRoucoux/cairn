@@ -1,9 +1,7 @@
 package com.roucoux.cairn.infrastructure.config;
 
-import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
+import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
-import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.service.PortfolioService;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -18,13 +16,8 @@ import org.springframework.context.annotation.Configuration;
 class PortfolioDomainConfig {
 
     @Bean
-    PortfolioService portfolioService(
-            LoadHoldingsPort loadHoldings,
-            LoadInstrumentsPort loadInstruments,
-            LoadAccountsPort loadAccounts,
-            LoadQuotesPort loadQuotes,
-            Clock clock) {
-        return new PortfolioService(loadHoldings, loadInstruments, loadAccounts, loadQuotes, clock);
+    PortfolioService portfolioService(LoadHoldingsPort loadHoldings, ValueHoldingUseCase valueHolding, Clock clock) {
+        return new PortfolioService(loadHoldings, valueHolding, clock);
     }
 
     @Bean

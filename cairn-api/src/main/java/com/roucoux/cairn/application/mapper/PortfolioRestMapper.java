@@ -1,14 +1,9 @@
 package com.roucoux.cairn.application.mapper;
 
-import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.Allocation;
-import com.roucoux.cairn.domain.model.Holding;
-import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Portfolio;
-import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.generated.model.AllocationResponse;
-import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,9 +12,10 @@ import java.time.OffsetDateTime;
 import org.springframework.stereotype.Component;
 
 /**
- * Maps the domain model to the generated DTOs. One mapper per resource — never a shared one. The
- * domain never rounds; this is the only place where a monetary amount or a ratio is rounded for
- * the wire.
+ * Maps the domain model to the generated DTOs. One mapper per resource — never a shared one. Each
+ * holding line reuses {@link HoldingRestMapper}, the resource mapper that owns the {@code
+ * HoldingResponse} shape, rather than a divergent copy. The domain never rounds; this is the only
+ * place where a monetary amount or a ratio is rounded for the wire.
  */
 @Component
 public class PortfolioRestMapper {
@@ -28,9 +24,11 @@ public class PortfolioRestMapper {
     private static final int RATIO_SCALE = 6;
 
     private final Clock clock;
+    private final HoldingRestMapper holdingRestMapper;
 
-    public PortfolioRestMapper(Clock clock) {
+    public PortfolioRestMapper(Clock clock, HoldingRestMapper holdingRestMapper) {
         this.clock = clock;
+        this.holdingRestMapper = holdingRestMapper;
     }
 
     public PortfolioResponse toResponse(Portfolio portfolio) {
@@ -48,7 +46,8 @@ public class PortfolioRestMapper {
                 portfolio.byAssetClass().stream().map(this::toAllocation).toList());
         response.setByAccount(
                 portfolio.byAccount().stream().map(this::toAllocation).toList());
-        response.setHoldings(portfolio.holdings().stream().map(this::toHolding).toList());
+        response.setHoldings(
+                portfolio.holdings().stream().map(holdingRestMapper::toResponse).toList());
         return response;
     }
 
@@ -57,38 +56,6 @@ public class PortfolioRestMapper {
         response.setLabel(allocation.label());
         response.setValueEur(amount(allocation.value()));
         response.setShare(allocation.share().setScale(RATIO_SCALE, RoundingMode.HALF_UP));
-        return response;
-    }
-
-    private HoldingResponse toHolding(ValuedHolding line) {
-        Holding holding = line.holding();
-        Instrument instrument = line.instrument();
-        Account account = line.account();
-
-        HoldingResponse response = new HoldingResponse();
-        response.setId(holding.id());
-        response.setAccountId(account.id());
-        response.setAccountName(account.name());
-        response.setAccountType(
-                HoldingResponse.AccountTypeEnum.valueOf(account.type().name()));
-        response.setInstrumentId(instrument.id());
-        response.setInstrumentName(instrument.name());
-        response.setIsin(instrument.isin());
-        response.setAssetClass(
-                HoldingResponse.AssetClassEnum.valueOf(instrument.assetClass().name()));
-        response.setQuantity(holding.quantity());
-        holding.costBasis().ifPresent(cost -> response.setAverageCost(scaledAmount(cost)));
-        response.setPrice(scaledAmount(line.quote().price()));
-        response.setPriceCurrency(line.quote().currency());
-        response.setPriceAsOf(line.quote().asOf());
-        response.setPriceSource(
-                HoldingResponse.PriceSourceEnum.valueOf(instrument.priceSource().name()));
-        response.setStale(line.isStale(clock));
-        response.setMarketValueEur(amount(line.marketValue()));
-        line.unrealizedGain().ifPresent(gain -> response.setUnrealizedGainEur(amount(gain)));
-        line.unrealizedGainRatio().ifPresent(value -> response.setUnrealizedGainRatio(scaledRatio(value)));
-        line.dayChange().ifPresent(change -> response.setDayChangeEur(amount(change)));
-        line.dayChangeRatio().ifPresent(value -> response.setDayChangeRatio(scaledRatio(value)));
         return response;
     }
 
@@ -110,9 +77,5 @@ public class PortfolioRestMapper {
 
     private static BigDecimal scaledAmount(BigDecimal amount) {
         return amount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private static BigDecimal scaledRatio(BigDecimal ratio) {
-        return ratio.setScale(RATIO_SCALE, RoundingMode.HALF_UP);
     }
 }

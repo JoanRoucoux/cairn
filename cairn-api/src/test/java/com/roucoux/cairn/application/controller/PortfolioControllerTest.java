@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
@@ -40,7 +41,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(PortfolioController.class)
-@Import({WebAuthnConfig.class, PortfolioRestMapper.class, PortfolioControllerTest.ClockConfig.class})
+@Import({
+    WebAuthnConfig.class,
+    PortfolioRestMapper.class,
+    HoldingRestMapper.class,
+    PortfolioControllerTest.ClockConfig.class
+})
 class PortfolioControllerTest {
 
     @Autowired
