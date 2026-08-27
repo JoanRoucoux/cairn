@@ -13,13 +13,14 @@ spring:
     open-in-view: false
   jackson:
     default-property-inclusion: non_null
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8081/realms/local
 
 app:
+  webauthn:
+    rp-id: ${CAIRN_RP_ID:localhost}
+    allowed-origins: ${CAIRN_ORIGIN:http://localhost:4200}
+  security:
+    username: ${CAIRN_USERNAME:joan}
+    password: ${CAIRN_PASSWORD:changeme}
   client:
     market-data:
       base-url: http://localhost:8082

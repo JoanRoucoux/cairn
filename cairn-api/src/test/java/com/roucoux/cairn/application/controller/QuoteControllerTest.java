@@ -19,7 +19,7 @@ import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.port.in.RecordManualQuoteUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,12 +29,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(QuoteController.class)
-@Import({SecurityConfig.class, QuoteRestMapper.class})
+@Import({WebAuthnConfig.class, QuoteRestMapper.class})
 class QuoteControllerTest {
 
     private static final UUID INSTRUMENT_ID = UUID.randomUUID();
@@ -59,7 +59,7 @@ class QuoteControllerTest {
     private RefreshQuotesUseCase refreshQuotes;
 
     @MockitoBean
-    private JwtDecoder jwtDecoder;
+    private JdbcOperations jdbcOperations;
 
     @Test
     void recordsAManualNetAssetValue() throws Exception {

@@ -21,7 +21,7 @@ import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -31,12 +31,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(InstrumentController.class)
-@Import({SecurityConfig.class, InstrumentRestMapper.class})
+@Import({WebAuthnConfig.class, InstrumentRestMapper.class})
 class InstrumentControllerTest {
 
     private static final UUID INSTRUMENT_ID = UUID.randomUUID();
@@ -65,14 +65,14 @@ class InstrumentControllerTest {
     @MockitoBean
     private ResolveInstrumentUseCase resolveInstrument;
 
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-
     @BeforeEach
     void stubDefaults() {
         when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
         when(saveInstrument.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
+
+    @MockitoBean
+    private JdbcOperations jdbcOperations;
 
     @Test
     void listsEveryInstrument() throws Exception {

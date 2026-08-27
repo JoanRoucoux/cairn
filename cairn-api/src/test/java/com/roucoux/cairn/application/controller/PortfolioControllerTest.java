@@ -18,7 +18,7 @@ import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,12 +33,12 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PortfolioController.class)
-@Import({SecurityConfig.class, PortfolioRestMapper.class, PortfolioControllerTest.ClockConfig.class})
+@Import({WebAuthnConfig.class, PortfolioRestMapper.class, PortfolioControllerTest.ClockConfig.class})
 class PortfolioControllerTest {
 
     @Autowired
@@ -48,7 +48,7 @@ class PortfolioControllerTest {
     private GetPortfolioUseCase getPortfolio;
 
     @MockitoBean
-    private JwtDecoder jwtDecoder;
+    private JdbcOperations jdbcOperations;
 
     @TestConfiguration
     static class ClockConfig {

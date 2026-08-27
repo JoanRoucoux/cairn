@@ -17,19 +17,19 @@ import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(HoldingController.class)
-@Import({SecurityConfig.class, HoldingRestMapper.class})
+@Import({WebAuthnConfig.class, HoldingRestMapper.class})
 class HoldingControllerTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
@@ -51,7 +51,7 @@ class HoldingControllerTest {
     private LoadHoldingsPort loadHoldings;
 
     @MockitoBean
-    private JwtDecoder jwtDecoder;
+    private JdbcOperations jdbcOperations;
 
     @Test
     void createsAHolding() throws Exception {

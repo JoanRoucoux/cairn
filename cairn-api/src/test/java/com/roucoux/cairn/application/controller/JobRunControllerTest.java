@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.JobRunRestMapper;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -21,12 +21,12 @@ import org.springframework.batch.core.repository.explore.JobExplorer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(JobRunController.class)
-@Import({SecurityConfig.class, JobRunRestMapper.class})
+@Import({WebAuthnConfig.class, JobRunRestMapper.class})
 class JobRunControllerTest {
 
     @Autowired
@@ -36,7 +36,7 @@ class JobRunControllerTest {
     private JobExplorer jobExplorer;
 
     @MockitoBean
-    private JwtDecoder jwtDecoder;
+    private JdbcOperations jdbcOperations;
 
     @Test
     void listsRecentRunsMostRecentFirst() throws Exception {

@@ -15,19 +15,19 @@ import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
-import com.roucoux.cairn.infrastructure.config.SecurityConfig;
+import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AccountController.class)
-@Import({SecurityConfig.class, AccountRestMapper.class})
+@Import({WebAuthnConfig.class, AccountRestMapper.class})
 class AccountControllerTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
@@ -47,7 +47,7 @@ class AccountControllerTest {
     private SaveAccountPort saveAccount;
 
     @MockitoBean
-    private JwtDecoder jwtDecoder;
+    private JdbcOperations jdbcOperations;
 
     @Test
     void listsEveryAccount() throws Exception {
