@@ -68,6 +68,26 @@ not drift.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 
+## Portfolio import
+
+`POST /portfolio/import` is the one place where several writes must succeed or fail together, and
+therefore the **only transaction boundary in the codebase**: `PortfolioImportTransaction`
+(`infrastructure/transaction/`), because `cairn-domain` is plain Java and cannot open a transaction
+itself. It calls the use case rather than implementing it, on purpose — `useCasesAreImplementedByDomainServicesOnly`
+rejects an inbound port implemented outside `..domain.service..`, and a wrapper that implemented it
+was the first shape tried. The controller depends on that class, not on the port, so the
+transaction cannot be bypassed by accident.
+
+Validation happens twice on purpose: `PortfolioCsvReader` checks shape, types and enums, the domain
+checks business rules. Both refuse by throwing `PortfolioImportRejectedException` with **every**
+offending row, never just the first, and both leave the database untouched. The advice turns that
+into an RFC 9457 `errors` extension member; it also converts the domain's zero-based row index into
+a one-based file line.
+
+An import matches an existing instrument by ISIN **or** source reference before resolving, which is
+what lets `import.feature` exercise the whole HTTP path without calling Yahoo or CoinGecko. Keep
+new import scenarios on already-existing instruments for the same reason.
+
 ## Deployment
 
 The host is assumed to run **several applications**, so Cairn owns no ports. Two compose projects,

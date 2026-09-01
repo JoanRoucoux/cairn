@@ -140,6 +140,32 @@ Dependency rules: `cairn-domain` depends on nothing but the JDK (a Maven guarant
 
 The demo features are reference implementations of a full hexagonal slice — use them as the model for your own, then replace them.
 
+## Loading a portfolio
+
+`POST /portfolio/import` takes an RFC 4180 CSV and creates whatever the rows refer to and does not
+exist yet: accounts, instruments (resolved against the price sources, so you never look a ticker up
+yourself) and positions. `GET /portfolio/import/template` returns the header to fill in, produced
+from the same constant the parser reads, so the two cannot drift apart.
+
+```
+account,accountType,institution,instrument,isinOrTicker,quantity,averageCost
+```
+
+`isinOrTicker` is whatever identifies the instrument to a price source: an ISIN, a ticker, or a
+provider id such as `bitcoin`. Leave `averageCost` empty for a position with no known cost basis.
+
+Two properties worth knowing before running it:
+
+- **All or nothing.** One unreadable or unresolvable row and nothing is written; the 422 lists
+  every refused row with its line number, so the file is fixed in one pass rather than one deploy
+  at a time.
+- **It updates, it never deletes.** A row whose (account, instrument) pair already exists updates
+  its quantity and cost basis, which makes replaying a corrected file safe. A position removed from
+  the file stays in the database: deleting is an explicit `DELETE /holdings/{id}`.
+
+`GET /portfolio/export` is the inverse operation and a one-request backup. Take one before
+importing over an existing portfolio, since an import overwrites quantities silently.
+
 ## Contract-first workflow
 
 1. Edit `cairn-api/openapi/openapi.yaml` (the contract comes first).

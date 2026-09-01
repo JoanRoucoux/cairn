@@ -9,11 +9,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.roucoux.cairn.application.csv.HoldingCsvWriter;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
@@ -43,7 +41,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -51,8 +48,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(HoldingController.class)
-@Import({WebAuthnConfig.class, HoldingRestMapper.class, HoldingCsvWriter.class, HoldingControllerTest.ClockConfig.class
-})
+@Import({WebAuthnConfig.class, HoldingRestMapper.class, HoldingControllerTest.ClockConfig.class})
 class HoldingControllerTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
@@ -191,23 +187,6 @@ class HoldingControllerTest {
     void deletesAHolding() throws Exception {
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("joan")).with(csrf()))
                 .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void servesTheHoldingsAsACsvAttachment() throws Exception {
-        when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
-        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
-
-        mockMvc.perform(get("/holdings/export").with(user("joan")))
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"))
-                .andExpect(header().string(
-                                HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"cairn-2026-08-26.csv\""));
-    }
-
-    @Test
-    void refusesAnUnauthenticatedExport() throws Exception {
-        mockMvc.perform(get("/holdings/export")).andExpect(status().isUnauthorized());
     }
 
     @Test
