@@ -11,8 +11,9 @@ spring:
     open-in-view: false
   liquibase:
     # Only used by the *IT tests, which migrate a throwaway Testcontainers database with the real
-    # changelog before ddl-auto: validate checks it. The seed changeset (011-seed-portfolio) is
-    # opt-in via context="seed" and must stay excluded here.
+    # changelog before ddl-auto: validate checks it. The demo changeset (012-seed-demo) is
+    # opt-in via context="demo" and must stay excluded here: RefreshQuotesJobIT clears instruments
+    # without clearing holdings first, so any seeded holding breaks it on a foreign key.
     contexts: '!demo'
   batch:
     jdbc:
