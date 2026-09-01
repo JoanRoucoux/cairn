@@ -1,6 +1,5 @@
 package com.roucoux.cairn.application.controller;
 
-import com.roucoux.cairn.application.csv.HoldingCsvWriter;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
@@ -10,14 +9,9 @@ import com.roucoux.cairn.generated.api.HoldingApi;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.UpdateHoldingRequest;
-import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,22 +23,16 @@ class HoldingController implements HoldingApi {
     private final LoadHoldingsPort loadHoldings;
     private final ValueHoldingUseCase valueHolding;
     private final HoldingRestMapper mapper;
-    private final HoldingCsvWriter csvWriter;
-    private final Clock clock;
 
     HoldingController(
             ManageHoldingUseCase manageHolding,
             LoadHoldingsPort loadHoldings,
             ValueHoldingUseCase valueHolding,
-            HoldingRestMapper mapper,
-            HoldingCsvWriter csvWriter,
-            Clock clock) {
+            HoldingRestMapper mapper) {
         this.manageHolding = manageHolding;
         this.loadHoldings = loadHoldings;
         this.valueHolding = valueHolding;
         this.mapper = mapper;
-        this.csvWriter = csvWriter;
-        this.clock = clock;
     }
 
     @Override
@@ -54,20 +42,6 @@ class HoldingController implements HoldingApi {
                 .map(mapper::toResponse)
                 .toList();
         return ResponseEntity.ok(holdings);
-    }
-
-    @Override
-    public ResponseEntity<String> exportHoldings() {
-        List<HoldingResponse> holdings = loadHoldings.findAll().stream()
-                .flatMap(holding -> valueHolding.value(holding).stream())
-                .map(mapper::toResponse)
-                .toList();
-        String filename = "cairn-" + LocalDate.now(clock) + ".csv";
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .body(csvWriter.write(holdings));
     }
 
     @Override

@@ -33,6 +33,23 @@ paths:
                 $ref: '#/components/schemas/PortfolioResponse'
         '401':
           description: No session
+  /portfolio/export:
+    get:
+      tags: [Portfolio]
+      operationId: exportPortfolio
+      summary: Export the portfolio as a CSV file, as of today
+      responses:
+        '200':
+          description: Every holding, valued, as an RFC 4180 CSV file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: attachment; filename="cairn-2026-08-21.csv"
+          content:
+            text/csv:
+              schema:
+                type: string
   /holdings:
     get:
       tags: [Holding]
@@ -102,23 +119,6 @@ paths:
           description: Holding deleted
         '404':
           description: Unknown holding
-  /holdings/export:
-    get:
-      tags: [Holding]
-      operationId: exportHoldings
-      summary: Export every holding as a CSV file
-      responses:
-        '200':
-          description: Every holding as an RFC 4180 CSV file
-          headers:
-            Content-Disposition:
-              schema:
-                type: string
-              example: attachment; filename="cairn-2026-08-21.csv"
-          content:
-            text/csv:
-              schema:
-                type: string
   /accounts:
     get:
       tags: [Account]

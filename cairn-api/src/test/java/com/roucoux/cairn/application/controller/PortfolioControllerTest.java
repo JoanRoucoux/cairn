@@ -3,9 +3,11 @@ package com.roucoux.cairn.application.controller;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.roucoux.cairn.application.csv.HoldingCsvWriter;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
@@ -20,6 +22,8 @@ import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
+import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
+import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -35,6 +39,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -46,6 +51,7 @@ import org.springframework.test.web.servlet.MockMvc;
     WebAuthnConfig.class,
     PortfolioRestMapper.class,
     HoldingRestMapper.class,
+    HoldingCsvWriter.class,
     PortfolioControllerTest.ClockConfig.class
 })
 class PortfolioControllerTest {
@@ -55,6 +61,12 @@ class PortfolioControllerTest {
 
     @MockitoBean
     private GetPortfolioUseCase getPortfolio;
+
+    @MockitoBean
+    private LoadHoldingsPort loadHoldings;
+
+    @MockitoBean
+    private ValueHoldingUseCase valueHolding;
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
@@ -103,6 +115,46 @@ class PortfolioControllerTest {
     @Test
     void refusesAnUnauthenticatedCall() throws Exception {
         mockMvc.perform(get("/portfolio")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void servesThePortfolioAsACsvAttachmentDatedToday() throws Exception {
+        Holding holding =
+                new Holding(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10"), null);
+        when(loadHoldings.findAll()).thenReturn(List.of(holding));
+        when(valueHolding.value(holding)).thenReturn(Optional.of(aValuedHolding(holding)));
+
+        mockMvc.perform(get("/portfolio/export").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"))
+                .andExpect(header().string(
+                                HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"cairn-2026-08-26.csv\""));
+    }
+
+    @Test
+    void refusesAnUnauthenticatedExport() throws Exception {
+        mockMvc.perform(get("/portfolio/export")).andExpect(status().isUnauthorized());
+    }
+
+    private static ValuedHolding aValuedHolding(Holding holding) {
+        Instrument instrument = new Instrument(
+                holding.instrumentId(),
+                "Apple Inc.",
+                "US0378331005",
+                "USD",
+                AssetClass.EQUITY,
+                PriceSource.YAHOO,
+                "AAPL",
+                null);
+        Account account = new Account(holding.accountId(), "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Quote quote = new Quote(
+                holding.instrumentId(),
+                LocalDate.of(2026, 8, 26),
+                new BigDecimal("123.45"),
+                "USD",
+                PriceSource.YAHOO,
+                Instant.parse("2026-08-26T20:00:00Z"));
+        return new ValuedHolding(holding, instrument, account, quote, null);
     }
 
     private static Portfolio aPortfolioOf(BigDecimal total) {
