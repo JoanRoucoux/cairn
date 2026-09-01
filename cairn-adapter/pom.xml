@@ -29,7 +29,7 @@
     <testcontainers.version>1.21.4</testcontainers.version>
 
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
-    <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.10.1</spotless-maven-plugin.version>
     <palantir-java-format.version>2.96.0</palantir-java-format.version>
   </properties>
 

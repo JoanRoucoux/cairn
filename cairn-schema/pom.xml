@@ -22,7 +22,7 @@
 
   <properties>
     <java.version>25</java.version>
-    <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.10.1</spotless-maven-plugin.version>
     <palantir-java-format.version>2.96.0</palantir-java-format.version>
     <!-- Opt-in: the demo changeset (012-seed-demo) carries context="demo" and is excluded by
          default. Pass -Dliquibase.contexts=demo to also apply it. Real portfolio data never goes
