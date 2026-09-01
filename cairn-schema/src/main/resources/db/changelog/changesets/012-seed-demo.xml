@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Fictional portfolio for demos and screenshots. Opt-in, see cairn-schema/pom.xml. -->
+    <changeSet id="012-seed-demo" author="cairn" context="demo">
+
+        <insert tableName="accounts">
+            <column name="id" value="99999999-9999-9999-9999-999999999901"/>
+            <column name="name" value="Demo Broker"/>
+            <column name="type" value="PEA"/>
+            <column name="institution" value="Demo Bank"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="accounts">
+            <column name="id" value="99999999-9999-9999-9999-999999999902"/>
+            <column name="name" value="Demo Exchange"/>
+            <column name="type" value="CRYPTO"/>
+            <column name="institution" value="Demo Exchange"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="accounts">
+            <column name="id" value="99999999-9999-9999-9999-999999999903"/>
+            <column name="name" value="Demo Savings"/>
+            <column name="type" value="SAVINGS"/>
+            <column name="institution" value="Demo Bank"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+
+        <insert tableName="instruments">
+            <column name="id" value="99999999-9999-9999-9999-999999999911"/>
+            <column name="name" value="Global Growth Tracker"/>
+            <column name="isin" value="LU9999999991"/>
+            <column name="currency" value="EUR"/>
+            <column name="asset_class" value="ETF"/>
+            <column name="price_source" value="YAHOO"/>
+            <column name="source_ref" value="GGT.PA"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="instruments">
+            <column name="id" value="99999999-9999-9999-9999-999999999912"/>
+            <column name="name" value="Northwind Traders"/>
+            <column name="isin" value="FR9999999992"/>
+            <column name="currency" value="EUR"/>
+            <column name="asset_class" value="EQUITY"/>
+            <column name="price_source" value="YAHOO"/>
+            <column name="source_ref" value="NWT.PA"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="instruments">
+            <column name="id" value="99999999-9999-9999-9999-999999999913"/>
+            <column name="name" value="Bitcoin"/>
+            <column name="currency" value="EUR"/>
+            <column name="asset_class" value="CRYPTO"/>
+            <column name="price_source" value="COINGECKO"/>
+            <column name="source_ref" value="bitcoin"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="instruments">
+            <column name="id" value="99999999-9999-9999-9999-999999999914"/>
+            <column name="name" value="Livret A"/>
+            <column name="currency" value="EUR"/>
+            <column name="asset_class" value="CASH"/>
+            <column name="price_source" value="MANUAL"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+
+        <insert tableName="holdings">
+            <column name="id" value="99999999-9999-9999-9999-999999999921"/>
+            <column name="account_id" value="99999999-9999-9999-9999-999999999901"/>
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999911"/>
+            <column name="quantity" value="100"/>
+            <column name="average_cost" value="20.00"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="holdings">
+            <column name="id" value="99999999-9999-9999-9999-999999999922"/>
+            <column name="account_id" value="99999999-9999-9999-9999-999999999901"/>
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999912"/>
+            <column name="quantity" value="10"/>
+            <column name="average_cost" value="50.00"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="holdings">
+            <column name="id" value="99999999-9999-9999-9999-999999999923"/>
+            <column name="account_id" value="99999999-9999-9999-9999-999999999902"/>
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999913"/>
+            <column name="quantity" value="0.1"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+        <insert tableName="holdings">
+            <column name="id" value="99999999-9999-9999-9999-999999999924"/>
+            <column name="account_id" value="99999999-9999-9999-9999-999999999903"/>
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999914"/>
+            <column name="quantity" value="1000"/>
+            <column name="average_cost" value="1"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+
+    </changeSet>
+
+</databaseChangeLog>

@@ -22,7 +22,7 @@ spring:
     # Only used by the *IT tests, which migrate a throwaway Testcontainers database with the real
     # changelog before ddl-auto: validate checks it. The seed changeset (011-seed-portfolio) is
     # opt-in via context="seed" and must stay excluded here.
-    contexts: '!seed'
+    contexts: '!demo'
   jackson:
     default-property-inclusion: non_null
 

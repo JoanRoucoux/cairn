@@ -3,3 +3,4 @@ target/
 *.iml
 .vscode/
 .DS_Store
+cairn-schema/src/main/resources/db/changelog/local/
