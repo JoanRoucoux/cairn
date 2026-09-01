@@ -50,6 +50,45 @@ paths:
             text/csv:
               schema:
                 type: string
+  /portfolio/import:
+    post:
+      tags: [Portfolio]
+      operationId: importPortfolio
+      summary: Load a portfolio from a CSV file, creating the accounts and instruments it refers to
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: What the import created and updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportReportResponse'
+        '422':
+          description: >-
+            Nothing was written. The problem detail carries an `errors` array listing every
+            refused row, so the whole file can be fixed in one pass.
+  /portfolio/import/template:
+    get:
+      tags: [Portfolio]
+      operationId: getImportTemplate
+      summary: An empty CSV carrying the header the import expects
+      responses:
+        '200':
+          description: The header row alone, ready to fill in
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: attachment; filename="cairn-import-template.csv"
+          content:
+            text/csv:
+              schema:
+                type: string
   /holdings:
     get:
       tags: [Holding]
@@ -435,6 +474,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HoldingResponse'
+    ImportReportResponse:
+      type: object
+      required: [accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated]
+      properties:
+        accountsCreated:
+          type: integer
+        instrumentsCreated:
+          type: integer
+        holdingsCreated:
+          type: integer
+        holdingsUpdated:
+          type: integer
     AllocationResponse:
       type: object
       required: [label, valueEur, share]

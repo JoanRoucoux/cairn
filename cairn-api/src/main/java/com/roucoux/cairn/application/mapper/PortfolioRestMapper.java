@@ -1,9 +1,11 @@
 package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.domain.model.Allocation;
+import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.generated.model.AllocationResponse;
+import com.roucoux.cairn.generated.model.ImportReportResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,6 +58,15 @@ public class PortfolioRestMapper {
         response.setLabel(allocation.label());
         response.setValueEur(amount(allocation.value()));
         response.setShare(allocation.share().setScale(RATIO_SCALE, RoundingMode.HALF_UP));
+        return response;
+    }
+
+    public ImportReportResponse toResponse(ImportReport report) {
+        ImportReportResponse response = new ImportReportResponse();
+        response.setAccountsCreated(report.accountsCreated());
+        response.setInstrumentsCreated(report.instrumentsCreated());
+        response.setHoldingsCreated(report.holdingsCreated());
+        response.setHoldingsUpdated(report.holdingsUpdated());
         return response;
     }
 

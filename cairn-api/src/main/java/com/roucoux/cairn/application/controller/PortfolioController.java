@@ -1,6 +1,7 @@
 package com.roucoux.cairn.application.controller;
 
 import com.roucoux.cairn.application.csv.HoldingCsvWriter;
+import com.roucoux.cairn.application.csv.PortfolioCsvReader;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
@@ -8,7 +9,9 @@ import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.generated.api.PortfolioApi;
 import com.roucoux.cairn.generated.model.HoldingResponse;
+import com.roucoux.cairn.generated.model.ImportReportResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
+import com.roucoux.cairn.infrastructure.transaction.PortfolioImportTransaction;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -23,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 class PortfolioController implements PortfolioApi {
 
     private final GetPortfolioUseCase getPortfolio;
+    private final PortfolioImportTransaction importPortfolio;
+    private final PortfolioCsvReader csvReader;
     private final LoadHoldingsPort loadHoldings;
     private final ValueHoldingUseCase valueHolding;
     private final PortfolioRestMapper mapper;
@@ -32,6 +37,8 @@ class PortfolioController implements PortfolioApi {
 
     PortfolioController(
             GetPortfolioUseCase getPortfolio,
+            PortfolioImportTransaction importPortfolio,
+            PortfolioCsvReader csvReader,
             LoadHoldingsPort loadHoldings,
             ValueHoldingUseCase valueHolding,
             PortfolioRestMapper mapper,
@@ -39,6 +46,8 @@ class PortfolioController implements PortfolioApi {
             HoldingCsvWriter csvWriter,
             Clock clock) {
         this.getPortfolio = getPortfolio;
+        this.importPortfolio = importPortfolio;
+        this.csvReader = csvReader;
         this.loadHoldings = loadHoldings;
         this.valueHolding = valueHolding;
         this.mapper = mapper;
@@ -50,6 +59,19 @@ class PortfolioController implements PortfolioApi {
     @Override
     public ResponseEntity<PortfolioResponse> getPortfolio() {
         return ResponseEntity.ok(mapper.toResponse(getPortfolio.get()));
+    }
+
+    @Override
+    public ResponseEntity<ImportReportResponse> importPortfolio(String body) {
+        return ResponseEntity.ok(mapper.toResponse(importPortfolio.run(csvReader.read(body))));
+    }
+
+    @Override
+    public ResponseEntity<String> getImportTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"cairn-import-template.csv\"")
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(PortfolioCsvReader.HEADER + "\r\n");
     }
 
     @Override
