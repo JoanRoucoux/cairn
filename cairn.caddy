@@ -1,0 +1,23 @@
+# Cairn's own routing, owned by this repository and deployed into the shared proxy's
+# /etc/caddy/sites/ (see proxy/compose.yaml). Routes by path, not by container: nginx (cairn-web's
+# image) only ever serves static files, so the split between the SPA and the API happens here
+# instead of baking a backend hostname into the frontend image. Front and API therefore share one
+# origin, which the session cookie requires (secure, SameSite=Strict).
+#
+# `api` and `web` resolve over the `edge` network. Caddy resolves them per request, so it starts
+# and recovers on its own whether or not Cairn happens to be running.
+#
+# CAIRN_DOMAIN comes from /srv/proxy/.env and must match the api container's CAIRN_RP_ID: it is
+# bound into every passkey registered against it and cannot change afterwards.
+{$CAIRN_DOMAIN} {
+	encode zstd gzip
+
+	@api path /api/* /login /logout /webauthn/*
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}

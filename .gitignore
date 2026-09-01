@@ -4,3 +4,7 @@ target/
 .vscode/
 .DS_Store
 cairn-schema/src/main/resources/db/changelog/local/
+# Real secrets live in a .env on the server (mode 600), never in the repository. The committed
+# templates are named env.example so they cannot be caught by this rule by accident.
+.env
+.env.*

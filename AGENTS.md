@@ -70,13 +70,32 @@ not drift.
 
 ## Deployment
 
-`compose.prod.yaml` is a standalone overlay, not a merge target for `compose.yaml`: it pulls
-prebuilt images from GHCR (`ghcr.io/joanroucoux/cairn-{api,web,batch,schema}:${TAG}`) instead of
-building, and adds `Caddyfile` in front to route by path (`/api/*`, `/login`, `/logout`,
-`/webauthn/*` to `api`, everything else to `web`) so no backend hostname is baked into `cairn-web`'s
-image. `CAIRN_DOMAIN` feeds both `CAIRN_RP_ID`/`CAIRN_ORIGIN` and the Caddyfile's site address —
-changing it after the first passkey registration breaks every existing credential (`rp-id` is
-bound into them). Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
+The host is assumed to run **several applications**, so Cairn owns no ports. Two compose projects,
+joined by an external Docker network created once with `docker network create edge`:
+
+- **`proxy/`** — the shared edge proxy, deployed to `/srv/proxy`. Caddy alone, holding ports 80/443
+  and the certificate volume, `import`ing every `sites/*.caddy` snippet. **It does not belong to
+  Cairn** and is only kept here until a second application needs it, at which point it moves to its
+  own repository. Redeploying Cairn must never restart it.
+- **`compose.prod.yaml`** — a standalone overlay, not a merge target for `compose.yaml`: it pulls
+  prebuilt images from GHCR (`ghcr.io/joanroucoux/cairn-{api,web,batch,schema}:${TAG}`) instead of
+  building, and publishes no port at all.
+
+`cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path
+(`/api/*`, `/login`, `/logout`, `/webauthn/*` to `api`, everything else to `web`), so no backend
+hostname is baked into `cairn-web`'s image and both halves share one origin, which the session
+cookie requires (`secure`, `SameSite=Strict`).
+
+Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default network**, out of
+reach of every other application sharing the proxy.
+
+`CAIRN_DOMAIN` is set twice, and the two must agree: in `/srv/cairn/.env` (feeding the api
+container's `CAIRN_RP_ID`/`CAIRN_ORIGIN`) and in `/srv/proxy/.env` (feeding the snippet's site
+address, since Caddy is what reads it). It should be a subdomain, never the apex: an apex `rp-id`
+would make Cairn's passkeys usable by every other application on the domain. Changing it after the
+first passkey registration breaks every existing credential — `rp-id` is bound into them.
+
+Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
 `postgres`/`api`/`web`/`schema`/`batch` against the same `cairn-data` volume name.
 
 ## Gotchas

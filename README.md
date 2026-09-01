@@ -73,9 +73,24 @@ the schema is migrated explicitly, out-of-band, and the batch job is meant to be
 
 ## Running in production
 
-`compose.prod.yaml` is a separate overlay, not merged with `compose.yaml`: it pulls prebuilt
-images from GHCR instead of building, and adds `Caddyfile` in front to route by path so `cairn-web`
-and `cairn-api` share one origin (required for the WebAuthn session cookie, `SameSite=Strict`).
+Cairn assumes a host shared with other applications, so it owns no ports: a separate Caddy project
+terminates TLS for everything, and Cairn joins it over an external Docker network.
+
+```
+/srv/proxy/    proxy/compose.yaml + Caddyfile + sites/   Caddy alone, ports 80/443
+/srv/cairn/    compose.prod.yaml + .env                  postgres, api, web, batch
+```
+
+Set up the proxy once, then never again when deploying Cairn:
+
+```bash
+docker network create edge
+cp env.example .env        # in /srv/proxy: set CAIRN_DOMAIN to the real subdomain
+cp cairn.caddy /srv/proxy/sites/
+docker compose -f /srv/proxy/compose.yaml up -d
+```
+
+Then, for each release:
 
 ```bash
 export TAG=v1.2.3
@@ -83,12 +98,17 @@ export CAIRN_DOMAIN=cairn.example.com
 export CAIRN_PASSWORD=s0me-real-secret
 export POSTGRES_PASSWORD=s0me-real-secret
 docker compose -f compose.prod.yaml --profile migrate run --rm schema
-docker compose -f compose.prod.yaml up -d caddy api web
+docker compose -f compose.prod.yaml up -d api web
 ```
 
-`CAIRN_DOMAIN` becomes both the WebAuthn `rp-id`/origin and the Caddyfile's site address. Choose it
-once: `rp-id` is bound into every credential registered against it, so changing the domain later
-breaks every existing passkey. See AGENTS.md's Deployment section for the routing details.
+The migration runs first, on purpose: `ddl-auto: validate` means a failed migration must block the
+deploy rather than half-start it.
+
+`CAIRN_DOMAIN` is set in both `.env` files and the two must agree, since Caddy reads one and the
+api container the other. Use a subdomain, not the apex: an apex `rp-id` would make Cairn's passkeys
+usable by any other application on the domain. Choose it once, too — `rp-id` is bound into every
+credential registered against it, so changing the domain later breaks every existing passkey. See
+AGENTS.md's Deployment section for the routing details.
 
 ## Project structure
 
@@ -108,6 +128,10 @@ cairn-api/           Spring Boot application: REST exposition
 └── generated/             openapi build output (never edited, never committed)
 cairn-schema/        Liquibase changelogs (db/changelog/) — owns the schema, no Java code
 cairn-batch/         Spring Boot application: Spring Batch jobs over cairn-domain/cairn-adapter
+compose.prod.yaml          Production overlay: GHCR images, no published port
+cairn.caddy                Cairn's routing, deployed into the shared proxy's sites/
+proxy/                     The shared edge proxy — NOT Cairn's, kept here until a second
+                           application needs it (see AGENTS.md's Deployment section)
 ```
 
 Dependency rules: `cairn-domain` depends on nothing but the JDK (a Maven guarantee); `cairn-adapter` implements the domain's outbound ports and reaches the domain only through its ports, model and exceptions (ArchUnit); `cairn-api`/`cairn-batch` depend on `cairn-adapter` at **runtime scope only**, so neither can reach adapter internals even by accident. Errors map by family in the `@RestControllerAdvice` — `BusinessException` → 422, `TechnicalException` → 502; authentication and authorization (401/403) are handled by Spring Security.

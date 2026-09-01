@@ -1,0 +1,38 @@
+# Shared edge proxy. This project does NOT belong to Cairn: it terminates TLS and owns ports 80
+# and 443 for every application on the host, so a Cairn deploy never restarts the other sites.
+# Copy it to /srv/proxy on the server, and move it to its own repository once a second
+# application uses it.
+#
+# One-time setup on the host:
+#   docker network create edge
+#   docker compose -f /srv/proxy/compose.yaml up -d
+#
+# Each application drops its own site snippet into ./sites/ and joins the `edge` network; see
+# cairn.caddy in the Cairn repository for the shape of a snippet.
+services:
+  caddy:
+    image: caddy:2-alpine
+    # Reads {$CAIRN_DOMAIN} and friends, referenced by the snippets in ./sites. One line per
+    # application that parameterizes its own hostname.
+    env_file: .env
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      # Holds the issued certificates: losing it means re-requesting them all, against Let's
+      # Encrypt's rate limits. Never prune this volume.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  caddy-data:
+  caddy-config:

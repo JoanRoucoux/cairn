@@ -1,0 +1,12 @@
+# Owns nothing but the ports and the certificates. Every site is a snippet dropped into
+# ./sites/ by the application that owns it, so adding or redeploying an application never
+# means editing this file.
+#
+# Optional: uncomment the block below, with a real address, to receive Let's Encrypt expiry
+# warnings. Leave it commented to register anonymously. It must not be left with an empty
+# value: `email` with no argument is a parse error, not a no-op.
+# {
+# 	email you@example.com
+# }
+
+import /etc/caddy/sites/*.caddy
