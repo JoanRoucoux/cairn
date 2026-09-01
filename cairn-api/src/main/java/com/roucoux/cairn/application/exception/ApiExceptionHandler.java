@@ -5,6 +5,7 @@ import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
 import com.roucoux.cairn.domain.model.ImportError;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -39,10 +40,22 @@ class ApiExceptionHandler {
         problem.setTitle("Import rejected");
         problem.setProperty(
                 "errors",
-                exception.errors().stream()
-                        .map(error -> Map.of("line", lineOf(error), "message", error.message()))
-                        .toList());
+                exception.errors().stream().map(ApiExceptionHandler::asMember).toList());
         return problem;
+    }
+
+    /**
+     * A code and the offending token, never a sentence: the caller owns the wording and can
+     * translate it. {@code value} is omitted rather than sent null when the failure has no token.
+     */
+    private static Map<String, Object> asMember(ImportError error) {
+        Map<String, Object> member = new LinkedHashMap<>();
+        member.put("line", lineOf(error));
+        member.put("code", error.code().name());
+        if (error.value() != null) {
+            member.put("value", error.value());
+        }
+        return member;
     }
 
     /** The domain counts data rows from zero; a person reading the file counts every line from one. */

@@ -84,6 +84,12 @@ offending row, never just the first, and both leave the database untouched. The 
 into an RFC 9457 `errors` extension member; it also converts the domain's zero-based row index into
 a one-based file line.
 
+An `ImportError` carries an **`ImportErrorCode` and the offending token, never a sentence**. The
+consumer is a bilingual UI whose convention is that error wording comes from its own translation
+files, never from the server, so a message built here could not be shown. Adding a failure mode
+means adding a code to the enum, to the contract's `ImportErrorResponse`, and to the consumer's
+translations — deliberately three visible places rather than one silent string.
+
 An import matches an existing instrument by ISIN **or** source reference before resolving, which is
 what lets `import.feature` exercise the whole HTTP path without calling Yahoo or CoinGecko. Keep
 new import scenarios on already-existing instruments for the same reason.

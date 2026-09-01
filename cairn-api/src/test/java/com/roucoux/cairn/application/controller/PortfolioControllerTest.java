@@ -23,6 +23,7 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
+import com.roucoux.cairn.domain.model.ImportErrorCode;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Money;
@@ -170,8 +171,8 @@ class PortfolioControllerTest {
     @Test
     void listsEveryRefusedRowAsALineNumberedProblemDetail() throws Exception {
         when(importPortfolio.run(anyList()))
-                .thenThrow(
-                        new PortfolioImportRejectedException(List.of(new ImportError(0, "no price source knows X"))));
+                .thenThrow(new PortfolioImportRejectedException(
+                        List.of(new ImportError(0, ImportErrorCode.UNRESOLVED_INSTRUMENT, "GGT.PA"))));
 
         mockMvc.perform(post("/portfolio/import")
                         .with(user("joan"))
@@ -181,7 +182,8 @@ class PortfolioControllerTest {
                                 + "Sample Broker,PEA,Sample Bank,Tracker,LU0000000001,100,20.00\r\n"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors[0].line").value(2))
-                .andExpect(jsonPath("$.errors[0].message").value("no price source knows X"));
+                .andExpect(jsonPath("$.errors[0].code").value("UNRESOLVED_INSTRUMENT"))
+                .andExpect(jsonPath("$.errors[0].value").value("GGT.PA"));
     }
 
     @Test

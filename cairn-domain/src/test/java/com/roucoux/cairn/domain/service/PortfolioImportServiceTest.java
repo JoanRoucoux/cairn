@@ -2,6 +2,7 @@ package com.roucoux.cairn.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
@@ -11,6 +12,7 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
+import com.roucoux.cairn.domain.model.ImportErrorCode;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
@@ -76,8 +78,10 @@ class PortfolioImportServiceTest {
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
                 .extracting(PortfolioImportRejectedException::errors)
                 .asInstanceOf(list(ImportError.class))
-                .extracting(ImportError::rowIndex)
-                .containsExactly(0, 1);
+                .extracting(ImportError::rowIndex, ImportError::code, ImportError::value)
+                .containsExactly(
+                        tuple(0, ImportErrorCode.ZERO_QUANTITY, null),
+                        tuple(1, ImportErrorCode.UNRESOLVED_INSTRUMENT, "UNKNOWN-TICKER"));
 
         assertThat(accounts).isEmpty();
         assertThat(instruments).isEmpty();

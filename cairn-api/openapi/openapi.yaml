@@ -69,9 +69,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportReportResponse'
         '422':
-          description: >-
-            Nothing was written. The problem detail carries an `errors` array listing every
-            refused row, so the whole file can be fixed in one pass.
+          description: Nothing was written; every refused row is listed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ImportRejectionResponse'
   /portfolio/import/template:
     get:
       tags: [Portfolio]
@@ -474,6 +476,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HoldingResponse'
+    ImportRejectionResponse:
+      description: >-
+        RFC 9457 problem detail for a refused import. Nothing was written: every row that could
+        not be accepted is listed, so the whole file can be fixed in one pass.
+      type: object
+      required: [status, detail, errors]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportErrorResponse'
+    ImportErrorResponse:
+      description: >-
+        One refused row. The server states what went wrong as a code, never as a sentence, so the
+        wording belongs to whoever displays it and can be translated.
+      type: object
+      required: [line, code]
+      properties:
+        line:
+          type: integer
+          description: 1-based line in the submitted file; 1 when the header itself is wrong
+        code:
+          type: string
+          enum:
+            - BAD_HEADER
+            - WRONG_COLUMN_COUNT
+            - UNKNOWN_ACCOUNT_TYPE
+            - NOT_A_NUMBER
+            - ZERO_QUANTITY
+            - UNRESOLVED_INSTRUMENT
+        value:
+          type: string
+          description: The offending token, absent when the failure has none
     ImportReportResponse:
       type: object
       required: [accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated]

@@ -2,12 +2,14 @@ package com.roucoux.cairn.application.csv;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.ImportError;
+import com.roucoux.cairn.domain.model.ImportErrorCode;
 import com.roucoux.cairn.domain.model.ImportRow;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -26,15 +28,36 @@ class PortfolioCsvReaderTest {
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
                 .extracting(PortfolioImportRejectedException::errors)
                 .asInstanceOf(list(ImportError.class))
-                .extracting(ImportError::rowIndex)
-                .containsExactly(0, 1);
+                .extracting(ImportError::rowIndex, ImportError::code, ImportError::value)
+                .containsExactly(
+                        tuple(0, ImportErrorCode.UNKNOWN_ACCOUNT_TYPE, "NOT_A_TYPE"),
+                        tuple(1, ImportErrorCode.NOT_A_NUMBER, "not-a-number"));
     }
 
     @Test
     void refusesAFileWhoseHeaderIsNotTheTemplate() {
         String csv = "account,quantity\r\nSample Broker,100\r\n";
 
-        assertThatThrownBy(() -> reader.read(csv)).isInstanceOf(PortfolioImportRejectedException.class);
+        assertThatThrownBy(() -> reader.read(csv))
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .singleElement()
+                .extracting(ImportError::code)
+                .isEqualTo(ImportErrorCode.BAD_HEADER);
+    }
+
+    @Test
+    void refusesARowThatDoesNotHaveEveryColumn() {
+        String csv = PortfolioCsvReader.HEADER + "\r\nSample Broker,PEA,Sample Bank\r\n";
+
+        assertThatThrownBy(() -> reader.read(csv))
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .singleElement()
+                .extracting(ImportError::code)
+                .isEqualTo(ImportErrorCode.WRONG_COLUMN_COUNT);
     }
 
     @Test

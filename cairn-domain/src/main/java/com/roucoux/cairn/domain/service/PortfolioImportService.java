@@ -4,6 +4,7 @@ import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedExcept
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
+import com.roucoux.cairn.domain.model.ImportErrorCode;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
@@ -111,7 +112,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         for (int index = 0; index < rows.size(); index++) {
             ImportRow row = rows.get(index);
             if (row.quantity() == null || row.quantity().signum() == 0) {
-                errors.add(new ImportError(index, "quantity must not be zero: leave the row out instead"));
+                errors.add(new ImportError(index, ImportErrorCode.ZERO_QUANTITY, null));
             }
             String ref = row.isinOrTicker();
             if (known.containsKey(ref) || candidates.containsKey(ref)) {
@@ -119,7 +120,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             }
             List<InstrumentCandidate> found = resolveInstrument.resolve(ref);
             if (found.isEmpty()) {
-                errors.add(new ImportError(index, "no price source knows " + ref));
+                errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
             } else {
                 candidates.put(ref, found.getFirst());
             }
