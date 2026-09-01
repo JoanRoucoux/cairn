@@ -1,0 +1,83 @@
+# Production overlay: pulls prebuilt images from GHCR instead of building locally, and adds Caddy
+# in front. Used as `docker compose -f compose.prod.yaml --profile migrate run --rm schema` then
+# `docker compose -f compose.prod.yaml up -d caddy api web`, never with compose.yaml at the same
+# time (both declare the same service names against the same cairn-data volume).
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - cairn-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot migration, run before api/web on every deploy: `--profile migrate run --rm schema`.
+  schema:
+    profiles: ['migrate']
+    image: ghcr.io/joanroucoux/cairn-schema:${TAG:?TAG must be set}
+    environment:
+      LIQUIBASE_USERNAME: app
+      LIQUIBASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ghcr.io/joanroucoux/cairn-api:${TAG:?TAG must be set}
+    environment:
+      - CAIRN_RP_ID=${CAIRN_DOMAIN:?CAIRN_DOMAIN must be set}
+      - CAIRN_ORIGIN=https://${CAIRN_DOMAIN:?CAIRN_DOMAIN must be set}
+      - CAIRN_PASSWORD=${CAIRN_PASSWORD:?CAIRN_PASSWORD must be set}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app
+      - SPRING_DATASOURCE_USERNAME=app
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    # No published port: only caddy reaches this, over the compose network, by service name.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/joanroucoux/cairn-web:${TAG:?TAG must be set}
+    # No published port either, for the same reason as api.
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      - CAIRN_DOMAIN=${CAIRN_DOMAIN:?CAIRN_DOMAIN must be set}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+  # Run by cron, never by `up`: `--profile batch run --rm batch`.
+  batch:
+    profiles: ['batch']
+    image: ghcr.io/joanroucoux/cairn-batch:${TAG:?TAG must be set}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  cairn-data:
+  caddy-data:
+  caddy-config:

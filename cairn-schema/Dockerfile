@@ -8,8 +8,9 @@ WORKDIR /build
 COPY . .
 # cairn-schema/pom.xml points at localhost:5432 for local `./mvnw liquibase:update`; the
 # properties below are the plugin's actual parameters, overridable from the command line, so
-# this container instead targets the compose network's postgres service.
-ENTRYPOINT ["mvn", "-B", "-ntp", "liquibase:update", "-pl", "cairn-schema", \
-            "-Dliquibase.url=jdbc:postgresql://postgres:5432/app", \
-            "-Dliquibase.username=app", \
-            "-Dliquibase.password=app"]
+# this container instead targets the compose network's postgres service. LIQUIBASE_PASSWORD
+# defaults to the local dev password and must be overridden in prod (compose.prod.yaml does).
+ENTRYPOINT ["sh", "-c", "mvn -B -ntp liquibase:update -pl cairn-schema \
+            -Dliquibase.url=jdbc:postgresql://postgres:5432/app \
+            -Dliquibase.username=${LIQUIBASE_USERNAME:-app} \
+            -Dliquibase.password=${LIQUIBASE_PASSWORD:-app}"]

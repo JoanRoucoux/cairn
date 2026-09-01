@@ -51,6 +51,7 @@ services reach it, over the compose network, by service name.
 ```bash
 cd apps/cairn
 export CAIRN_PASSWORD=s0me-real-secret
+export POSTGRES_PASSWORD=s0me-real-secret
 docker compose --profile migrate up --build schema   # one-shot: applies the Liquibase changelog
 docker compose up -d --build api                      # starts the API on :8080
 docker compose run --rm batch                          # runs the batch job once, on demand
@@ -69,6 +70,25 @@ CAIRN_ORIGIN=https://cairn.example.com`) to point the passkey ceremony at a real
 `schema` and `batch` both carry a `profiles` entry so `docker compose up` alone never starts them:
 the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron
 (`docker compose run --rm batch`), not to run continuously.
+
+## Running in production
+
+`compose.prod.yaml` is a separate overlay, not merged with `compose.yaml`: it pulls prebuilt
+images from GHCR instead of building, and adds `Caddyfile` in front to route by path so `cairn-web`
+and `cairn-api` share one origin (required for the WebAuthn session cookie, `SameSite=Strict`).
+
+```bash
+export TAG=v1.2.3
+export CAIRN_DOMAIN=cairn.example.com
+export CAIRN_PASSWORD=s0me-real-secret
+export POSTGRES_PASSWORD=s0me-real-secret
+docker compose -f compose.prod.yaml --profile migrate run --rm schema
+docker compose -f compose.prod.yaml up -d caddy api web
+```
+
+`CAIRN_DOMAIN` becomes both the WebAuthn `rp-id`/origin and the Caddyfile's site address. Choose it
+once: `rp-id` is bound into every credential registered against it, so changing the domain later
+breaks every existing passkey. See AGENTS.md's Deployment section for the routing details.
 
 ## Project structure
 

@@ -68,6 +68,17 @@ not drift.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 
+## Deployment
+
+`compose.prod.yaml` is a standalone overlay, not a merge target for `compose.yaml`: it pulls
+prebuilt images from GHCR (`ghcr.io/joanroucoux/cairn-{api,web,batch,schema}:${TAG}`) instead of
+building, and adds `Caddyfile` in front to route by path (`/api/*`, `/login`, `/logout`,
+`/webauthn/*` to `api`, everything else to `web`) so no backend hostname is baked into `cairn-web`'s
+image. `CAIRN_DOMAIN` feeds both `CAIRN_RP_ID`/`CAIRN_ORIGIN` and the Caddyfile's site address —
+changing it after the first passkey registration breaks every existing credential (`rp-id` is
+bound into them). Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
+`postgres`/`api`/`web`/`schema`/`batch` against the same `cairn-data` volume name.
+
 ## Gotchas
 
 - The aggregator declares the Spotless plugin although it holds no Java: `spotless:check` from the root resolves the plugin prefix per project and fails on any project that lacks it.
