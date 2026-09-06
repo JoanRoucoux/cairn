@@ -1,8 +1,8 @@
 # Cairn's own routing, owned by this repository and deployed into the shared proxy's
-# /etc/caddy/sites/ (see proxy/compose.yaml). Routes by path, not by container: nginx (cairn-web's
-# image) only ever serves static files, so the split between the SPA and the API happens here
-# instead of baking a backend hostname into the frontend image. Front and API therefore share one
-# origin, which the session cookie requires (secure, SameSite=Strict).
+# /etc/caddy/sites/ (see proxy/compose.yaml). Routing is by path, not by container: nginx
+# (cairn-web's image) only ever serves static files, so the split between the SPA and the API
+# happens here instead of baking a backend hostname into the frontend image. Front and API
+# therefore share one origin, which the session cookie requires (secure, SameSite=Strict).
 #
 # `api` and `web` resolve over the `edge` network. Caddy resolves them per request, so it starts
 # and recovers on its own whether or not Cairn happens to be running.
@@ -12,12 +12,21 @@
 {$CAIRN_DOMAIN} {
 	encode zstd gzip
 
-	# Prefix matches, not exact ones: Caddy's `path` is exact by default, so /login/webauthn.js,
-	# the script that drives the whole passkey ceremony, fell through to the SPA and came back as
-	# index.html. Same for /default-ui.css, and for any trailing slash. /error is where Spring
-	# forwards its own failures.
-	@api path /api/* /login* /logout* /webauthn/* /default-ui.css /error
-	handle @api {
+	# handle_path, not handle: it strips the matched prefix. The API serves /session, /portfolio
+	# and the rest at its root, with no /api anywhere in the contract; the prefix exists only to
+	# tell the two backends apart at this one point. cairn-web's proxy.conf.json strips it the
+	# same way in development, which is why forwarding it verbatim 404'd every authenticated call
+	# while looking perfectly healthy from outside: unauthenticated, Spring answers 401 before
+	# routing, so a missing route and a protected one are indistinguishable.
+	handle_path /api/* {
+		reverse_proxy api:8080
+	}
+
+	# Spring Security serves these itself, at these exact paths, so they are forwarded unchanged.
+	# Prefixes, not exact matches: /login/webauthn.js drives the passkey ceremony, and Caddy's
+	# `path` matcher is exact by default.
+	@springOwned path /login* /logout* /webauthn/* /default-ui.css /error
+	handle @springOwned {
 		reverse_proxy api:8080
 	}
 

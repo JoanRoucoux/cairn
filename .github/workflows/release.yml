@@ -94,9 +94,11 @@ jobs:
 
       - name: Check that the API, and not the SPA, answers behind /api
         run: |
-          # An unauthenticated /api/session must be 401. This is the discriminating check: the
-          # frontend's nginx answers 200 with index.html for any path it does not know, so a
-          # naive 200 assertion stays green with the API stone dead.
-          code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/session)
-          echo "GET /api/session -> $code"
-          [ "$code" = "401" ] || { echo "expected 401 from the API, got $code"; exit 1; }
+          # /api/actuator/health is permitAll and 200 only if three things hold: the proxy routes
+          # /api to the API, it strips the prefix (the contract has no /api anywhere), and the
+          # application is up. Asserting 401 on a protected path proves none of them: Spring
+          # answers 401 before routing, so a missing route looks exactly like a guarded one, which
+          # is how a proxy forwarding /api verbatim shipped and 404d every authenticated call.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/actuator/health)
+          echo "GET /api/actuator/health -> $code"
+          [ "$code" = "200" ] || { echo "expected 200 from the API, got $code"; exit 1; }
