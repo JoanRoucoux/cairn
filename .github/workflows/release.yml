@@ -1,6 +1,7 @@
 # Builds the three backend images and deploys them, on a tag and only on a tag: committing to
 # main never touches production. The tag is also the image tag, so rolling back is redeploying
-# the previous one rather than reverting a commit.
+# the previous one rather than reverting a commit. workflow_dispatch redeploys an existing tag
+# without rebuilding, which is what a broken deploy step needs.
 #
 # cairn-web is deliberately absent: it lives in its own repository and deploys itself through
 # WEB_TAG. See the comment on the `web` service in compose.prod.yaml.
@@ -9,6 +10,11 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing image tag to redeploy, e.g. v0.1.0'
+        required: true
 
 permissions:
   contents: read
@@ -20,9 +26,11 @@ env:
   # trusting whatever answers on that address.
   DEPLOY_HOST: 51.255.42.146
   DEPLOY_KNOWN_HOSTS: '51.255.42.146 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEbEn9NUsA5n7n1DSBWaozWpMVcs7JsBn6Y82kH3oGxN'
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   images:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -51,6 +59,8 @@ jobs:
 
   deploy:
     needs: images
+    # `skipped` is the workflow_dispatch path, where the images already exist.
+    if: ${{ !cancelled() && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +79,7 @@ jobs:
           # Without this the server keeps whatever compose file it was installed with, and a
           # change made here would silently never reach production.
           scp -i ~/.ssh/id_ed25519 compose.prod.yaml "deploy@${DEPLOY_HOST}:/srv/cairn/compose.prod.yaml"
+          scp -i ~/.ssh/id_ed25519 deploy/deploy.sh "deploy@${DEPLOY_HOST}:/srv/cairn/deploy.sh"
           scp -i ~/.ssh/id_ed25519 cairn.caddy "deploy@${DEPLOY_HOST}:/srv/proxy/sites/cairn.caddy"
           # A reload, not a restart: the shared proxy keeps serving every other site through it.
           ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" \
@@ -76,34 +87,16 @@ jobs:
 
       - name: Migrate then start
         run: |
-          # The script travels on stdin and the token inside it, never in argv: arguments are
-          # readable by any other process on the host through /proc. Every command below that
-          # could read stdin is given its own redirection, or it would eat the rest of this
-          # script instead.
-          ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" 'bash -euo pipefail -s' <<EOF
-          docker login ghcr.io -u '${{ github.actor }}' --password-stdin <<<'${{ secrets.GITHUB_TOKEN }}'
+          # The token goes down stdin; the tag and the actor are not secrets and may be arguments.
+          printf '%s\n' "${{ secrets.GITHUB_TOKEN }}" \
+            | ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" \
+                "bash /srv/cairn/deploy.sh '${RELEASE_TAG}' '${{ github.actor }}'"
 
-          cd /srv/cairn
-          sed -i 's|^TAG=.*|TAG=${{ github.ref_name }}|' .env
-
-          docker compose -f compose.prod.yaml --profile migrate pull schema api
-          # Schema first and alone: the API must never meet a database older than itself.
-          docker compose -f compose.prod.yaml --profile migrate run --rm -T schema
-          docker compose -f compose.prod.yaml up -d postgres api
-
-          docker logout ghcr.io
-          docker image prune -f
-          EOF
-
-      - name: Wait for the API to answer
+      - name: Check that the API, and not the SPA, answers behind /api
         run: |
-          for i in $(seq 1 30); do
-            code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/actuator/health || true)
-            if [ "$code" = "200" ]; then
-              echo "api: 200 after $i attempt(s)"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "the API never answered 200 within 150 seconds"
-          exit 1
+          # An unauthenticated /api/session must be 401. This is the discriminating check: the
+          # frontend's nginx answers 200 with index.html for any path it does not know, so a
+          # naive 200 assertion stays green with the API stone dead.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/session)
+          echo "GET /api/session -> $code"
+          [ "$code" = "401" ] || { echo "expected 401 from the API, got $code"; exit 1; }
