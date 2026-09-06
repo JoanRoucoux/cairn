@@ -12,7 +12,11 @@
 {$CAIRN_DOMAIN} {
 	encode zstd gzip
 
-	@api path /api/* /login /logout /webauthn/*
+	# Prefix matches, not exact ones: Caddy's `path` is exact by default, so /login/webauthn.js,
+	# the script that drives the whole passkey ceremony, fell through to the SPA and came back as
+	# index.html. Same for /default-ui.css, and for any trailing slash. /error is where Spring
+	# forwards its own failures.
+	@api path /api/* /login* /logout* /webauthn/* /default-ui.css /error
 	handle @api {
 		reverse_proxy api:8080
 	}
