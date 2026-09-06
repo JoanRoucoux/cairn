@@ -140,6 +140,13 @@ that address.
 
 ## Gotchas
 
+- **The `local` profile hides the whole security layer.** `app.security.permit-all=true` disables
+  CSRF and authentication outright, so nothing that depends on them is exercised until production.
+  That is how the CSRF token handler shipped rejecting every write the SPA made: Spring's own forms
+  carry an XOR-masked token, Angular echoes the raw cookie value in a header, and only one of the
+  two was accepted. Reads were unaffected, which made it look like a loading problem. When touching
+  `WebAuthnConfig`, reason about both clients, and check against the deployed application.
+
 - The aggregator declares the Spotless plugin although it holds no Java: `spotless:check` from the root resolves the plugin prefix per project and fails on any project that lacks it.
 - The demo table is named `positions` (plural): `POSITION` is a reserved word in PostgreSQL.
 - **`cairn-schema` stays a test-scope dependency of the application modules only** — never add it (or `liquibase-core`) to `cairn-domain`/`cairn-adapter`, and never widen its scope past `test`. An application must never be able to migrate the database itself.

@@ -18,7 +18,6 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
@@ -67,7 +66,7 @@ public class WebAuthnConfig {
         return http.webAuthn(webAuthn -> webAuthn.rpName("Cairn").rpId(rpId).allowedOrigins(allowedOrigins))
                 .formLogin(Customizer.withDefaults())
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler()))
+                        .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // defaultAuthenticationEntryPointFor, not authenticationEntryPoint: the latter
                 // disables Spring Security's own detection of whether to serve the default /login
                 // page, so GET /login would 404 instead of rendering the passkey registration page.
