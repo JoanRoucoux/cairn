@@ -53,8 +53,10 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # WEB_TAG, and not TAG: this image is built from the cairn-web repository, which has its own
+  # history and its own tags. Each repository deploys its own half without waiting for the other.
   web:
-    image: ghcr.io/joanroucoux/cairn-web:${TAG:?TAG must be set}
+    image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set}
     # No published port either, for the same reason as api.
     networks:
       - default

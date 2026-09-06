@@ -104,8 +104,9 @@ joined by an external Docker network created once with `docker network create ed
   Cairn** and is only kept here until a second application needs it, at which point it moves to its
   own repository. Redeploying Cairn must never restart it.
 - **`compose.prod.yaml`** — a standalone overlay, not a merge target for `compose.yaml`: it pulls
-  prebuilt images from GHCR (`ghcr.io/joanroucoux/cairn-{api,web,batch,schema}:${TAG}`) instead of
-  building, and publishes no port at all.
+  prebuilt images from GHCR instead of building, and publishes no port at all. The backend images
+  are tagged `${TAG}` and the frontend `${WEB_TAG}`, deliberately two variables: `cairn-web` is a
+  separate repository with its own history, and neither half should wait on the other to release.
 
 `cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path
 (`/api/*`, `/login`, `/logout`, `/webauthn/*` to `api`, everything else to `web`), so no backend
@@ -123,6 +124,19 @@ first passkey registration breaks every existing credential — `rp-id` is bound
 
 Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
 `postgres`/`api`/`web`/`schema`/`batch` against the same `cairn-data` volume name.
+
+**Releasing.** `.github/workflows/release.yml` fires on a tag matching `v*` and on nothing else:
+committing to `main` never touches production. It builds `api`, `schema` and `batch`, pushes them
+to GHCR under the tag name, ships `compose.prod.yaml` and `cairn.caddy` to the server, applies the
+Liquibase changelog on its own before anything starts, then brings up `postgres` and `api` and
+waits for `/api/actuator/health`. Rolling back is retagging the previous version, not reverting a
+commit. `cairn-web` has the mirror workflow for `web` alone; it must never restart the API or the
+database, and Cairn's deploy never restarts the shared proxy, only reloads it.
+
+The deploy authenticates as the `deploy` user with the key in the `DEPLOY_SSH_KEY` secret, which
+both repositories need. The host address and its SSH host key sit in the workflow in clear: neither
+is a secret, and pinning the fingerprint is what stops a deploy from trusting whatever answers on
+that address.
 
 ## Gotchas
 

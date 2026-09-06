@@ -1,0 +1,109 @@
+# Builds the three backend images and deploys them, on a tag and only on a tag: committing to
+# main never touches production. The tag is also the image tag, so rolling back is redeploying
+# the previous one rather than reverting a commit.
+#
+# cairn-web is deliberately absent: it lives in its own repository and deploys itself through
+# WEB_TAG. See the comment on the `web` service in compose.prod.yaml.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # Neither value is a secret: the host is what cairn.joanroucoux.fr resolves to, and a host key
+  # is public by construction. Pinning the fingerprint here is what stops the deploy from
+  # trusting whatever answers on that address.
+  DEPLOY_HOST: 51.255.42.146
+  DEPLOY_KNOWN_HOSTS: '51.255.42.146 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEbEn9NUsA5n7n1DSBWaozWpMVcs7JsBn6Y82kH3oGxN'
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [api, schema, batch]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Context is the repository root, not the module: every Dockerfile does `COPY . .` because
+      # a Maven reactor build needs the sibling modules it depends on.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cairn-${{ matrix.module }}/Dockerfile
+          push: true
+          tags: ghcr.io/joanroucoux/cairn-${{ matrix.module }}:${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authorize this runner on the server
+        run: |
+          mkdir -p ~/.ssh
+          # tr -d '\r': the key was very likely pasted from Windows, and a stray carriage return
+          # makes OpenSSH reject it with an error naming neither the cause nor the file.
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Ship the infrastructure files this repository owns
+        run: |
+          # Without this the server keeps whatever compose file it was installed with, and a
+          # change made here would silently never reach production.
+          scp -i ~/.ssh/id_ed25519 compose.prod.yaml "deploy@${DEPLOY_HOST}:/srv/cairn/compose.prod.yaml"
+          scp -i ~/.ssh/id_ed25519 cairn.caddy "deploy@${DEPLOY_HOST}:/srv/proxy/sites/cairn.caddy"
+          # A reload, not a restart: the shared proxy keeps serving every other site through it.
+          ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" \
+            "docker exec proxy-caddy-1 caddy reload --config /etc/caddy/Caddyfile"
+
+      - name: Migrate then start
+        run: |
+          # The script travels on stdin and the token inside it, never in argv: arguments are
+          # readable by any other process on the host through /proc. Every command below that
+          # could read stdin is given its own redirection, or it would eat the rest of this
+          # script instead.
+          ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" 'bash -euo pipefail -s' <<EOF
+          docker login ghcr.io -u '${{ github.actor }}' --password-stdin <<<'${{ secrets.GITHUB_TOKEN }}'
+
+          cd /srv/cairn
+          sed -i 's|^TAG=.*|TAG=${{ github.ref_name }}|' .env
+
+          docker compose -f compose.prod.yaml --profile migrate pull schema api
+          # Schema first and alone: the API must never meet a database older than itself.
+          docker compose -f compose.prod.yaml --profile migrate run --rm -T schema
+          docker compose -f compose.prod.yaml up -d postgres api
+
+          docker logout ghcr.io
+          docker image prune -f
+          EOF
+
+      - name: Wait for the API to answer
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/actuator/health || true)
+            if [ "$code" = "200" ]; then
+              echo "api: 200 after $i attempt(s)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "the API never answered 200 within 150 seconds"
+          exit 1
