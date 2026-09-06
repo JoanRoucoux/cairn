@@ -226,6 +226,12 @@
          verify. Reserved for the nightly CI job (see .github/workflows/nightly-external.yml). -->
     <profile>
       <id>external</id>
+      <properties>
+        <!-- This profile runs the external-tagged tests and nothing else, so the coverage it
+             produces measures a deliberate fraction of the suite. Gating on it fails a run whose
+             four contract tests all passed, which is what it did every night. -->
+        <jacoco.skip>true</jacoco.skip>
+      </properties>
       <build>
         <plugins>
           <plugin>
