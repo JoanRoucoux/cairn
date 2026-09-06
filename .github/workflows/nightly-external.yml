@@ -25,17 +25,44 @@ jobs:
           java-version: '25'
           cache: maven
 
+      # -am is not optional: cairn-adapter depends on cairn-domain, which a fresh runner has
+      # never installed. Without it Maven stops in two seconds on an unresolved artifact and
+      # never reaches a provider at all.
       - name: Verify against the real providers
-        run: ./mvnw -ntp verify -pl cairn-adapter -Pexternal
+        run: ./mvnw -ntp verify -pl cairn-adapter -am -Pexternal
 
-      - name: Open an issue on failure
+      - name: Report the failure
         if: failure()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            github.rest.issues.create({
+            const title = 'Market data contract broke';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // A nightly job reopening the same issue every night buries it. One issue stays open
+            // until someone closes it, and each further failure only adds a dated comment.
+            const open = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Market data contract broke',
-              body: 'The nightly external contract tests failed. A provider changed or removed its endpoint.'
-            })
+              state: 'open',
+              labels: 'nightly-external',
+            });
+            // Deliberately no diagnosis in the text: this step cannot tell a provider that
+            // changed its payload from a build that never started, and guessing sent the reader
+            // after the wrong cause for five nights.
+            const body = `The nightly contract run failed. What broke is in the log, not here: ${run}`;
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.data[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: ['nightly-external'],
+                body,
+              });
+            }
