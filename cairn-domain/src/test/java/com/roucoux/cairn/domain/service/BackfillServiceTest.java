@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
 
 class BackfillServiceTest {
 
-    private static final Instrument CW8 = new Instrument(
-            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CW8.PA", null);
+    private static final Instrument ETF = new Instrument(
+            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF.PA", null);
     private static final Instrument LIVRET_A = new Instrument(
             UUID.randomUUID(),
             "Livret A",
@@ -38,7 +38,7 @@ class BackfillServiceTest {
         RecordingSaveQuotePort saved = new RecordingSaveQuotePort();
         BackfillService service = new BackfillService(List.of(historyPort(120)), saved);
 
-        int written = service.backfill(CW8, LocalDate.of(2015, 1, 1));
+        int written = service.backfill(ETF, LocalDate.of(2015, 1, 1));
 
         assertThat(written).isEqualTo(120);
         assertThat(saved.upserted()).hasSize(120);
@@ -57,14 +57,14 @@ class BackfillServiceTest {
     void raisesWhenNoAdapterSupportsTheSource() {
         BackfillService service = new BackfillService(List.of(), new RecordingSaveQuotePort());
 
-        assertThatThrownBy(() -> service.backfill(CW8, LocalDate.of(2015, 1, 1)))
+        assertThatThrownBy(() -> service.backfill(ETF, LocalDate.of(2015, 1, 1)))
                 .isInstanceOf(MarketDataUnavailableException.class);
     }
 
     private static FetchQuotePort historyPort(int size) {
         List<Quote> history = IntStream.range(0, size)
                 .mapToObj(i -> new Quote(
-                        CW8.id(),
+                        ETF.id(),
                         LocalDate.of(2015, 1, 1).plusDays(i),
                         new BigDecimal("100.00"),
                         "EUR",

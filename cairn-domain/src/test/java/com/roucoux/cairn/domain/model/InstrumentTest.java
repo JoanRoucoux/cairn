@@ -13,7 +13,7 @@ class InstrumentTest {
         assertThatThrownBy(() -> new Instrument(
                         UUID.randomUUID(),
                         "Accor",
-                        "FR0000120404",
+                        "FR0000000011",
                         "EUR",
                         AssetClass.EQUITY,
                         PriceSource.YAHOO,
@@ -51,19 +51,19 @@ class InstrumentTest {
         assertThatThrownBy(() -> new Instrument(
                         UUID.randomUUID(),
                         "Accor",
-                        "FR0000120404",
+                        "FR0000000011",
                         "EUR",
                         AssetClass.EQUITY,
                         PriceSource.YAHOO,
-                        "AC.PA",
+                        "EQ.PA",
                         "x".repeat(281)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void derivesTheExternalUrlFromItsSource() {
-        assertThat(instrument(PriceSource.YAHOO, "CW8.PA").externalUrl())
-                .contains("https://finance.yahoo.com/quote/CW8.PA");
+        assertThat(instrument(PriceSource.YAHOO, "ETF.PA").externalUrl())
+                .contains("https://finance.yahoo.com/quote/ETF.PA");
         assertThat(instrument(PriceSource.COINGECKO, "ethereum").externalUrl())
                 .contains("https://www.coingecko.com/en/coins/ethereum");
         assertThat(instrument(PriceSource.MANUAL, null).externalUrl()).isEmpty();

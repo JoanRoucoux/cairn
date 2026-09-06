@@ -27,12 +27,12 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
 /** The step's glue, without a Spring context: each piece talks to a port or a use case only. */
 class RefreshQuotesJobConfigTest {
 
-    private static final Instrument CW8 = new Instrument(
-            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CW8.PA", null);
+    private static final Instrument ETF = new Instrument(
+            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF.PA", null);
 
-    private static final Quote QUOTE_CW8 =
-            new Quote(CW8.id(), LocalDate.now(), new BigDecimal("456.78"), "EUR", PriceSource.YAHOO, Instant.now());
-    private static final Quote QUOTE_ESE = new Quote(
+    private static final Quote QUOTE_ETF =
+            new Quote(ETF.id(), LocalDate.now(), new BigDecimal("456.78"), "EUR", PriceSource.YAHOO, Instant.now());
+    private static final Quote QUOTE_ETF3 = new Quote(
             UUID.randomUUID(), LocalDate.now(), new BigDecimal("123.45"), "EUR", PriceSource.YAHOO, Instant.now());
 
     @Test
@@ -50,9 +50,9 @@ class RefreshQuotesJobConfigTest {
         RecordingRefreshUseCase useCase = new RecordingRefreshUseCase();
 
         ItemProcessor<Instrument, Quote> processor = new RefreshQuotesJobConfig().refreshQuoteProcessor(useCase);
-        processor.process(CW8);
+        processor.process(ETF);
 
-        assertThat(useCase.calls()).containsExactly(CW8.id());
+        assertThat(useCase.calls()).containsExactly(ETF.id());
     }
 
     @Test
@@ -60,7 +60,7 @@ class RefreshQuotesJobConfigTest {
         RecordingSaveQuotePort saved = new RecordingSaveQuotePort();
 
         ItemWriter<Quote> writer = new RefreshQuotesJobConfig().quoteWriter(saved);
-        writer.write(Chunk.of(QUOTE_CW8, QUOTE_ESE));
+        writer.write(Chunk.of(QUOTE_ETF, QUOTE_ETF3));
 
         assertThat(saved.upserted()).hasSize(2);
     }
@@ -70,18 +70,18 @@ class RefreshQuotesJobConfigTest {
 
         @Override
         public List<Instrument> findAll() {
-            return List.of(CW8);
+            return List.of(ETF);
         }
 
         @Override
         public Optional<Instrument> findById(UUID id) {
-            return Optional.of(CW8);
+            return Optional.of(ETF);
         }
 
         @Override
         public List<Instrument> findRefreshable(Set<AssetClass> assetClasses) {
             requestedClasses.add(assetClasses);
-            return List.of(CW8);
+            return List.of(ETF);
         }
 
         Set<AssetClass> requestedClasses() {
@@ -95,7 +95,7 @@ class RefreshQuotesJobConfigTest {
         @Override
         public Quote refresh(Instrument instrument) {
             calls.add(instrument.id());
-            return QUOTE_CW8;
+            return QUOTE_ETF;
         }
 
         @Override

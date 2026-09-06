@@ -149,8 +149,8 @@ class RefreshQuotesJobIT {
     }
 
     private void givenThreeInstrumentsOfWhichOneFails() {
-        Instrument working1 = instruments.save(etf("Amundi MSCI World", "CW8.PA"));
-        Instrument working2 = instruments.save(etf("Amundi PEA S&P 500", "WPEA.PA"));
+        Instrument working1 = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
+        Instrument working2 = instruments.save(etf("Amundi PEA S&P 500", "ETF2.PA"));
         Instrument failing = instruments.save(etf("Lyxor CAC 40", "CAC.PA"));
 
         when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
@@ -160,8 +160,8 @@ class RefreshQuotesJobIT {
     }
 
     private void givenTwoWorkingInstruments() {
-        Instrument working1 = instruments.save(etf("Amundi MSCI World", "CW8.PA"));
-        Instrument working2 = instruments.save(etf("Amundi PEA S&P 500", "WPEA.PA"));
+        Instrument working1 = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
+        Instrument working2 = instruments.save(etf("Amundi PEA S&P 500", "ETF2.PA"));
 
         when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
         when(yahooQuoteAdapter.fetch(working1)).thenReturn(quoteOf(working1, "456.78"));

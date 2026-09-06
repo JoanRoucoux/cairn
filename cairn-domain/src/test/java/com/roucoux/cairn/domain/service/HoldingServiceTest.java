@@ -144,7 +144,7 @@ class HoldingServiceTest {
                     instrumentId,
                     new Instrument(
                             instrumentId,
-                            "CW8",
+                            "ETF",
                             "FR0011871128",
                             "EUR",
                             AssetClass.ETF,

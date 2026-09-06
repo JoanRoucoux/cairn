@@ -36,10 +36,10 @@ class QuoteRefreshServiceTest {
             PriceSource.MANUAL,
             null,
             "Livret d'epargne reglementee");
-    private static final Instrument WPEA = new Instrument(
-            UUID.randomUUID(), "Amundi PEA S&P 500", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "WPEA.PA", null);
-    private static final Instrument CW8 = new Instrument(
-            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CW8.PA", null);
+    private static final Instrument ETF2 = new Instrument(
+            UUID.randomUUID(), "Amundi PEA S&P 500", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF2.PA", null);
+    private static final Instrument ETF = new Instrument(
+            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF.PA", null);
 
     @Test
     void routesAnInstrumentToTheAdapterThatSupportsItsSource() {
@@ -67,22 +67,22 @@ class QuoteRefreshServiceTest {
 
     @Test
     void oneFailingInstrumentDoesNotStopTheOthers() {
-        FetchQuotePort failing = new FailingPort(PriceSource.YAHOO, WPEA.id());
-        QuoteRefreshService service = service(List.of(failing), List.of(WPEA, CW8));
+        FetchQuotePort failing = new FailingPort(PriceSource.YAHOO, ETF2.id());
+        QuoteRefreshService service = service(List.of(failing), List.of(ETF2, ETF));
 
         RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
 
         assertThat(report.refreshed()).isEqualTo(1);
         assertThat(report.failures())
                 .singleElement()
-                .satisfies(failure -> assertThat(failure.instrumentId()).isEqualTo(WPEA.id()));
+                .satisfies(failure -> assertThat(failure.instrumentId()).isEqualTo(ETF2.id()));
     }
 
     @Test
     void recordsEveryFailureThroughThePort() {
         RecordingFailurePort failures = new RecordingFailurePort();
         QuoteRefreshService service =
-                service(List.of(new FailingPort(PriceSource.YAHOO, WPEA.id())), List.of(WPEA), failures);
+                service(List.of(new FailingPort(PriceSource.YAHOO, ETF2.id())), List.of(ETF2), failures);
 
         service.refreshAll(Set.of(AssetClass.ETF));
 
@@ -91,9 +91,9 @@ class QuoteRefreshServiceTest {
 
     @Test
     void failsLoudlyWhenNoAdapterSupportsTheSource() {
-        QuoteRefreshService service = service(List.of(), List.of(CW8));
+        QuoteRefreshService service = service(List.of(), List.of(ETF));
 
-        assertThatThrownBy(() -> service.refresh(CW8))
+        assertThatThrownBy(() -> service.refresh(ETF))
                 .isInstanceOf(MarketDataUnavailableException.class)
                 .hasMessageContaining("YAHOO");
     }

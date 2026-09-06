@@ -24,18 +24,18 @@ import org.junit.jupiter.api.Test;
 
 class HistoryServiceTest {
 
-    private static final UUID CW8_ID = UUID.randomUUID();
+    private static final UUID ETF_ID = UUID.randomUUID();
     private static final UUID FCPE_ID = UUID.randomUUID();
     private static final UUID CASH_ID = UUID.randomUUID();
     private static final LocalDate FAR_FUTURE = LocalDate.of(2026, 8, 21);
 
     @Test
     void valuesEachDayAtTheQuantitiesHeldToday() {
-        // 29 CW8 shares: 690.81 on the 20th, 686.31 on the 21st.
+        // 29 ETF shares: 690.81 on the 20th, 686.31 on the 21st.
         HistoryService service = serviceWith(
-                holding(CW8_ID, new BigDecimal("29")),
+                holding(ETF_ID, new BigDecimal("29")),
                 quotes(
-                        CW8_ID,
+                        ETF_ID,
                         Map.of(
                                 LocalDate.of(2026, 8, 20), new BigDecimal("690.81"),
                                 LocalDate.of(2026, 8, 21), new BigDecimal("686.31"))));
@@ -67,9 +67,9 @@ class HistoryServiceTest {
         // Without this rule, the curve would show a false ramp: the total would climb simply
         // because the instruments appear one after another.
         HistoryService service = serviceWith(
-                List.of(holding(CW8_ID, BigDecimal.ONE), holding(FCPE_ID, BigDecimal.ONE)),
+                List.of(holding(ETF_ID, BigDecimal.ONE), holding(FCPE_ID, BigDecimal.ONE)),
                 Map.of(
-                        CW8_ID, quotesFrom(LocalDate.of(2020, 1, 1)),
+                        ETF_ID, quotesFrom(LocalDate.of(2020, 1, 1)),
                         FCPE_ID, quotesFrom(LocalDate.of(2024, 6, 1))));
 
         List<HistoryPoint> series =
@@ -81,8 +81,8 @@ class HistoryServiceTest {
     @Test
     void ignoresAHoldingWhoseInstrumentHasNoQuoteAtAll() {
         HistoryService service = serviceWith(
-                List.of(holding(CW8_ID, BigDecimal.ONE), holding(CASH_ID, new BigDecimal("732.40"))),
-                Map.of(CW8_ID, quotesFrom(LocalDate.of(2026, 8, 20))));
+                List.of(holding(ETF_ID, BigDecimal.ONE), holding(CASH_ID, new BigDecimal("732.40"))),
+                Map.of(ETF_ID, quotesFrom(LocalDate.of(2026, 8, 20))));
 
         assertThat(service.history(HistoryMode.CONSTANT_MIX, LocalDate.of(2026, 8, 20), LocalDate.of(2026, 8, 21)))
                 .isNotEmpty();

@@ -23,8 +23,8 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
 /** The step's glue, without a Spring context: each piece talks to a port or a use case only. */
 class BackfillQuotesJobConfigTest {
 
-    private static final Instrument CW8 = new Instrument(
-            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CW8.PA", null);
+    private static final Instrument ETF = new Instrument(
+            UUID.randomUUID(), "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF.PA", null);
 
     @Test
     void readsEveryRefreshableInstrumentWhenNoInstrumentIdIsGiven() throws Exception {
@@ -32,7 +32,7 @@ class BackfillQuotesJobConfigTest {
 
         ItemReader<Instrument> reader = new BackfillQuotesJobConfig().instrumentsToBackfillReader(instruments, null);
 
-        assertThat(reader.read()).isEqualTo(CW8);
+        assertThat(reader.read()).isEqualTo(ETF);
         assertThat(instruments.requestedClasses()).containsExactlyInAnyOrder(AssetClass.values());
     }
 
@@ -41,9 +41,9 @@ class BackfillQuotesJobConfigTest {
         RecordingInstrumentsPort instruments = new RecordingInstrumentsPort();
 
         ItemReader<Instrument> reader = new BackfillQuotesJobConfig()
-                .instrumentsToBackfillReader(instruments, CW8.id().toString());
+                .instrumentsToBackfillReader(instruments, ETF.id().toString());
 
-        assertThat(reader.read()).isEqualTo(CW8);
+        assertThat(reader.read()).isEqualTo(ETF);
         assertThat(reader.read()).isNull();
     }
 
@@ -53,7 +53,7 @@ class BackfillQuotesJobConfigTest {
 
         ItemProcessor<Instrument, Integer> processor =
                 new BackfillQuotesJobConfig().backfillQuoteProcessor(useCase, null);
-        Integer written = processor.process(CW8);
+        Integer written = processor.process(ETF);
 
         assertThat(written).isEqualTo(42);
         assertThat(useCase.calls()).containsExactly(LocalDate.of(2015, 1, 1));
@@ -65,7 +65,7 @@ class BackfillQuotesJobConfigTest {
 
         ItemProcessor<Instrument, Integer> processor =
                 new BackfillQuotesJobConfig().backfillQuoteProcessor(useCase, "2020-06-15");
-        processor.process(CW8);
+        processor.process(ETF);
 
         assertThat(useCase.calls()).containsExactly(LocalDate.of(2020, 6, 15));
     }
@@ -82,18 +82,18 @@ class BackfillQuotesJobConfigTest {
 
         @Override
         public List<Instrument> findAll() {
-            return List.of(CW8);
+            return List.of(ETF);
         }
 
         @Override
         public Optional<Instrument> findById(UUID id) {
-            return id.equals(CW8.id()) ? Optional.of(CW8) : Optional.empty();
+            return id.equals(ETF.id()) ? Optional.of(ETF) : Optional.empty();
         }
 
         @Override
         public List<Instrument> findRefreshable(Set<AssetClass> assetClasses) {
             requestedClasses.add(assetClasses);
-            return List.of(CW8);
+            return List.of(ETF);
         }
 
         Set<AssetClass> requestedClasses() {

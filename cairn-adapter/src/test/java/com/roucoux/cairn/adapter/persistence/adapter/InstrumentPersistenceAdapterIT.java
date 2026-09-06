@@ -35,20 +35,20 @@ class InstrumentPersistenceAdapterIT {
 
     @Test
     void savesAndReadsBackAnInstrument() {
-        Instrument saved = instruments.save(etf("CW8.PA"));
+        Instrument saved = instruments.save(etf("ETF.PA"));
 
         assertThat(instruments.findById(saved.id()))
-                .hasValueSatisfying(found -> assertThat(found.sourceRef()).isEqualTo("CW8.PA"));
+                .hasValueSatisfying(found -> assertThat(found.sourceRef()).isEqualTo("ETF.PA"));
     }
 
     @Test
     void findsOnlyRefreshableInstrumentsOfTheRequestedAssetClasses() {
-        instruments.save(etf("CW8.PA"));
+        instruments.save(etf("ETF.PA"));
         instruments.save(cashInstrument());
 
         List<Instrument> refreshable = instruments.findRefreshable(Set.of(AssetClass.ETF, AssetClass.CASH));
 
-        assertThat(refreshable).extracting(Instrument::sourceRef).containsExactly("CW8.PA");
+        assertThat(refreshable).extracting(Instrument::sourceRef).containsExactly("ETF.PA");
     }
 
     private Instrument etf(String sourceRef) {

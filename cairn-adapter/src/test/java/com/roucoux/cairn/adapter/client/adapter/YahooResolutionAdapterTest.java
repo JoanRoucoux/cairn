@@ -56,15 +56,15 @@ class YahooResolutionAdapterTest {
 
     @Test
     void mapsAFundIsinToItsMorningstarSymbol() {
-        stub("/v1/finance/search", "fixtures/yahoo-search-FR0013296084.json");
+        stub("/v1/finance/search", "fixtures/yahoo-search-fund-isin.json");
 
-        List<InstrumentCandidate> candidates = adapter.resolve("FR0013296084");
+        List<InstrumentCandidate> candidates = adapter.resolve("FR0000000010");
 
         assertThat(candidates).singleElement().satisfies(candidate -> {
-            assertThat(candidate.sourceRef()).isEqualTo("0P0001D8GQ.F");
+            assertThat(candidate.sourceRef()).isEqualTo("0P0000000A.F");
             assertThat(candidate.source()).isEqualTo(PriceSource.YAHOO);
             assertThat(candidate.assetClass()).isEqualTo(AssetClass.FUND);
-            assertThat(candidate.name()).isEqualTo("Valmy Gestion Diversifiée");
+            assertThat(candidate.name()).isEqualTo("Fonds Exemple Diversifié");
         });
     }
 
@@ -79,13 +79,13 @@ class YahooResolutionAdapterTest {
     void returnsNothingForAnIsinYahooDoesNotKnow() {
         stub("/v1/finance/search", "fixtures/yahoo-search-empty.json");
 
-        assertThat(adapter.resolve("QS0002904819")).isEmpty();
+        assertThat(adapter.resolve("QS0000000010")).isEmpty();
     }
 
     @Test
     void returnsNothingRatherThanFailingWhenYahooIsDown() {
         wireMock.stubFor(get(urlPathEqualTo("/v1/finance/search")).willReturn(serverError()));
 
-        assertThat(adapter.resolve("FR0013296084")).isEmpty();
+        assertThat(adapter.resolve("FR0000000010")).isEmpty();
     }
 }

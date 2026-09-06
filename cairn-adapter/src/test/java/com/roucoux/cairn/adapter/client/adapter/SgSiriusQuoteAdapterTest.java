@@ -74,9 +74,9 @@ class SgSiriusQuoteAdapterTest {
 
     @Test
     void readsTheLatestNetAssetValue() {
-        stubTextHtml("fixtures/sg-sirius-QS0002904819.json");
+        stubTextHtml("fixtures/sg-sirius-fcpe.json");
 
-        Quote quote = adapter.fetch(fcpe("QS0002904819"));
+        Quote quote = adapter.fetch(fcpe("QS0000000010"));
 
         assertThat(quote.price()).isEqualByComparingTo("63.33");
         assertThat(quote.asOf()).isEqualTo(LocalDate.of(2026, 8, 21));
@@ -85,16 +85,16 @@ class SgSiriusQuoteAdapterTest {
 
     @Test
     void parsesJsonServedAsTextHtml() {
-        stubTextHtml("fixtures/sg-sirius-QS0002904819.json");
+        stubTextHtml("fixtures/sg-sirius-fcpe.json");
 
-        assertThatNoException().isThrownBy(() -> adapter.fetch(fcpe("QS0002904819")));
+        assertThatNoException().isThrownBy(() -> adapter.fetch(fcpe("QS0000000010")));
     }
 
     @Test
     void readsTheWholeHistoryFromTheSameSingleCall() {
-        stubTextHtml("fixtures/sg-sirius-QS0002904819.json");
+        stubTextHtml("fixtures/sg-sirius-fcpe.json");
 
-        List<Quote> history = adapter.fetchHistory(fcpe("QS0002904819"), LocalDate.of(2001, 1, 1));
+        List<Quote> history = adapter.fetchHistory(fcpe("QS0000000010"), LocalDate.of(2001, 1, 1));
 
         assertThat(history).hasSizeGreaterThan(5000);
         assertThat(history.getFirst().asOf()).isEqualTo(LocalDate.of(2001, 1, 2));
@@ -102,9 +102,9 @@ class SgSiriusQuoteAdapterTest {
 
     @Test
     void filtersHistoryOnTheRequestedStartDate() {
-        stubTextHtml("fixtures/sg-sirius-QS0002904819.json");
+        stubTextHtml("fixtures/sg-sirius-fcpe.json");
 
-        List<Quote> history = adapter.fetchHistory(fcpe("QS0002904819"), LocalDate.of(2026, 1, 1));
+        List<Quote> history = adapter.fetchHistory(fcpe("QS0000000010"), LocalDate.of(2026, 1, 1));
 
         assertThat(history).allSatisfy(quote -> assertThat(quote.asOf()).isAfterOrEqualTo(LocalDate.of(2026, 1, 1)));
     }
@@ -113,7 +113,7 @@ class SgSiriusQuoteAdapterTest {
     void raisesOnAnEmptyBody() {
         wireMock.stubFor(get(urlPathMatching(".*/liquidative/")).willReturn(ok("[]")));
 
-        assertThatThrownBy(() -> adapter.fetch(fcpe("QS0002904819")))
+        assertThatThrownBy(() -> adapter.fetch(fcpe("QS0000000010")))
                 .isInstanceOf(MarketDataUnavailableException.class);
     }
 
@@ -121,7 +121,7 @@ class SgSiriusQuoteAdapterTest {
     void raisesWhenTheProviderFails() {
         wireMock.stubFor(get(urlPathMatching(".*/liquidative/")).willReturn(serverError()));
 
-        assertThatThrownBy(() -> adapter.fetch(fcpe("QS0002904819")))
+        assertThatThrownBy(() -> adapter.fetch(fcpe("QS0000000010")))
                 .isInstanceOf(MarketDataUnavailableException.class);
     }
 }

@@ -87,9 +87,9 @@ class YahooQuoteAdapterTest {
 
     @Test
     void readsTheCurrentPriceAndItsDate() {
-        stub("/v8/finance/chart/CW8.PA", "fixtures/yahoo-chart-CW8-1d.json");
+        stub("/v8/finance/chart/ETF.PA", "fixtures/yahoo-chart-etf-1d.json");
 
-        Quote quote = adapter.fetch(etf("CW8.PA"));
+        Quote quote = adapter.fetch(etf("ETF.PA"));
 
         assertThat(quote.price()).isEqualByComparingTo("688.75");
         assertThat(quote.currency()).isEqualTo("EUR");
@@ -98,18 +98,18 @@ class YahooQuoteAdapterTest {
 
     @Test
     void datesAQuoteOnTheSessionItBelongsToNotOnTheCallDate() {
-        stub("/v8/finance/chart/0P0000YPZB.F", "fixtures/yahoo-chart-0P0000YPZB-1mo.json");
+        stub("/v8/finance/chart/0P0000000B.F", "fixtures/yahoo-chart-fund-1mo.json");
 
-        Quote quote = adapter.fetch(fund("0P0000YPZB.F"));
+        Quote quote = adapter.fetch(fund("0P0000000B.F"));
 
         assertThat(quote.asOf()).isEqualTo(LocalDate.of(2026, 8, 24));
     }
 
     @Test
     void skipsNullClosesWhenReadingHistory() {
-        stub("/v8/finance/chart/0P0000YPZB.F", "fixtures/yahoo-chart-0P0000YPZB-1mo.json");
+        stub("/v8/finance/chart/0P0000000B.F", "fixtures/yahoo-chart-fund-1mo.json");
 
-        List<Quote> history = adapter.fetchHistory(fund("0P0000YPZB.F"), LocalDate.of(2026, 1, 1));
+        List<Quote> history = adapter.fetchHistory(fund("0P0000000B.F"), LocalDate.of(2026, 1, 1));
 
         assertThat(history)
                 .isNotEmpty()
@@ -121,7 +121,7 @@ class YahooQuoteAdapterTest {
     void raisesWhenTheProviderFails() {
         wireMock.stubFor(get(urlPathMatching("/v8/finance/chart/.*")).willReturn(serverError()));
 
-        assertThatThrownBy(() -> adapter.fetch(etf("CW8.PA"))).isInstanceOf(MarketDataUnavailableException.class);
+        assertThatThrownBy(() -> adapter.fetch(etf("ETF.PA"))).isInstanceOf(MarketDataUnavailableException.class);
     }
 
     @Test

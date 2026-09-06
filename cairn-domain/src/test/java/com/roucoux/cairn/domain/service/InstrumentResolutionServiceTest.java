@@ -15,25 +15,25 @@ import org.junit.jupiter.api.Test;
 
 class InstrumentResolutionServiceTest {
 
-    private static final InstrumentCandidate CW8_CANDIDATE =
-            new InstrumentCandidate("Amundi MSCI World", PriceSource.YAHOO, "CW8.PA", AssetClass.ETF, BigDecimal.TEN);
+    private static final InstrumentCandidate ETF_CANDIDATE =
+            new InstrumentCandidate("Amundi MSCI World", PriceSource.YAHOO, "ETF.PA", AssetClass.ETF, BigDecimal.TEN);
     private static final InstrumentCandidate SG_CANDIDATE = new InstrumentCandidate(
-            "Societe Generale", PriceSource.SG_SIRIUS, "QS0002904819", AssetClass.EQUITY, BigDecimal.ONE);
+            "Societe Generale", PriceSource.SG_SIRIUS, "QS0000000010", AssetClass.EQUITY, BigDecimal.ONE);
 
     @Test
     void returnsEveryCandidateFoundAcrossSources() {
         InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(resolver(CW8_CANDIDATE), resolver()));
+                new InstrumentResolutionService(List.of(resolver(ETF_CANDIDATE), resolver()));
 
-        assertThat(service.resolve("LU1681043599")).containsExactly(CW8_CANDIDATE);
+        assertThat(service.resolve("LU0000000010")).containsExactly(ETF_CANDIDATE);
     }
 
     @Test
     void keepsCandidatesFromEverySourceThatAnswers() {
         InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(resolver(CW8_CANDIDATE), resolver(SG_CANDIDATE)));
+                new InstrumentResolutionService(List.of(resolver(ETF_CANDIDATE), resolver(SG_CANDIDATE)));
 
-        assertThat(service.resolve("QS0002904819")).containsExactly(CW8_CANDIDATE, SG_CANDIDATE);
+        assertThat(service.resolve("QS0000000010")).containsExactly(ETF_CANDIDATE, SG_CANDIDATE);
     }
 
     @Test
@@ -41,7 +41,7 @@ class InstrumentResolutionServiceTest {
         InstrumentResolutionService service =
                 new InstrumentResolutionService(List.of(failingResolver(), resolver(SG_CANDIDATE)));
 
-        assertThat(service.resolve("QS0002904819")).containsExactly(SG_CANDIDATE);
+        assertThat(service.resolve("QS0000000010")).containsExactly(SG_CANDIDATE);
     }
 
     @Test

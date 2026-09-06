@@ -50,7 +50,7 @@ class InstrumentControllerTest {
             "EUR",
             AssetClass.ETF,
             PriceSource.YAHOO,
-            "ESE.PA",
+            "ETF3.PA",
             "ETF sur le S&P 500, les 500 plus grandes capitalisations americaines");
     private static final Instrument LIVRET_A = new Instrument(
             LIVRET_A_ID, "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, "Livret d'epargne");
@@ -93,19 +93,19 @@ class InstrumentControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"Amundi ETF PEA S&P 500","isin":"FR0011550185","currency":"EUR",
-                                 "assetClass":"ETF","priceSource":"YAHOO","sourceRef":"ESE.PA"}
+                                 "assetClass":"ETF","priceSource":"YAHOO","sourceRef":"ETF3.PA"}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sourceRef").value("ESE.PA"));
+                .andExpect(jsonPath("$.sourceRef").value("ETF3.PA"));
     }
 
     @Test
     void proposesCandidateSourcesForAnIsin() throws Exception {
-        when(resolveInstrument.resolve("FR0013296084"))
+        when(resolveInstrument.resolve("FR0000000010"))
                 .thenReturn(List.of(new InstrumentCandidate(
-                        "Valmy Gestion Diversifiee",
+                        "Fonds Exemple Diversifie",
                         PriceSource.YAHOO,
-                        "0P0001D8GQ.F",
+                        "0P0000000A.F",
                         AssetClass.FUND,
                         new BigDecimal("131.57"))));
 
@@ -113,9 +113,9 @@ class InstrumentControllerTest {
                         .with(user("joan"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
-                        .content("{\"query\":\"FR0013296084\"}"))
+                        .content("{\"query\":\"FR0000000010\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].sourceRef").value("0P0001D8GQ.F"))
+                .andExpect(jsonPath("$[0].sourceRef").value("0P0000000A.F"))
                 .andExpect(jsonPath("$[0].probePrice").value(131.57));
     }
 
@@ -138,7 +138,7 @@ class InstrumentControllerTest {
         mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("joan")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value(startsWith("ETF sur le S&P 500")))
-                .andExpect(jsonPath("$.externalUrl").value("https://finance.yahoo.com/quote/ESE.PA"));
+                .andExpect(jsonPath("$.externalUrl").value("https://finance.yahoo.com/quote/ETF3.PA"));
     }
 
     @Test

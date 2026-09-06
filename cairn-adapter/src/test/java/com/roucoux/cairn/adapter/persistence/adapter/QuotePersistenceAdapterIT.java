@@ -91,7 +91,7 @@ class QuotePersistenceAdapterIT {
                         "EUR",
                         AssetClass.ETF,
                         PriceSource.YAHOO,
-                        "CW8.PA",
+                        "ETF.PA",
                         null))
                 .id();
     }
