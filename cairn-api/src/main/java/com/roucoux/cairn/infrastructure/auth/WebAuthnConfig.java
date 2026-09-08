@@ -16,8 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
@@ -67,8 +67,8 @@ public class WebAuthnConfig {
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // defaultAuthenticationEntryPointFor, not authenticationEntryPoint: the latter
-                // disables Spring Security's own detection of whether to serve the default /login
-                // page, so GET /login would 404 instead of rendering the passkey registration page.
+                // disables Spring Security's own detection of whether to serve the default
+                // registration page, so GET /webauthn/register would 404 instead of rendering it.
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), request -> true))
                 .authorizeHttpRequests(requests -> requests.requestMatchers("/actuator/health/**")
@@ -86,7 +86,7 @@ public class WebAuthnConfig {
                                 (request, response, exception) -> response.setStatus(HttpStatus.UNAUTHORIZED.value())))
                 .logout(logout -> logout.logoutSuccessHandler(
                         (request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
-                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .build();
     }
 
