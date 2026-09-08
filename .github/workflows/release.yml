@@ -48,7 +48,7 @@ jobs:
 
       # Context is the repository root, not the module: every Dockerfile does `COPY . .` because
       # a Maven reactor build needs the sibling modules it depends on.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: cairn-${{ matrix.module }}/Dockerfile
