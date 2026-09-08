@@ -36,7 +36,7 @@ jobs:
       matrix:
         module: [api, schema, batch]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 
@@ -63,7 +63,7 @@ jobs:
     if: ${{ !cancelled() && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Authorize this runner on the server
         run: |
