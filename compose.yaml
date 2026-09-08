@@ -19,6 +19,11 @@ services:
   schema:
     profiles: ['migrate']
     build: { context: ., dockerfile: cairn-schema/Dockerfile }
+    environment:
+      # Without these, Liquibase falls back to the Dockerfile defaults and only ever reaches a
+      # database whose password happens to be `app`. compose.prod.yaml has always passed them.
+      LIQUIBASE_USERNAME: app
+      LIQUIBASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,6 +48,9 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app
       - SPRING_DATASOURCE_USERNAME=app
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-app}
+    # Published for curl and for `pnpm start`, which proxies here. Never point a browser at
+    # it to judge the application: it bypasses Caddy, and therefore the /api prefix and the
+    # single origin, which is precisely where the production-only defects live.
     ports:
       - '8080:8080'
     depends_on:
@@ -60,6 +68,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # The published frontend image, not a build: cairn-web is a separate repository and this
+  # file must not reach outside its own. To run a frontend you have not released yet, build
+  # it there under a tag and name that tag here:
+  #   docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
+  #   WEB_TAG=local docker compose up -d
+  web:
+    image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set, e.g. v0.1.1 or a locally built tag}
+
+  # The same proxy, reading the same cairn.caddy, as the server runs. It is the whole point
+  # of this service: a browser talking straight to api:8080 exercises neither the /api prefix
+  # nor the single origin the session cookie needs, and both have shipped broken because of
+  # exactly that. CAIRN_DOMAIN carries the http:// scheme so Caddy serves plain HTTP instead
+  # of minting a certificate from an authority no browser here trusts.
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      CAIRN_DOMAIN: http://localhost
+    ports:
+      - '80:80'
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./cairn.caddy:/etc/caddy/sites/cairn.caddy:ro
+    depends_on: [api, web]
 
 volumes:
   cairn-data:

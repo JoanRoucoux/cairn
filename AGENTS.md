@@ -108,10 +108,18 @@ joined by an external Docker network created once with `docker network create ed
   are tagged `${TAG}` and the frontend `${WEB_TAG}`, deliberately two variables: `cairn-web` is a
   separate repository with its own history, and neither half should wait on the other to release.
 
-`cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path
-(`/api/*`, `/login`, `/logout`, `/webauthn/*` to `api`, everything else to `web`), so no backend
-hostname is baked into `cairn-web`'s image and both halves share one origin, which the session
-cookie requires (`secure`, `SameSite=Strict`).
+`cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path,
+so no backend hostname is baked into `cairn-web`'s image and both halves share one origin, which
+the session cookie requires (`secure`, `SameSite=Strict`).
+
+**`/api` is a proxy-only prefix and must be stripped.** The contract declares `/session`,
+`/portfolio` and the rest at the root; the prefix exists solely to tell the two backends apart at
+this one point, and `cairn-web`'s `proxy.conf.json` strips it the same way in development. Hence
+`handle_path /api/*`, not `handle`. Forwarded verbatim it 404s every authenticated call while
+looking healthy from outside: unauthenticated, Spring answers 401 before routing, so a missing
+route is indistinguishable from a guarded one. What Spring Security serves itself (`/login*`,
+`/logout*`, `/webauthn/*`) is forwarded unchanged, matched by prefix rather than exactly, because
+`/login/webauthn.js` drives the passkey ceremony and Caddy's `path` matcher is exact by default.
 
 Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default network**, out of
 reach of every other application sharing the proxy.

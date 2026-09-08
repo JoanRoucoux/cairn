@@ -67,6 +67,37 @@ set in the host shell, so leaving them unset lets `cairn-api/application.yml`'s 
 above. Export them (e.g. `export CAIRN_RP_ID=cairn.example.com
 CAIRN_ORIGIN=https://cairn.example.com`) to point the passkey ceremony at a real domain.
 
+
+### The whole stack, as the server runs it
+
+The commands above start the API alone, which is what `pnpm start` proxies to. They do not exercise
+Caddy, and three defects have reached production precisely because nothing local did: the proxy
+strips the `/api` prefix the contract does not carry, it puts the frontend and the API on one
+origin, and outside the `local` profile CSRF is real. Add `web` and `caddy` and all three are back
+under test:
+
+```bash
+export CAIRN_PASSWORD=s0me-real-secret
+export POSTGRES_PASSWORD=s0me-real-secret
+export CAIRN_ORIGIN=http://localhost   # the browser's origin through Caddy, not ng serve's :4200
+export WEB_TAG=v0.1.1                  # a released frontend, or a tag you built yourself
+
+docker compose --profile migrate up --build schema
+docker compose up -d --build
+```
+
+Then open `http://localhost`, never `http://localhost:8080`: the second bypasses the proxy and with
+it everything this stack exists to check. `curl -sS -o /dev/null -w '%{http_code}'
+http://localhost/api/actuator/health` answers 200 only if the prefix is being stripped, which is
+the same assertion the release workflow makes against production.
+
+To run a frontend you have not released, build it in its own repository under a tag and name it:
+
+```bash
+docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
+WEB_TAG=local docker compose up -d
+```
+
 `schema` and `batch` both carry a `profiles` entry so `docker compose up` alone never starts them:
 the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron
 (`docker compose run --rm batch`), not to run continuously.
