@@ -53,7 +53,17 @@ class ApplicationIT {
     }
 
     @Test
-    void servesTheWebAuthnRegistrationPage() {
-        assertThat(restTemplate.getForEntity("/login", String.class).getBody()).contains("passkey");
+    void servesNoSignInPageOfItsOwn() {
+        assertThat(restTemplate.getForEntity("/login", String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void handsEveryCallerACsrfTokenToEchoBack() {
+        assertThat(restTemplate
+                        .getForEntity("/actuator/health", String.class)
+                        .getHeaders()
+                        .get("Set-Cookie"))
+                .anySatisfy(cookie -> assertThat(cookie).startsWith("XSRF-TOKEN="));
     }
 }

@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcOperations;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -18,6 +17,7 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
@@ -64,7 +64,6 @@ public class WebAuthnConfig {
                     .build();
         }
         return http.webAuthn(webAuthn -> webAuthn.rpName("Cairn").rpId(rpId).allowedOrigins(allowedOrigins))
-                .formLogin(Customizer.withDefaults())
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // defaultAuthenticationEntryPointFor, not authenticationEntryPoint: the latter
@@ -76,6 +75,18 @@ public class WebAuthnConfig {
                         .permitAll()
                         .anyRequest()
                         .authenticated())
+                // Naming a loginPage this application does not serve is what switches off
+                // DefaultLoginPageGeneratingFilter, and the sign-out confirmation page with it.
+                // cairn-web owns /login; the proxy stops forwarding it in the next task.
+                .formLogin(form -> form.loginPage("/login")
+                        .loginProcessingUrl("/authenticate")
+                        .successHandler((request, response, authentication) ->
+                                response.setStatus(HttpStatus.NO_CONTENT.value()))
+                        .failureHandler(
+                                (request, response, exception) -> response.setStatus(HttpStatus.UNAUTHORIZED.value())))
+                .logout(logout -> logout.logoutSuccessHandler(
+                        (request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .build();
     }
 
