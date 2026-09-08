@@ -117,10 +117,13 @@ the session cookie requires (`secure`, `SameSite=Strict`).
 this one point, and `cairn-web`'s `proxy.conf.json` strips it the same way in development. Hence
 `handle_path /api/*`, not `handle`. Forwarded verbatim it 404s every authenticated call while
 looking healthy from outside: unauthenticated, Spring answers 401 before routing, so a missing
-route is indistinguishable from a guarded one. What Spring Security serves itself (`/logout*`,
-`/webauthn/*` and `/login/webauthn`) is forwarded unchanged, matched by prefix rather than exactly
-where it needs to be. `/login` is the frontend's, since Spring's generated sign-in page is switched
-off.
+route is indistinguishable from a guarded one. What Spring Security serves itself is forwarded
+unchanged: `/logout*` for sign-out, `/webauthn/*` for the passkey registration page and the
+ceremony endpoints, `/login/webauthn` for the passkey assertion endpoint and `/login/webauthn.js`
+for the script it needs (both sit under `/login` rather than `/webauthn`), and `/default-ui.css`
+for the stylesheet the registration page loads. `/login` itself is deliberately absent and matched
+by neither `/webauthn/*` nor `/login/webauthn`: the frontend owns that path, since Spring's
+generated sign-in page is switched off.
 
 Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default network**, out of
 reach of every other application sharing the proxy.
