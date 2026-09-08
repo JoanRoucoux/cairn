@@ -23,9 +23,9 @@
 	}
 
 	# Spring Security serves these itself, at these exact paths, so they are forwarded unchanged.
-	# Prefixes, not exact matches: /login/webauthn.js drives the passkey ceremony, and Caddy's
-	# `path` matcher is exact by default.
-	@springOwned path /login* /logout* /webauthn/* /default-ui.css /error
+	# /login is deliberately absent: cairn-web owns the sign-in screen, and Spring's own page is
+	# switched off. /login/webauthn is the passkey assertion endpoint, not a page, and stays here.
+	@springOwned path /logout* /webauthn/* /login/webauthn
 	handle @springOwned {
 		reverse_proxy api:8080
 	}
