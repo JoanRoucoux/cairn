@@ -1,6 +1,5 @@
 package com.roucoux.cairn.application.controller;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
@@ -161,7 +160,7 @@ class PortfolioControllerTest {
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
-                                + "Sample Broker,PEA,Sample Bank,Tracker,LU0000000001,100,20.00\r\n"))
+                                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountsCreated").value(1))
                 .andExpect(jsonPath("$.instrumentsCreated").value(2))
@@ -180,7 +179,7 @@ class PortfolioControllerTest {
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
-                                + "Sample Broker,PEA,Sample Bank,Tracker,LU0000000001,100,20.00\r\n"))
+                                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors[0].line").value(2))
                 .andExpect(jsonPath("$.errors[0].code").value("UNRESOLVED_INSTRUMENT"))
@@ -191,8 +190,7 @@ class PortfolioControllerTest {
     void servesTheImportTemplateAsItsOwnHeaderRow() throws Exception {
         mockMvc.perform(get("/portfolio/import/template").with(user("joan")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString(PortfolioCsvReader.HEADER)))
-                .andExpect(content().string(startsWith("﻿sep=,\r\n")));
+                .andExpect(content().string(startsWith("﻿" + PortfolioCsvReader.HEADER)));
     }
 
     private static ValuedHolding aValuedHolding(Holding holding) {

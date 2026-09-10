@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class HoldingCsvWriterTest {
 
     private static final String HEADER =
-            "account,instrument,isin,quantity,averageCost,price,marketValueEur,unrealizedGainEur,priceAsOf";
+            "account;instrument;isin;quantity;averageCost;price;marketValueEur;unrealizedGainEur;priceAsOf";
 
     private final HoldingCsvWriter writer = new HoldingCsvWriter();
 
@@ -21,23 +21,23 @@ class HoldingCsvWriterTest {
     }
 
     @Test
-    void announcesTheSeparatorSoThatExcelSplitsTheColumnsInEveryLocale() {
-        assertThat(writer.write(List.of()).substring(1).split("\r\n")[0]).isEqualTo("sep=,");
-    }
-
-    @Test
     void startsWithAHeaderRow() {
-        assertThat(writer.write(List.of()).substring(1).split("\r\n")[1]).isEqualTo(HEADER);
+        assertThat(writer.write(List.of()).substring(1).split("\r\n")[0]).isEqualTo(HEADER);
     }
 
     @Test
     void writesOneRowPerHolding() {
-        assertThat(writer.write(List.of(anEtf(), aPassbook())).split("\r\n")).hasSize(4);
+        assertThat(writer.write(List.of(anEtf(), aPassbook())).split("\r\n")).hasSize(3);
     }
 
     @Test
-    void quotesAFieldThatContainsAComma() {
-        assertThat(writer.write(List.of(aPassbook()))).contains("\"Fortuneo, Livret A\"");
+    void quotesAFieldThatContainsTheSeparator() {
+        assertThat(writer.write(List.of(aPassbook()))).contains("\"Fortuneo; Livret A\"");
+    }
+
+    @Test
+    void leavesACommaAloneNowThatItSeparatesNothing() {
+        assertThat(writer.write(List.of(aHoldingNamed("Amundi, MSCI World")))).contains("Amundi, MSCI World");
     }
 
     @Test
@@ -47,9 +47,9 @@ class HoldingCsvWriterTest {
 
     @Test
     void leavesAnUnknownValueEmptyRatherThanWritingAZero() {
-        String row = writer.write(List.of(aPassbook())).split("\r\n")[2];
+        String row = writer.write(List.of(aPassbook())).split("\r\n")[1];
 
-        assertThat(row).contains(",,").doesNotContain(",0,");
+        assertThat(row).contains(";;").doesNotContain(";0;");
     }
 
     @Test
@@ -60,8 +60,8 @@ class HoldingCsvWriterTest {
     }
 
     @Test
-    void producesNoRowAtAllForAnEmptyPortfolio() {
-        assertThat(writer.write(List.of()).substring(1).split("\r\n")).hasSize(2);
+    void producesOnlyAHeaderForAnEmptyPortfolio() {
+        assertThat(writer.write(List.of()).substring(1).split("\r\n")).hasSize(1);
     }
 
     private static HoldingResponse anEtf() {
@@ -80,7 +80,7 @@ class HoldingCsvWriterTest {
 
     private static HoldingResponse aPassbook() {
         HoldingResponse holding = new HoldingResponse();
-        holding.setAccountName("Fortuneo, Livret A");
+        holding.setAccountName("Fortuneo; Livret A");
         holding.setInstrumentName("Livret A");
         holding.setQuantity(new BigDecimal("5000"));
         holding.setMarketValueEur(new BigDecimal("5000"));

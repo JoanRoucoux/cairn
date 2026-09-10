@@ -7,16 +7,25 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
-/** Writes an RFC 4180 CSV export of the holdings, one row per holding. */
+/** Writes the CSV export of the holdings, one row per holding. */
 @Component
 public class HoldingCsvWriter {
 
-    private static final String HEADER =
-            "account,instrument,isin,quantity,averageCost,price,marketValueEur,unrealizedGainEur,priceAsOf";
-    private static final char SEPARATOR = ',';
+    private static final String HEADER = String.join(
+            String.valueOf(CsvFormat.SEPARATOR),
+            "account",
+            "instrument",
+            "isin",
+            "quantity",
+            "averageCost",
+            "price",
+            "marketValueEur",
+            "unrealizedGainEur",
+            "priceAsOf");
 
     public String write(List<HoldingResponse> holdings) {
-        StringBuilder csv = new StringBuilder(CsvFormat.PREAMBLE).append(HEADER).append(CsvFormat.LINE_ENDING);
+        StringBuilder csv =
+                new StringBuilder(CsvFormat.BYTE_ORDER_MARK).append(HEADER).append(CsvFormat.LINE_ENDING);
 
         for (HoldingResponse holding : holdings) {
             csv.append(Stream.of(
@@ -30,7 +39,7 @@ public class HoldingCsvWriter {
                                     holding.getUnrealizedGainEur(),
                                     holding.getPriceAsOf())
                             .map(HoldingCsvWriter::field)
-                            .collect(Collectors.joining(String.valueOf(SEPARATOR))))
+                            .collect(Collectors.joining(String.valueOf(CsvFormat.SEPARATOR))))
                     .append(CsvFormat.LINE_ENDING);
         }
 
@@ -43,7 +52,8 @@ public class HoldingCsvWriter {
         }
 
         String text = value instanceof BigDecimal number ? number.toPlainString() : value.toString();
-        boolean needsQuoting = text.chars().anyMatch(c -> c == '"' || c == SEPARATOR || c == '\r' || c == '\n');
+        boolean needsQuoting =
+                text.chars().anyMatch(c -> c == '"' || c == CsvFormat.SEPARATOR || c == '\r' || c == '\n');
 
         return needsQuoting ? '"' + text.replace("\"", "\"\"") + '"' : text;
     }

@@ -15,16 +15,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class PortfolioCsvReader {
 
-    public static final String HEADER = "account,accountType,institution,instrument,isinOrTicker,quantity,averageCost";
+    public static final String HEADER = String.join(
+            String.valueOf(CsvFormat.SEPARATOR),
+            "account",
+            "accountType",
+            "institution",
+            "instrument",
+            "isinOrTicker",
+            "quantity",
+            "averageCost");
 
     /** The empty file handed out by {@code GET /portfolio/import/template}, ready to fill in. */
-    public static final String TEMPLATE = CsvFormat.PREAMBLE + HEADER + CsvFormat.LINE_ENDING;
+    public static final String TEMPLATE = CsvFormat.BYTE_ORDER_MARK + HEADER + CsvFormat.LINE_ENDING;
 
     private static final int COLUMNS = 7;
     /** Not a data row: the header or the file itself. */
     private static final int HEADER_ROW = -1;
 
-    private static final char SEPARATOR = ',';
     private static final char QUOTE = '"';
 
     /**
@@ -104,15 +111,11 @@ public class PortfolioCsvReader {
     private static List<String> lines(String csv) {
         String withoutBom =
                 csv.startsWith(CsvFormat.BYTE_ORDER_MARK) ? csv.substring(CsvFormat.BYTE_ORDER_MARK.length()) : csv;
-        List<String> lines = withoutBom.lines().filter(line -> !line.isBlank()).toList();
 
-        boolean startsWithHint = !lines.isEmpty()
-                && lines.getFirst().trim().toLowerCase(Locale.ROOT).startsWith(CsvFormat.SEPARATOR_HINT_PREFIX);
-
-        return startsWithHint ? lines.subList(1, lines.size()) : lines;
+        return withoutBom.lines().filter(line -> !line.isBlank()).toList();
     }
 
-    /** RFC 4180 quoting: the writer quotes any field holding a comma, so a plain split would tear it apart. */
+    /** The writer quotes any field holding the separator, so a plain split would tear it apart. */
     private static List<String> splitFields(String line) {
         List<String> fields = new ArrayList<>();
         StringBuilder field = new StringBuilder();
@@ -124,7 +127,7 @@ public class PortfolioCsvReader {
                 i++;
             } else if (c == QUOTE) {
                 quoted = !quoted;
-            } else if (c == SEPARATOR && !quoted) {
+            } else if (c == CsvFormat.SEPARATOR && !quoted) {
                 fields.add(field.toString().trim());
                 field.setLength(0);
             } else {

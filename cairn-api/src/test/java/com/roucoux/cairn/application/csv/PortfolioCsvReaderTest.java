@@ -21,8 +21,8 @@ class PortfolioCsvReaderTest {
     @Test
     void reportsEveryUnreadableRowAtOnceRatherThanThrowingOnTheFirst() {
         String csv = PortfolioCsvReader.HEADER + "\r\n"
-                + "Sample Broker,NOT_A_TYPE,Sample Bank,Tracker,LU0000000001,100,20.00\r\n"
-                + "Sample Broker,PEA,Sample Bank,Tracker,LU0000000002,not-a-number,20.00\r\n";
+                + "Sample Broker;NOT_A_TYPE;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"
+                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000002;not-a-number;20.00\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
@@ -36,7 +36,20 @@ class PortfolioCsvReaderTest {
 
     @Test
     void refusesAFileWhoseHeaderIsNotTheTemplate() {
-        String csv = "account,quantity\r\nSample Broker,100\r\n";
+        String csv = "account;quantity\r\nSample Broker;100\r\n";
+
+        assertThatThrownBy(() -> reader.read(csv))
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .singleElement()
+                .extracting(ImportError::code)
+                .isEqualTo(ImportErrorCode.BAD_HEADER);
+    }
+
+    @Test
+    void refusesTheHeaderOfACommaSeparatedFile() {
+        String csv = "account,accountType,institution,instrument,isinOrTicker,quantity,averageCost\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
@@ -49,7 +62,7 @@ class PortfolioCsvReaderTest {
 
     @Test
     void refusesARowThatDoesNotHaveEveryColumn() {
-        String csv = PortfolioCsvReader.HEADER + "\r\nSample Broker,PEA,Sample Bank\r\n";
+        String csv = PortfolioCsvReader.HEADER + "\r\nSample Broker;PEA;Sample Bank\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
@@ -62,8 +75,8 @@ class PortfolioCsvReaderTest {
 
     @Test
     void readsAWellFormedFileIntoRows() {
-        String csv = PortfolioCsvReader.HEADER + "\r\n" + "Sample Broker,PEA,Sample Bank,Global Growth Tracker,"
-                + "LU0000000001,100,20.00\r\n";
+        String csv = PortfolioCsvReader.HEADER + "\r\n"
+                + "Sample Broker;PEA;Sample Bank;Global Growth Tracker;LU0000000001;100;20.00\r\n";
 
         List<ImportRow> rows = reader.read(csv);
 
@@ -81,7 +94,7 @@ class PortfolioCsvReaderTest {
     @Test
     void readsBackTheTemplateItHandsOut() {
         String csv = PortfolioCsvReader.TEMPLATE
-                + "Sample Broker,PEA,Sample Bank,Global Growth Tracker,LU0000000001,100,20.00\r\n";
+                + "Sample Broker;PEA;Sample Bank;Global Growth Tracker;LU0000000001;100;20.00\r\n";
 
         assertThat(reader.read(csv))
                 .singleElement()
@@ -89,11 +102,12 @@ class PortfolioCsvReaderTest {
     }
 
     @Test
-    void takesASeparatorHintOnlyAsTheFirstLine() {
-        String csv = PortfolioCsvReader.HEADER + "\r\nsep=x,PEA,Sample Bank,Tracker,LU0000000001,100,20.00\r\n";
+    void keepsACommaInsideAFieldRatherThanSplittingOnIt() {
+        String csv = PortfolioCsvReader.HEADER + "\r\n"
+                + "Fortuneo, Livret A;SAVINGS;Fortuneo;Livret A;LIVRETA;5000;1.00\r\n";
 
         assertThat(reader.read(csv))
                 .singleElement()
-                .satisfies(row -> assertThat(row.accountName()).isEqualTo("sep=x"));
+                .satisfies(row -> assertThat(row.accountName()).isEqualTo("Fortuneo, Livret A"));
     }
 }
