@@ -1,6 +1,7 @@
 package com.roucoux.cairn.application.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -190,7 +191,8 @@ class PortfolioControllerTest {
     void servesTheImportTemplateAsItsOwnHeaderRow() throws Exception {
         mockMvc.perform(get("/portfolio/import/template").with(user("joan")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString(PortfolioCsvReader.HEADER)));
+                .andExpect(content().string(containsString(PortfolioCsvReader.HEADER)))
+                .andExpect(content().string(startsWith("﻿sep=,\r\n")));
     }
 
     private static ValuedHolding aValuedHolding(Holding holding) {

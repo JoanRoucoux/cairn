@@ -17,13 +17,15 @@ public class PortfolioCsvReader {
 
     public static final String HEADER = "account,accountType,institution,instrument,isinOrTicker,quantity,averageCost";
 
+    /** The empty file handed out by {@code GET /portfolio/import/template}, ready to fill in. */
+    public static final String TEMPLATE = CsvFormat.PREAMBLE + HEADER + CsvFormat.LINE_ENDING;
+
     private static final int COLUMNS = 7;
     /** Not a data row: the header or the file itself. */
     private static final int HEADER_ROW = -1;
 
     private static final char SEPARATOR = ',';
     private static final char QUOTE = '"';
-    private static final String BYTE_ORDER_MARK = "﻿";
 
     /**
      * Structural reading only: shape, types and enums. Whether a row makes business sense is the
@@ -100,8 +102,14 @@ public class PortfolioCsvReader {
     }
 
     private static List<String> lines(String csv) {
-        String withoutBom = csv.startsWith(BYTE_ORDER_MARK) ? csv.substring(BYTE_ORDER_MARK.length()) : csv;
-        return withoutBom.lines().filter(line -> !line.isBlank()).toList();
+        String withoutBom =
+                csv.startsWith(CsvFormat.BYTE_ORDER_MARK) ? csv.substring(CsvFormat.BYTE_ORDER_MARK.length()) : csv;
+        List<String> lines = withoutBom.lines().filter(line -> !line.isBlank()).toList();
+
+        boolean startsWithHint = !lines.isEmpty()
+                && lines.getFirst().trim().toLowerCase(Locale.ROOT).startsWith(CsvFormat.SEPARATOR_HINT_PREFIX);
+
+        return startsWithHint ? lines.subList(1, lines.size()) : lines;
     }
 
     /** RFC 4180 quoting: the writer quotes any field holding a comma, so a plain split would tear it apart. */

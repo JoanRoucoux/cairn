@@ -77,4 +77,23 @@ class PortfolioCsvReaderTest {
             assertThat(row.averageCost()).isEqualByComparingTo("20.00");
         });
     }
+
+    @Test
+    void readsBackTheTemplateItHandsOut() {
+        String csv = PortfolioCsvReader.TEMPLATE
+                + "Sample Broker,PEA,Sample Bank,Global Growth Tracker,LU0000000001,100,20.00\r\n";
+
+        assertThat(reader.read(csv))
+                .singleElement()
+                .satisfies(row -> assertThat(row.accountName()).isEqualTo("Sample Broker"));
+    }
+
+    @Test
+    void takesASeparatorHintOnlyAsTheFirstLine() {
+        String csv = PortfolioCsvReader.HEADER + "\r\nsep=x,PEA,Sample Bank,Tracker,LU0000000001,100,20.00\r\n";
+
+        assertThat(reader.read(csv))
+                .singleElement()
+                .satisfies(row -> assertThat(row.accountName()).isEqualTo("sep=x"));
+    }
 }

@@ -71,7 +71,7 @@ class PortfolioController implements PortfolioApi {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"cairn-import-template.csv\"")
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .body(PortfolioCsvReader.HEADER + "\r\n");
+                .body(PortfolioCsvReader.TEMPLATE);
     }
 
     @Override

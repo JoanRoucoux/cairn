@@ -21,13 +21,18 @@ class HoldingCsvWriterTest {
     }
 
     @Test
+    void announcesTheSeparatorSoThatExcelSplitsTheColumnsInEveryLocale() {
+        assertThat(writer.write(List.of()).substring(1).split("\r\n")[0]).isEqualTo("sep=,");
+    }
+
+    @Test
     void startsWithAHeaderRow() {
-        assertThat(writer.write(List.of()).substring(1).split("\r\n")[0]).isEqualTo(HEADER);
+        assertThat(writer.write(List.of()).substring(1).split("\r\n")[1]).isEqualTo(HEADER);
     }
 
     @Test
     void writesOneRowPerHolding() {
-        assertThat(writer.write(List.of(anEtf(), aPassbook())).split("\r\n")).hasSize(3);
+        assertThat(writer.write(List.of(anEtf(), aPassbook())).split("\r\n")).hasSize(4);
     }
 
     @Test
@@ -42,7 +47,7 @@ class HoldingCsvWriterTest {
 
     @Test
     void leavesAnUnknownValueEmptyRatherThanWritingAZero() {
-        String row = writer.write(List.of(aPassbook())).split("\r\n")[1];
+        String row = writer.write(List.of(aPassbook())).split("\r\n")[2];
 
         assertThat(row).contains(",,").doesNotContain(",0,");
     }
@@ -55,8 +60,8 @@ class HoldingCsvWriterTest {
     }
 
     @Test
-    void producesOnlyAHeaderForAnEmptyPortfolio() {
-        assertThat(writer.write(List.of()).substring(1).split("\r\n")).hasSize(1);
+    void producesNoRowAtAllForAnEmptyPortfolio() {
+        assertThat(writer.write(List.of()).substring(1).split("\r\n")).hasSize(2);
     }
 
     private static HoldingResponse anEtf() {

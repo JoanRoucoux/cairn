@@ -14,11 +14,9 @@ public class HoldingCsvWriter {
     private static final String HEADER =
             "account,instrument,isin,quantity,averageCost,price,marketValueEur,unrealizedGainEur,priceAsOf";
     private static final char SEPARATOR = ',';
-    private static final String LINE_ENDING = "\r\n";
-    private static final String BYTE_ORDER_MARK = "﻿";
 
     public String write(List<HoldingResponse> holdings) {
-        StringBuilder csv = new StringBuilder(BYTE_ORDER_MARK).append(HEADER).append(LINE_ENDING);
+        StringBuilder csv = new StringBuilder(CsvFormat.PREAMBLE).append(HEADER).append(CsvFormat.LINE_ENDING);
 
         for (HoldingResponse holding : holdings) {
             csv.append(Stream.of(
@@ -33,7 +31,7 @@ public class HoldingCsvWriter {
                                     holding.getPriceAsOf())
                             .map(HoldingCsvWriter::field)
                             .collect(Collectors.joining(String.valueOf(SEPARATOR))))
-                    .append(LINE_ENDING);
+                    .append(CsvFormat.LINE_ENDING);
         }
 
         return csv.toString();
