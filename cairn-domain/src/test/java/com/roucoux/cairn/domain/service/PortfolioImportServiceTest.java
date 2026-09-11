@@ -7,6 +7,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -69,8 +70,12 @@ class PortfolioImportServiceTest {
 
     @Test
     void reportsEveryInvalidRowAtOnceAndWritesNothing() {
-        PortfolioImportService service =
-                serviceResolving(query -> "LU0000000001".equals(query) ? List.of(aCandidate()) : List.of());
+        PortfolioImportService service = serviceResolving(query -> {
+            if ("LU0000000001".equals(query)) {
+                return List.of(aCandidate());
+            }
+            throw new UnknownInstrumentException(query);
+        });
 
         assertThatThrownBy(() -> service.importPortfolio(List.of(
                         aRow(BigDecimal.ZERO, new BigDecimal("20")), rowFor("UNKNOWN-TICKER", new BigDecimal("5")))))

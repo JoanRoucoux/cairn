@@ -1,6 +1,7 @@
 package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
@@ -118,11 +119,10 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             if (known.containsKey(ref) || candidates.containsKey(ref)) {
                 continue;
             }
-            List<InstrumentCandidate> found = resolveInstrument.resolve(ref);
-            if (found.isEmpty()) {
+            try {
+                candidates.put(ref, resolveInstrument.resolve(ref).getFirst());
+            } catch (UnknownInstrumentException unknown) {
                 errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
-            } else {
-                candidates.put(ref, found.getFirst());
             }
         }
 
