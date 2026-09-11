@@ -10,7 +10,6 @@ import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedExcept
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
-import com.roucoux.cairn.domain.model.ImportRow;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -25,13 +24,13 @@ class PortfolioCsvReaderTest {
                 + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000002;not-a-number;20.00\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
-                .asInstanceOf(type(PortfolioImportRejectedException.class))
-                .extracting(PortfolioImportRejectedException::errors)
-                .asInstanceOf(list(ImportError.class))
-                .extracting(ImportError::rowIndex, ImportError::code, ImportError::value)
+                .asInstanceOf(type(ImportFileRejectedException.class))
+                .extracting(ImportFileRejectedException::errors)
+                .asInstanceOf(list(LineError.class))
+                .extracting(LineError::line, LineError::code, LineError::value)
                 .containsExactly(
-                        tuple(0, ImportErrorCode.UNKNOWN_ACCOUNT_TYPE, "NOT_A_TYPE"),
-                        tuple(1, ImportErrorCode.NOT_A_NUMBER, "not-a-number"));
+                        tuple(2, ImportErrorCode.UNKNOWN_ACCOUNT_TYPE, "NOT_A_TYPE"),
+                        tuple(3, ImportErrorCode.NOT_A_NUMBER, "not-a-number"));
     }
 
     @Test
@@ -39,12 +38,12 @@ class PortfolioCsvReaderTest {
         String csv = "account;quantity\r\nSample Broker;100\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
-                .asInstanceOf(type(PortfolioImportRejectedException.class))
-                .extracting(PortfolioImportRejectedException::errors)
-                .asInstanceOf(list(ImportError.class))
+                .asInstanceOf(type(ImportFileRejectedException.class))
+                .extracting(ImportFileRejectedException::errors)
+                .asInstanceOf(list(LineError.class))
                 .singleElement()
-                .extracting(ImportError::code)
-                .isEqualTo(ImportErrorCode.BAD_HEADER);
+                .extracting(LineError::line, LineError::code)
+                .containsExactly(1, ImportErrorCode.BAD_HEADER);
     }
 
     @Test
@@ -52,11 +51,11 @@ class PortfolioCsvReaderTest {
         String csv = "account,accountType,institution,instrument,isinOrTicker,quantity,averageCost\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
-                .asInstanceOf(type(PortfolioImportRejectedException.class))
-                .extracting(PortfolioImportRejectedException::errors)
-                .asInstanceOf(list(ImportError.class))
+                .asInstanceOf(type(ImportFileRejectedException.class))
+                .extracting(ImportFileRejectedException::errors)
+                .asInstanceOf(list(LineError.class))
                 .singleElement()
-                .extracting(ImportError::code)
+                .extracting(LineError::code)
                 .isEqualTo(ImportErrorCode.BAD_HEADER);
     }
 
@@ -65,11 +64,11 @@ class PortfolioCsvReaderTest {
         String csv = PortfolioCsvReader.HEADER + "\r\nSample Broker;PEA;Sample Bank\r\n";
 
         assertThatThrownBy(() -> reader.read(csv))
-                .asInstanceOf(type(PortfolioImportRejectedException.class))
-                .extracting(PortfolioImportRejectedException::errors)
-                .asInstanceOf(list(ImportError.class))
+                .asInstanceOf(type(ImportFileRejectedException.class))
+                .extracting(ImportFileRejectedException::errors)
+                .asInstanceOf(list(LineError.class))
                 .singleElement()
-                .extracting(ImportError::code)
+                .extracting(LineError::code)
                 .isEqualTo(ImportErrorCode.WRONG_COLUMN_COUNT);
     }
 
@@ -78,9 +77,9 @@ class PortfolioCsvReaderTest {
         String csv = PortfolioCsvReader.HEADER + "\r\n"
                 + "Sample Broker;PEA;Sample Bank;Global Growth Tracker;LU0000000001;100;20.00\r\n";
 
-        List<ImportRow> rows = reader.read(csv);
+        ImportFile file = reader.read(csv);
 
-        assertThat(rows).singleElement().satisfies(row -> {
+        assertThat(file.rows()).singleElement().satisfies(row -> {
             assertThat(row.accountName()).isEqualTo("Sample Broker");
             assertThat(row.accountType()).isEqualTo(AccountType.PEA);
             assertThat(row.institution()).isEqualTo("Sample Bank");
@@ -96,9 +95,47 @@ class PortfolioCsvReaderTest {
         String csv = PortfolioCsvReader.TEMPLATE
                 + "Sample Broker;PEA;Sample Bank;Global Growth Tracker;LU0000000001;100;20.00\r\n";
 
-        assertThat(reader.read(csv))
+        assertThat(reader.read(csv).rows())
                 .singleElement()
                 .satisfies(row -> assertThat(row.accountName()).isEqualTo("Sample Broker"));
+    }
+
+    @Test
+    void handsOutATemplateWhoseExamplesAreNeverImported() {
+        assertThat(PortfolioCsvReader.TEMPLATE.lines().filter(line -> line.startsWith("#")))
+                .isNotEmpty();
+        assertThat(reader.read(PortfolioCsvReader.TEMPLATE).rows()).isEmpty();
+    }
+
+    @Test
+    void numbersARefusedRowByItsLineInTheFileCountingTheLinesItSkipped() {
+        String csv = PortfolioCsvReader.HEADER + "\r\n"
+                + "# Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"
+                + "\r\n"
+                + "Sample Broker;NOT_A_TYPE;Sample Bank;Tracker;LU0000000001;100;20.00\r\n";
+
+        assertThatThrownBy(() -> reader.read(csv))
+                .asInstanceOf(type(ImportFileRejectedException.class))
+                .extracting(ImportFileRejectedException::errors)
+                .asInstanceOf(list(LineError.class))
+                .singleElement()
+                .extracting(LineError::line)
+                .isEqualTo(4);
+    }
+
+    @Test
+    void locatesTheDomainsRefusalsOnTheLinesTheirRowsCameFrom() {
+        ImportFile file = reader.read(PortfolioCsvReader.HEADER + "\r\n"
+                + "# Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"
+                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"
+                + "\r\n"
+                + "Sample Broker;PEA;Sample Bank;Other;LU0000000002;5;\r\n");
+        PortfolioImportRejectedException refused = new PortfolioImportRejectedException(
+                List.of(new ImportError(1, ImportErrorCode.UNRESOLVED_INSTRUMENT, "LU0000000002")));
+
+        assertThat(file.locate(refused).errors())
+                .extracting(LineError::line, LineError::code, LineError::value)
+                .containsExactly(tuple(5, ImportErrorCode.UNRESOLVED_INSTRUMENT, "LU0000000002"));
     }
 
     @Test
@@ -106,7 +143,7 @@ class PortfolioCsvReaderTest {
         String csv = PortfolioCsvReader.HEADER + "\r\n"
                 + "Fortuneo, Livret A;SAVINGS;Fortuneo;Livret A;LIVRETA;5000;1.00\r\n";
 
-        assertThat(reader.read(csv))
+        assertThat(reader.read(csv).rows())
                 .singleElement()
                 .satisfies(row -> assertThat(row.accountName()).isEqualTo("Fortuneo, Livret A"));
     }

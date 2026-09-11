@@ -1,9 +1,11 @@
 package com.roucoux.cairn.application.controller;
 
 import com.roucoux.cairn.application.csv.HoldingCsvWriter;
+import com.roucoux.cairn.application.csv.ImportFile;
 import com.roucoux.cairn.application.csv.PortfolioCsvReader;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
+import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
@@ -63,7 +65,12 @@ class PortfolioController implements PortfolioApi {
 
     @Override
     public ResponseEntity<ImportReportResponse> importPortfolio(String body) {
-        return ResponseEntity.ok(mapper.toResponse(importPortfolio.run(csvReader.read(body))));
+        ImportFile file = csvReader.read(body);
+        try {
+            return ResponseEntity.ok(mapper.toResponse(importPortfolio.run(file.rows())));
+        } catch (PortfolioImportRejectedException refused) {
+            throw file.locate(refused);
+        }
     }
 
     @Override

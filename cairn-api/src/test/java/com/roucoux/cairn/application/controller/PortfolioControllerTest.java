@@ -179,9 +179,10 @@ class PortfolioControllerTest {
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
+                                + "# Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"
                                 + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;100;20.00\r\n"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.errors[0].line").value(2))
+                .andExpect(jsonPath("$.errors[0].line").value(3))
                 .andExpect(jsonPath("$.errors[0].code").value("UNRESOLVED_INSTRUMENT"))
                 .andExpect(jsonPath("$.errors[0].value").value("GGT.PA"));
     }

@@ -1,10 +1,10 @@
 package com.roucoux.cairn.application.exception;
 
+import com.roucoux.cairn.application.csv.ImportFileRejectedException;
+import com.roucoux.cairn.application.csv.LineError;
 import com.roucoux.cairn.domain.exception.business.BusinessException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
-import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
-import com.roucoux.cairn.domain.model.ImportError;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -29,12 +29,12 @@ class ApiExceptionHandler {
     }
 
     /**
-     * Declared before the {@link BusinessException} family it belongs to, because a rejected import
-     * carries more than a message: RFC 9457 lets the reasons ride along as an extension member, so
-     * the caller can fix every row in one pass instead of rediscovering them one deploy at a time.
+     * A rejected import carries more than a message: RFC 9457 lets the reasons ride along as an
+     * extension member, so the caller can fix every line in one pass instead of rediscovering them one
+     * deploy at a time.
      */
-    @ExceptionHandler(PortfolioImportRejectedException.class)
-    ProblemDetail handleImportRejected(PortfolioImportRejectedException exception) {
+    @ExceptionHandler(ImportFileRejectedException.class)
+    ProblemDetail handleImportRejected(ImportFileRejectedException exception) {
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
         problem.setTitle("Import rejected");
@@ -48,19 +48,14 @@ class ApiExceptionHandler {
      * A code and the offending token, never a sentence: the caller owns the wording and can
      * translate it. {@code value} is omitted rather than sent null when the failure has no token.
      */
-    private static Map<String, Object> asMember(ImportError error) {
+    private static Map<String, Object> asMember(LineError error) {
         Map<String, Object> member = new LinkedHashMap<>();
-        member.put("line", lineOf(error));
+        member.put("line", error.line());
         member.put("code", error.code().name());
         if (error.value() != null) {
             member.put("value", error.value());
         }
         return member;
-    }
-
-    /** The domain counts data rows from zero; a person reading the file counts every line from one. */
-    private static int lineOf(ImportError error) {
-        return error.rowIndex() + 2;
     }
 
     @ExceptionHandler(BusinessException.class)

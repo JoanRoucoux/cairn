@@ -79,10 +79,14 @@ was the first shape tried. The controller depends on that class, not on the port
 transaction cannot be bypassed by accident.
 
 Validation happens twice on purpose: `PortfolioCsvReader` checks shape, types and enums, the domain
-checks business rules. Both refuse by throwing `PortfolioImportRejectedException` with **every**
-offending row, never just the first, and both leave the database untouched. The advice turns that
-into an RFC 9457 `errors` extension member; it also converts the domain's zero-based row index into
-a one-based file line.
+checks business rules. Both refuse with **every** offending row, never just the first, and both
+leave the database untouched. The reader throws `ImportFileRejectedException`, whose errors already
+carry the one-based file line. The domain throws `PortfolioImportRejectedException`, whose errors
+carry a zero-based row index, and the controller places them back on their lines through the
+`ImportFile` the reader returned. A row's line is not its index plus a constant: the reader skips
+blank lines and lines starting with `#`, which is how the template's commented example rows stay in
+the file without ever being imported. The advice only renders the lines as an RFC 9457 `errors`
+extension member.
 
 An `ImportError` carries an **`ImportErrorCode` and the offending token, never a sentence**. The
 consumer is a bilingual UI whose convention is that error wording comes from its own translation
