@@ -43,6 +43,7 @@ public class PortfolioRestMapper {
             response.setUnrealizedGainRatio(ratio(gain.amount(), costBasisTotal(portfolio, gain)));
         });
         response.setStaleCount(portfolio.staleCount());
+        response.setUnvaluedCount(portfolio.unvaluedCount());
         response.setGeneratedAt(OffsetDateTime.now(clock));
         response.setByAssetClass(
                 portfolio.byAssetClass().stream().map(this::toAllocation).toList());

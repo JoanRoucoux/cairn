@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +62,18 @@ class ValuedHoldingStalenessTest {
                 .isFalse();
     }
 
+    @Test
+    void aHoldingWithNoQuoteIsNeverStale() {
+        UUID instrumentId = UUID.randomUUID();
+        Instrument instrument = new Instrument(
+                instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
+        Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
+        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+
+        assertThat(new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty()).isStale(CLOCK))
+                .isFalse();
+    }
+
     private static ValuedHolding line(AssetClass assetClass, LocalDate asOf, Instant fetchedAt) {
         UUID instrumentId = UUID.randomUUID();
         PriceSource source = assetClass == AssetClass.CASH ? PriceSource.MANUAL : PriceSource.YAHOO;
@@ -69,6 +82,6 @@ class ValuedHoldingStalenessTest {
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
         Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
         Quote quote = new Quote(instrumentId, asOf, BigDecimal.TEN, "EUR", source, fetchedAt);
-        return new ValuedHolding(holding, instrument, account, quote, null);
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 }

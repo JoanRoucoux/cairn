@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -83,6 +84,19 @@ class PortfolioServiceTest {
     }
 
     @Test
+    void aMixOfValuedAndUnvaluedLinesGivesAPartialTotalAndTheUnvaluedCount() {
+        Line valued = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
+        Line unvalued = unvaluedLine(AssetClass.EQUITY);
+        PortfolioService service = serviceWith(List.of(valued, unvalued));
+
+        Portfolio portfolio = service.get();
+
+        assertThat(portfolio.total().amount()).isEqualByComparingTo("500");
+        assertThat(portfolio.unvaluedCount()).isEqualTo(1);
+        assertThat(portfolio.holdings()).hasSize(2);
+    }
+
+    @Test
     void rejectsANonEurHoldingInsteadOfCrashingTheWholePortfolio() {
         Line eurLine = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
         Line usdLine = nonEurLine("US0000000001", "USD");
@@ -115,6 +129,15 @@ class PortfolioServiceTest {
         return line(BigDecimal.ONE, null, assetClass, BigDecimal.TEN, asOf);
     }
 
+    private static Line unvaluedLine(AssetClass assetClass) {
+        UUID instrumentId = UUID.randomUUID();
+        Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
+        Instrument instrument =
+                new Instrument(instrumentId, "Test", null, "EUR", assetClass, PriceSource.YAHOO, "TEST.PA", null);
+        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        return new Line(holding, instrument, account, null);
+    }
+
     private static Line line(
             BigDecimal quantity, BigDecimal averageCost, AssetClass assetClass, BigDecimal price, LocalDate asOf) {
         UUID instrumentId = UUID.randomUUID();
@@ -131,7 +154,8 @@ class PortfolioServiceTest {
         List<Holding> holdings = lines.stream().map(Line::holding).toList();
         List<Instrument> instruments = lines.stream().map(Line::instrument).toList();
         List<Account> accounts = lines.stream().map(Line::account).distinct().toList();
-        List<Quote> quotes = lines.stream().map(Line::quote).toList();
+        List<Quote> quotes =
+                lines.stream().map(Line::quote).filter(Objects::nonNull).toList();
 
         LoadHoldingsPort loadHoldings = new LoadHoldingsPort() {
             @Override

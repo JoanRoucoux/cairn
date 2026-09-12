@@ -212,7 +212,7 @@ class PortfolioControllerTest {
                 "USD",
                 PriceSource.YAHOO,
                 Instant.parse("2026-08-26T20:00:00Z"));
-        return new ValuedHolding(holding, instrument, account, quote, null);
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 
     private static Portfolio aPortfolioOf(BigDecimal total) {
@@ -224,6 +224,7 @@ class PortfolioControllerTest {
                 List.of(),
                 List.of(),
                 List.of(aHolding()),
+                0,
                 0);
     }
 
@@ -235,6 +236,7 @@ class PortfolioControllerTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                0,
                 0);
     }
 
@@ -252,6 +254,6 @@ class PortfolioControllerTest {
                 "USD",
                 PriceSource.YAHOO,
                 Instant.parse("2026-08-26T20:00:00Z"));
-        return new ValuedHolding(holding, instrument, account, quote, null);
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 }

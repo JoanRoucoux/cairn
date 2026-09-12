@@ -118,6 +118,37 @@ class YahooQuoteAdapterTest {
     }
 
     @Test
+    void readsThePriceFromMetaWhenTheResponseCarriesNoSeries() {
+        stub("/v8/finance/chart/0P0001D8GQ.F", "fixtures/yahoo-chart-fund-meta-only.json");
+
+        Quote quote = adapter.fetch(fund("0P0001D8GQ.F"));
+
+        assertThat(quote.price()).isEqualByComparingTo("129.52");
+        assertThat(quote.currency()).isEqualTo("EUR");
+        assertThat(quote.asOf()).isEqualTo(LocalDate.of(2026, 8, 20));
+    }
+
+    @Test
+    void readsTheHistoryFromMetaWhenTheResponseCarriesNoSeries() {
+        stub("/v8/finance/chart/0P0001D8GQ.F", "fixtures/yahoo-chart-fund-meta-only.json");
+
+        List<Quote> history = adapter.fetchHistory(fund("0P0001D8GQ.F"), LocalDate.of(2026, 1, 1));
+
+        assertThat(history).singleElement().satisfies(quote -> {
+            assertThat(quote.price()).isEqualByComparingTo("129.52");
+            assertThat(quote.asOf()).isEqualTo(LocalDate.of(2026, 8, 20));
+        });
+    }
+
+    @Test
+    void raisesWhenTheResponseCarriesNoSeriesAndNoMetaPriceEither() {
+        stub("/v8/finance/chart/0P0001D8GQ.F", "fixtures/yahoo-chart-fund-meta-only-no-price.json");
+
+        assertThatThrownBy(() -> adapter.fetch(fund("0P0001D8GQ.F")))
+                .isInstanceOf(MarketDataUnavailableException.class);
+    }
+
+    @Test
     void raisesWhenTheProviderFails() {
         wireMock.stubFor(get(urlPathMatching("/v8/finance/chart/.*")).willReturn(serverError()));
 

@@ -3,6 +3,7 @@ package com.roucoux.cairn.domain.service;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
@@ -30,15 +31,8 @@ public class HoldingValuationService implements ValueHoldingUseCase {
         if (instrument.isEmpty() || account.isEmpty()) {
             return Optional.empty();
         }
-        return loadQuotes
-                .findLatest(holding.instrumentId())
-                .map(quote -> new ValuedHolding(
-                        holding,
-                        instrument.get(),
-                        account.get(),
-                        quote,
-                        loadQuotes
-                                .findPrevious(holding.instrumentId(), quote.asOf())
-                                .orElse(null)));
+        Optional<Quote> quote = loadQuotes.findLatest(holding.instrumentId());
+        Optional<Quote> previousQuote = quote.flatMap(q -> loadQuotes.findPrevious(holding.instrumentId(), q.asOf()));
+        return Optional.of(new ValuedHolding(holding, instrument.get(), account.get(), quote, previousQuote));
     }
 }

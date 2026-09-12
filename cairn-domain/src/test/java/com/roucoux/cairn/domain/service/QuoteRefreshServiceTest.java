@@ -79,6 +79,20 @@ class QuoteRefreshServiceTest {
     }
 
     @Test
+    void anUnexpectedFailureDoesNotStopTheOthersEither() {
+        FetchQuotePort crashing = new CrashingPort(PriceSource.YAHOO, ETF2.id());
+        QuoteRefreshService service = service(List.of(crashing), List.of(ETF2, ETF));
+
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
+
+        assertThat(report.refreshed()).isEqualTo(1);
+        assertThat(report.failures()).singleElement().satisfies(failure -> {
+            assertThat(failure.instrumentId()).isEqualTo(ETF2.id());
+            assertThat(failure.message()).isEqualTo("NullPointerException");
+        });
+    }
+
+    @Test
     void recordsEveryFailureThroughThePort() {
         RecordingFailurePort failures = new RecordingFailurePort();
         QuoteRefreshService service =
@@ -156,6 +170,36 @@ class QuoteRefreshServiceTest {
         public Quote fetch(Instrument instrument) {
             if (instrument.id().equals(failingInstrumentId)) {
                 throw new MarketDataUnavailableException("simulated failure for " + instrument.name());
+            }
+            return new Quote(
+                    instrument.id(), LocalDate.now(), BigDecimal.TEN, instrument.currency(), source, Instant.now());
+        }
+
+        @Override
+        public List<Quote> fetchHistory(Instrument instrument, LocalDate from) {
+            return List.of();
+        }
+    }
+
+    private static final class CrashingPort implements FetchQuotePort {
+        private final PriceSource source;
+        private final UUID crashingInstrumentId;
+
+        private CrashingPort(PriceSource source, UUID crashingInstrumentId) {
+            this.source = source;
+            this.crashingInstrumentId = crashingInstrumentId;
+        }
+
+        @Override
+        public boolean supports(PriceSource candidate) {
+            return candidate == source;
+        }
+
+        @Override
+        public Quote fetch(Instrument instrument) {
+            if (instrument.id().equals(crashingInstrumentId)) {
+                // No message, like the real NullPointerException this reproduces.
+                throw new NullPointerException();
             }
             return new Quote(
                     instrument.id(), LocalDate.now(), BigDecimal.TEN, instrument.currency(), source, Instant.now());

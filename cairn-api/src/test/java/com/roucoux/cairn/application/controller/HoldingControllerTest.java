@@ -134,6 +134,18 @@ class HoldingControllerTest {
     }
 
     @Test
+    void listsAHoldingWithNoQuoteYetWithANullPrice() throws Exception {
+        when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
+        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHoldingWithoutQuote(A_HOLDING)));
+
+        mockMvc.perform(get("/holdings").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].instrumentName").value("Apple Inc."))
+                .andExpect(jsonPath("$[0].price").doesNotExist())
+                .andExpect(jsonPath("$[0].marketValueEur").doesNotExist());
+    }
+
+    @Test
     void omitsAHoldingThatCannotBeValuedFromTheList() throws Exception {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.empty());
@@ -209,6 +221,13 @@ class HoldingControllerTest {
                 "USD",
                 PriceSource.YAHOO,
                 Instant.parse("2026-08-26T20:00:00Z"));
-        return new ValuedHolding(holding, instrument, account, quote, null);
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
+    }
+
+    private static ValuedHolding aValuedHoldingWithoutQuote(Holding holding) {
+        Instrument instrument = new Instrument(
+                INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
+        Account account = new Account(ACCOUNT_ID, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 }

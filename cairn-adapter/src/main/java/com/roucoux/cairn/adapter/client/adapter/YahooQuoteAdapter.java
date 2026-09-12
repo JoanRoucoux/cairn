@@ -40,6 +40,9 @@ public class YahooQuoteAdapter implements FetchQuotePort {
     @Override
     public Quote fetch(Instrument instrument) {
         Chart chart = chart(instrument.sourceRef(), "1d");
+        if (hasNoSeries(chart)) {
+            return metaQuote(instrument, chart);
+        }
         return new Quote(
                 instrument.id(),
                 sessionDate(chart),
@@ -52,6 +55,11 @@ public class YahooQuoteAdapter implements FetchQuotePort {
     @Override
     public List<Quote> fetchHistory(Instrument instrument, LocalDate from) {
         Chart chart = chart(instrument.sourceRef(), "max");
+        if (hasNoSeries(chart)) {
+            Quote quote = metaQuote(instrument, chart);
+
+            return quote.asOf().isBefore(from) ? List.of() : List.of(quote);
+        }
         List<Quote> quotes = new ArrayList<>();
         List<Long> timestamps = chart.timestamp();
         List<BigDecimal> closes = chart.indicators().quote().getFirst().close();
@@ -67,6 +75,29 @@ public class YahooQuoteAdapter implements FetchQuotePort {
             }
         }
         return quotes;
+    }
+
+    private static boolean hasNoSeries(Chart chart) {
+        return chart.timestamp() == null;
+    }
+
+    private static BigDecimal metaPrice(Chart chart, String symbol) {
+        BigDecimal price = chart.meta().regularMarketPrice();
+        if (price == null) {
+            throw new MarketDataUnavailableException("Yahoo returned no price for " + symbol);
+        }
+        return price;
+    }
+
+    /** A fund answers with meta alone: no timestamp key and no close array, but a price and its date. */
+    private static Quote metaQuote(Instrument instrument, Chart chart) {
+        return new Quote(
+                instrument.id(),
+                toLocalDate(chart.meta().regularMarketTime()),
+                metaPrice(chart, instrument.sourceRef()),
+                chart.meta().currency(),
+                PriceSource.YAHOO,
+                Instant.now());
     }
 
     private Chart chart(String symbol, String range) {

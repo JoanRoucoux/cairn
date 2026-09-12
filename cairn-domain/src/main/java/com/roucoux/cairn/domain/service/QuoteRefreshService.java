@@ -52,13 +52,23 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
             try {
                 saveQuote.upsert(refresh(instrument));
                 refreshed++;
-            } catch (MarketDataUnavailableException failure) {
-                recordFailure.record(instrument.id(), instrument.priceSource(), failure.getMessage());
+            } catch (RuntimeException failure) {
+                // Deliberately every runtime failure, not only the expected one: a single provider
+                // answering something nobody foresaw must not leave the other instruments unpriced.
+                String reason = reasonOf(failure);
+                recordFailure.record(instrument.id(), instrument.priceSource(), reason);
                 failures.add(new RefreshReport.Failure(
-                        instrument.id(), instrument.name(), instrument.priceSource(), failure.getMessage()));
+                        instrument.id(), instrument.name(), instrument.priceSource(), reason));
             }
         }
         return new RefreshReport(refreshed, skipped, List.copyOf(failures));
+    }
+
+    /** A NullPointerException carries no message, and "null" as a reason tells the reader nothing. */
+    private static String reasonOf(RuntimeException failure) {
+        String message = failure.getMessage();
+
+        return message == null ? failure.getClass().getSimpleName() : message;
     }
 
     private FetchQuotePort fetcherFor(PriceSource source) {

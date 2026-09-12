@@ -61,13 +61,15 @@ public class HoldingRestMapper {
                 HoldingResponse.AssetClassEnum.valueOf(instrument.assetClass().name()));
         response.setQuantity(holding.quantity());
         holding.costBasis().ifPresent(cost -> response.setAverageCost(scaledAmount(cost)));
-        response.setPrice(scaledAmount(line.quote().price()));
-        response.setPriceCurrency(line.quote().currency());
-        response.setPriceAsOf(line.quote().asOf());
+        line.quote().ifPresent(quote -> {
+            response.setPrice(scaledAmount(quote.price()));
+            response.setPriceCurrency(quote.currency());
+            response.setPriceAsOf(quote.asOf());
+        });
         response.setPriceSource(
                 HoldingResponse.PriceSourceEnum.valueOf(instrument.priceSource().name()));
         response.setStale(line.isStale(clock));
-        response.setMarketValueEur(amount(line.marketValue()));
+        line.marketValue().ifPresent(marketValue -> response.setMarketValueEur(amount(marketValue)));
         line.unrealizedGain().ifPresent(gain -> response.setUnrealizedGainEur(amount(gain)));
         line.unrealizedGainRatio().ifPresent(value -> response.setUnrealizedGainRatio(scaledRatio(value)));
         line.dayChange().ifPresent(change -> response.setDayChangeEur(amount(change)));

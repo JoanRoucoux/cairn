@@ -110,6 +110,17 @@ public class PortfolioSteps {
         assertThat(portfolio.getUnrealizedGainEur()).isNull();
     }
 
+    @Then("the portfolio lists {int} holding with no price")
+    public void thePortfolioListsHoldingWithNoPrice(int count) {
+        assertThat(portfolio.getHoldings()).hasSize(count);
+        assertThat(portfolio.getHoldings().get(0).getPrice()).isNull();
+    }
+
+    @Then("the unvalued count is {int}")
+    public void theUnvaluedCountIs(int count) {
+        assertThat(portfolio.getUnvaluedCount()).isEqualTo(count);
+    }
+
     private void createHolding(int quantity, BigDecimal averageCost) {
         CreateHoldingRequest request = new CreateHoldingRequest();
         request.setAccountId(accountId);

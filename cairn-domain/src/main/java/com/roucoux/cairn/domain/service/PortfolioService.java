@@ -37,22 +37,30 @@ public class PortfolioService implements GetPortfolioUseCase {
         List<ValuedHolding> lines = loadHoldings.findAll().stream()
                 .flatMap(holding -> valueHolding.value(holding).stream())
                 .toList();
-        lines.forEach(PortfolioService::requireEur);
+        List<ValuedHolding> valuedLines =
+                lines.stream().filter(line -> line.marketValue().isPresent()).toList();
+        valuedLines.forEach(PortfolioService::requireEur);
 
-        Money total = lines.stream().map(ValuedHolding::marketValue).reduce(Money.zeroEur(), Money::plus);
+        Money total = valuedLines.stream()
+                .map(line -> line.marketValue().orElseThrow())
+                .reduce(Money.zeroEur(), Money::plus);
 
         return new Portfolio(
                 total,
-                lines.stream().flatMap(line -> line.dayChange().stream()).reduce(Money.zeroEur(), Money::plus),
-                unrealizedGain(lines),
-                allocate(lines, total, line -> line.instrument().assetClass().name()),
-                allocate(lines, total, line -> line.account().name()),
+                valuedLines.stream().flatMap(line -> line.dayChange().stream()).reduce(Money.zeroEur(), Money::plus),
+                unrealizedGain(valuedLines),
+                allocate(
+                        valuedLines,
+                        total,
+                        line -> line.instrument().assetClass().name()),
+                allocate(valuedLines, total, line -> line.account().name()),
                 lines,
-                (int) lines.stream().filter(line -> line.isStale(clock)).count());
+                (int) lines.stream().filter(line -> line.isStale(clock)).count(),
+                lines.size() - valuedLines.size());
     }
 
     private static void requireEur(ValuedHolding line) {
-        String currency = line.marketValue().currency();
+        String currency = line.marketValue().orElseThrow().currency();
         if (!Money.EUR.equals(currency)) {
             throw new NonEurHoldingException(line.instrument().isin(), currency);
         }
@@ -70,7 +78,7 @@ public class PortfolioService implements GetPortfolioUseCase {
             List<ValuedHolding> lines, Money total, Function<ValuedHolding, String> by) {
         Map<String, Money> grouped = new LinkedHashMap<>();
         for (ValuedHolding line : lines) {
-            grouped.merge(by.apply(line), line.marketValue(), Money::plus);
+            grouped.merge(by.apply(line), line.marketValue().orElseThrow(), Money::plus);
         }
         return grouped.entrySet().stream()
                 .map(entry -> new Allocation(entry.getKey(), entry.getValue(), share(entry.getValue(), total)))

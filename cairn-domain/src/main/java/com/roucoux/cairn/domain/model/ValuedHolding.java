@@ -9,7 +9,8 @@ import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
-public record ValuedHolding(Holding holding, Instrument instrument, Account account, Quote quote, Quote previousQuote) {
+public record ValuedHolding(
+        Holding holding, Instrument instrument, Account account, Optional<Quote> quote, Optional<Quote> previousQuote) {
 
     private static final int RATIO_SCALE = 10;
     private static final int FUND_FRESHNESS_DAYS = 4;
@@ -20,45 +21,53 @@ public record ValuedHolding(Holding holding, Instrument instrument, Account acco
         Objects.requireNonNull(instrument, "instrument");
         Objects.requireNonNull(account, "account");
         Objects.requireNonNull(quote, "quote");
+        Objects.requireNonNull(previousQuote, "previousQuote");
     }
 
-    public Money marketValue() {
+    public Optional<Money> marketValue() {
+        return quote.map(this::valueAt);
+    }
+
+    private Money valueAt(Quote quote) {
         return new Money(holding.quantity().multiply(quote.price()), quote.currency());
     }
 
     public Optional<Money> unrealizedGain() {
-        return holding.costBasis()
-                .map(cost -> marketValue().minus(new Money(holding.quantity().multiply(cost), quote.currency())));
+        return quote.flatMap(q -> holding.costBasis()
+                .map(cost -> valueAt(q).minus(new Money(holding.quantity().multiply(cost), q.currency()))));
     }
 
     public Optional<BigDecimal> unrealizedGainRatio() {
-        return holding.costBasis()
+        return quote.flatMap(q -> holding.costBasis()
                 .filter(cost -> cost.signum() != 0)
-                .map(cost -> quote.price().subtract(cost).divide(cost, RATIO_SCALE, RoundingMode.HALF_UP));
+                .map(cost -> q.price().subtract(cost).divide(cost, RATIO_SCALE, RoundingMode.HALF_UP)));
     }
 
     public Optional<Money> dayChange() {
-        return previousClose()
-                .map(previous ->
-                        new Money(holding.quantity().multiply(quote.price().subtract(previous)), quote.currency()));
+        return quote.flatMap(q -> previousClose()
+                .map(previous -> new Money(holding.quantity().multiply(q.price().subtract(previous)), q.currency())));
     }
 
     public Optional<BigDecimal> dayChangeRatio() {
-        return previousClose()
+        return quote.flatMap(q -> previousClose()
                 .filter(previous -> previous.signum() != 0)
-                .map(previous -> quote.price().subtract(previous).divide(previous, RATIO_SCALE, RoundingMode.HALF_UP));
+                .map(previous -> q.price().subtract(previous).divide(previous, RATIO_SCALE, RoundingMode.HALF_UP)));
     }
 
     private Optional<BigDecimal> previousClose() {
-        return Optional.ofNullable(previousQuote).map(Quote::price);
+        return previousQuote.map(Quote::price);
     }
 
     public boolean isStale(Clock clock) {
+        if (quote.isEmpty()) {
+            return false;
+        }
+        Quote q = quote.get();
         return switch (instrument.assetClass()) {
             case CASH -> false;
-            case CRYPTO -> quote.fetchedAt().isBefore(clock.instant().minus(CRYPTO_FRESHNESS));
-            case FUND -> quote.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_FRESHNESS_DAYS));
-            case EQUITY, ETF -> quote.asOf().isBefore(previousBusinessDay(LocalDate.now(clock)));
+            case CRYPTO -> q.fetchedAt().isBefore(clock.instant().minus(CRYPTO_FRESHNESS));
+            case FUND -> q.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_FRESHNESS_DAYS));
+            case EQUITY, ETF -> q.asOf().isBefore(previousBusinessDay(LocalDate.now(clock)));
         };
     }
 

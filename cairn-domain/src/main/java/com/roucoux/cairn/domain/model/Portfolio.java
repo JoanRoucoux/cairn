@@ -10,4 +10,5 @@ public record Portfolio(
         List<Allocation> byAssetClass,
         List<Allocation> byAccount,
         List<ValuedHolding> holdings,
-        int staleCount) {}
+        int staleCount,
+        int unvaluedCount) {}

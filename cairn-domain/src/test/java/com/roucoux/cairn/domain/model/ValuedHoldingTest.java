@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -16,14 +17,23 @@ class ValuedHoldingTest {
     void valuesAHoldingAtQuantityTimesPrice() {
         ValuedHolding line = line(new BigDecimal("100"), new BigDecimal("20"), new BigDecimal("25"), null);
 
-        assertThat(line.marketValue().amount()).isEqualByComparingTo("2500");
+        assertThat(line.marketValue().orElseThrow().amount()).isEqualByComparingTo("2500");
     }
 
     @Test
     void keepsFullPrecisionOnVerySmallQuantities() {
         ValuedHolding bitcoin = line(new BigDecimal("0.00012345"), null, new BigDecimal("81000"), null);
 
-        assertThat(bitcoin.marketValue().amount()).isEqualByComparingTo("9.99945000");
+        assertThat(bitcoin.marketValue().orElseThrow().amount()).isEqualByComparingTo("9.99945000");
+    }
+
+    @Test
+    void hasNoMarketValueWithoutAQuote() {
+        ValuedHolding line = lineWithoutQuote(new BigDecimal("100"), new BigDecimal("20"));
+
+        assertThat(line.marketValue()).isEmpty();
+        assertThat(line.unrealizedGain()).isEmpty();
+        assertThat(line.dayChange()).isEmpty();
     }
 
     @Test
@@ -64,7 +74,19 @@ class ValuedHoldingTest {
                 new Instrument(INSTRUMENT_ID, "Test", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "TEST.PA", null);
         Holding holding = new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost);
         return new ValuedHolding(
-                holding, instrument, account, quote(price), previousPrice == null ? null : quote(previousPrice));
+                holding,
+                instrument,
+                account,
+                Optional.of(quote(price)),
+                previousPrice == null ? Optional.empty() : Optional.of(quote(previousPrice)));
+    }
+
+    private static ValuedHolding lineWithoutQuote(BigDecimal quantity, BigDecimal averageCost) {
+        Account account = new Account(UUID.randomUUID(), "Sample Broker", AccountType.PEA, "Sample Bank");
+        Instrument instrument =
+                new Instrument(INSTRUMENT_ID, "Test", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "TEST.PA", null);
+        Holding holding = new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost);
+        return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 
     private static Quote quote(BigDecimal price) {

@@ -455,7 +455,8 @@ components:
   schemas:
     PortfolioResponse:
       type: object
-      required: [totalEur, dayChangeEur, staleCount, generatedAt, byAssetClass, byAccount, holdings]
+      required:
+        [totalEur, dayChangeEur, staleCount, unvaluedCount, generatedAt, byAssetClass, byAccount, holdings]
       properties:
         totalEur:
           type: number
@@ -474,6 +475,11 @@ components:
           nullable: true
         staleCount:
           type: integer
+        unvaluedCount:
+          type: integer
+          description: >-
+            The number of holdings with no quote yet. Excluded from totalEur, the allocations and
+            the unrealized gain until a quote is fetched.
         generatedAt:
           type: string
           format: date-time
@@ -587,12 +593,8 @@ components:
         - instrumentName
         - assetClass
         - quantity
-        - price
-        - priceCurrency
-        - priceAsOf
         - priceSource
         - stale
-        - marketValueEur
       properties:
         id:
           type: string
@@ -624,11 +626,15 @@ components:
           description: Absent when the cost basis is unknown. Never 0.
         price:
           type: number
+          nullable: true
+          description: Absent when the instrument has no quote yet. Never 0.
         priceCurrency:
           type: string
+          nullable: true
         priceAsOf:
           type: string
           format: date
+          nullable: true
         priceSource:
           type: string
           enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
@@ -636,6 +642,8 @@ components:
           type: boolean
         marketValueEur:
           type: number
+          nullable: true
+          description: Absent when the instrument has no quote yet. Never 0.
         unrealizedGainEur:
           type: number
           nullable: true

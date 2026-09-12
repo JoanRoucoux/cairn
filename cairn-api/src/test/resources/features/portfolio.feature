@@ -17,3 +17,11 @@ Feature: Portfolio valuation
     When I read the portfolio
     Then the total is 2000 EUR
     And no unrealized gain is reported
+
+  Scenario: a holding whose instrument has no quote yet still appears in the portfolio
+    Given an account "Sample Broker Three" of type CTO
+    And an instrument "Brand New Fund" quoted by YAHOO as "BNF.F"
+    And a holding of 10 units with no cost basis
+    When I read the portfolio
+    Then the portfolio lists 1 holding with no price
+    And the unvalued count is 1
