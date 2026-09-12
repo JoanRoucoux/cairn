@@ -2,6 +2,7 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
@@ -60,7 +61,7 @@ public class HoldingService implements ManageHoldingUseCase {
 
     private static void requireNonZero(BigDecimal quantity) {
         if (quantity == null || quantity.signum() == 0) {
-            throw new IllegalArgumentException("quantity must not be zero: delete the holding instead");
+            throw new ZeroQuantityException();
         }
     }
 }

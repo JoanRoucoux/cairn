@@ -163,6 +163,12 @@ that address.
   two was accepted. Reads were unaffected, which made it look like a loading problem. When touching
   `WebAuthnConfig`, reason about both clients, and check against the deployed application.
 
+- **A blank string is not a value.** The unique indexes on `instruments` are partial (`WHERE isin IS NOT NULL`), so
+  rows without an ISIN or a source reference only coexist while the column is `null`. The web form posts
+  `""` for an untouched field, and two of those collide: the second crypto created without an ISIN answered
+  500. `Instrument` now normalises blanks to `null`. Give any new nullable column the same treatment.
+- **A domain invariant throws a `BusinessException`, never an `IllegalArgumentException`**, which the advice
+  would not map at all and would surface as a 500. `DataIntegrityViolationException` maps to 409.
 - The aggregator declares the Spotless plugin although it holds no Java: `spotless:check` from the root resolves the plugin prefix per project and fails on any project that lacks it.
 - The demo table is named `positions` (plural): `POSITION` is a reserved word in PostgreSQL.
 - **`cairn-schema` stays a test-scope dependency of the application modules only** — never add it (or `liquibase-core`) to `cairn-domain`/`cairn-adapter`, and never widen its scope past `test`. An application must never be able to migrate the database itself.

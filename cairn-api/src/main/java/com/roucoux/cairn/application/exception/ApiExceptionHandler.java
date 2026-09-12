@@ -7,6 +7,7 @@ import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -56,6 +57,14 @@ class ApiExceptionHandler {
             member.put("value", error.value());
         }
         return member;
+    }
+
+    /** A unique index turning a row down means the same instrument, account or quote is already there. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleConflict(DataIntegrityViolationException exception) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Already exists");
+        return problem;
     }
 
     @ExceptionHandler(BusinessException.class)

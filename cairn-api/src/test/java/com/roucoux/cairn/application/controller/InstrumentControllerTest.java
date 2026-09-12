@@ -1,7 +1,9 @@
 package com.roucoux.cairn.application.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -28,9 +30,11 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -174,5 +178,50 @@ class InstrumentControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"whatever\"}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void storesNoIsinWhenTheRequestCarriesABlankOne() throws Exception {
+        mockMvc.perform(post("/instruments")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"BNB","isin":"","currency":"EUR",
+                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":"binancecoin"}
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Instrument> saved = ArgumentCaptor.forClass(Instrument.class);
+        verify(saveInstrument).save(saved.capture());
+        assertThat(saved.getValue().isin()).isNull();
+    }
+
+    @Test
+    void reportsAnInstrumentTheDomainRefusesAs422() throws Exception {
+        mockMvc.perform(post("/instruments")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"BNB","currency":"EUR",
+                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":" "}
+                                """))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void reportsAnInstrumentThatAlreadyExistsAsAConflict() throws Exception {
+        when(saveInstrument.save(any())).thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
+
+        mockMvc.perform(post("/instruments")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"BNB","currency":"EUR",
+                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":"binancecoin"}
+                                """))
+                .andExpect(status().isConflict());
     }
 }

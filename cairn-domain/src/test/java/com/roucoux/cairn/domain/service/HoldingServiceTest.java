@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -62,7 +63,7 @@ class HoldingServiceTest {
 
         assertThatThrownBy(() ->
                         fixture.service().create(fixture.accountId(), fixture.instrumentId(), BigDecimal.ZERO, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ZeroQuantityException.class)
                 .hasMessageContaining("quantity");
     }
 
@@ -105,7 +106,7 @@ class HoldingServiceTest {
         Fixture fixture = Fixture.withExistingHolding();
 
         assertThatThrownBy(() -> fixture.service().update(fixture.holdingId(), BigDecimal.ZERO, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ZeroQuantityException.class)
                 .hasMessageContaining("quantity");
     }
 

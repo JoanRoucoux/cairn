@@ -3,6 +3,7 @@ package com.roucoux.cairn.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.roucoux.cairn.domain.exception.business.InvalidInstrumentException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,7 @@ class InstrumentTest {
                         PriceSource.YAHOO,
                         null,
                         null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(InvalidInstrumentException.class)
                 .hasMessageContaining("sourceRef");
     }
 
@@ -57,7 +58,7 @@ class InstrumentTest {
                         PriceSource.YAHOO,
                         "EQ.PA",
                         "x".repeat(281)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(InvalidInstrumentException.class);
     }
 
     @Test
@@ -67,6 +68,23 @@ class InstrumentTest {
         assertThat(instrument(PriceSource.COINGECKO, "ethereum").externalUrl())
                 .contains("https://www.coingecko.com/en/coins/ethereum");
         assertThat(instrument(PriceSource.MANUAL, null).externalUrl()).isEmpty();
+    }
+
+    @Test
+    void treatsABlankIsinOrDescriptionAsAbsentSoTheyDoNotCollideInTheDatabase() {
+        Instrument bnb = new Instrument(
+                UUID.randomUUID(), "BNB", "  ", "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "binancecoin", " ");
+
+        assertThat(bnb.isin()).isNull();
+        assertThat(bnb.description()).isNull();
+    }
+
+    @Test
+    void treatsTheBlankSourceReferenceOfAManuallyPricedInstrumentAsAbsent() {
+        Instrument cash =
+                new Instrument(UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "", null);
+
+        assertThat(cash.sourceRef()).isNull();
     }
 
     private static Instrument instrument(PriceSource source, String sourceRef) {
