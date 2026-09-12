@@ -243,10 +243,10 @@ paths:
                 $ref: '#/components/schemas/InstrumentDetailResponse'
         '404':
           description: Unknown instrument
-    patch:
+    put:
       tags: [Instrument]
       operationId: updateInstrument
-      summary: Update an instrument's description
+      summary: Replace an instrument's editable fields
       requestBody:
         required: true
         content:
@@ -260,6 +260,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InstrumentDetailResponse'
+        '404':
+          description: Unknown instrument
+        '409':
+          description: Another instrument already uses this ISIN or source reference
+        '422':
+          description: The instrument is invalid
+    delete:
+      tags: [Instrument]
+      operationId: deleteInstrument
+      summary: Delete an instrument and its holdings
+      responses:
+        '204':
+          description: Instrument deleted
         '404':
           description: Unknown instrument
   /instruments/resolve:
@@ -685,7 +698,7 @@ components:
           nullable: true
     InstrumentDetailResponse:
       type: object
-      required: [id, name, currency, assetClass, priceSource]
+      required: [id, name, currency, assetClass, priceSource, holdingCount]
       properties:
         id:
           type: string
@@ -713,6 +726,9 @@ components:
           type: string
           nullable: true
           description: Absent for a manually priced instrument. Never a broken link.
+        holdingCount:
+          type: integer
+          description: The number of holdings that will be deleted with the instrument.
     CreateInstrumentRequest:
       type: object
       required: [name, currency, assetClass, priceSource]
@@ -738,8 +754,22 @@ components:
           nullable: true
     UpdateInstrumentRequest:
       type: object
-      required: [description]
+      required: [name, assetClass, priceSource]
       properties:
+        name:
+          type: string
+        assetClass:
+          type: string
+          enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        priceSource:
+          type: string
+          enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        isin:
+          type: string
+          nullable: true
+        sourceRef:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true

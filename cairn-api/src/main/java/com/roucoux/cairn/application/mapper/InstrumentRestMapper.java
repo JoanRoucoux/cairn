@@ -25,7 +25,7 @@ public class InstrumentRestMapper {
         return response;
     }
 
-    public InstrumentDetailResponse toDetailResponse(Instrument instrument) {
+    public InstrumentDetailResponse toDetailResponse(Instrument instrument, int holdingCount) {
         InstrumentDetailResponse response = new InstrumentDetailResponse();
         response.setId(instrument.id());
         response.setName(instrument.name());
@@ -38,6 +38,7 @@ public class InstrumentRestMapper {
         response.setSourceRef(instrument.sourceRef());
         response.setDescription(instrument.description());
         instrument.externalUrl().ifPresent(response::setExternalUrl);
+        response.setHoldingCount(holdingCount);
         return response;
     }
 

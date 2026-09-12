@@ -208,6 +208,13 @@ class HoldingServiceTest {
                                 && h.instrumentId().equals(instrumentId))
                         .findFirst();
             }
+
+            @Override
+            public List<Holding> findByInstrument(UUID instrumentId) {
+                return holdings.stream()
+                        .filter(h -> h.instrumentId().equals(instrumentId))
+                        .toList();
+            }
         }
 
         private final class InMemorySaveHoldingPort implements SaveHoldingPort {

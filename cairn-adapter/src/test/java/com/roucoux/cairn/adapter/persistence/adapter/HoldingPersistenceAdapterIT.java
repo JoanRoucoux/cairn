@@ -71,6 +71,20 @@ class HoldingPersistenceAdapterIT {
     }
 
     @Test
+    void findsHoldingsByInstrument() {
+        Holding saved = givenAHoldingOf(new BigDecimal("4"));
+
+        assertThat(holdings.findByInstrument(saved.instrumentId()))
+                .extracting(Holding::id)
+                .containsExactly(saved.id());
+    }
+
+    @Test
+    void findsNoHoldingForAnInstrumentWithoutOne() {
+        assertThat(holdings.findByInstrument(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
     void deletesAHolding() {
         Holding saved = givenAHoldingOf(new BigDecimal("4"));
 

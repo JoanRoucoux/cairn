@@ -150,6 +150,11 @@ class HistoryServiceTest {
             public Optional<Holding> findByAccountAndInstrument(UUID accountId, UUID instrumentId) {
                 return Optional.empty();
             }
+
+            @Override
+            public List<Holding> findByInstrument(UUID instrumentId) {
+                return List.of();
+            }
         };
         LoadQuotesPort loadQuotes = new LoadQuotesPort() {
             @Override
@@ -200,6 +205,11 @@ class HistoryServiceTest {
             @Override
             public Optional<Holding> findByAccountAndInstrument(UUID accountId, UUID instrumentId) {
                 return Optional.empty();
+            }
+
+            @Override
+            public List<Holding> findByInstrument(UUID instrumentId) {
+                return List.of();
             }
         };
         LoadQuotesPort loadQuotes = new LoadQuotesPort() {

@@ -1,36 +1,40 @@
 package com.roucoux.cairn.application.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.InstrumentRestMapper;
+import com.roucoux.cairn.domain.exception.business.InvalidInstrumentException;
+import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.AssetClass;
+import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
+import com.roucoux.cairn.domain.port.in.ManageInstrumentUseCase;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
+import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
+import com.roucoux.cairn.infrastructure.transaction.InstrumentDeletionTransaction;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -66,19 +70,29 @@ class InstrumentControllerTest {
     private LoadInstrumentsPort loadInstruments;
 
     @MockitoBean
-    private SaveInstrumentPort saveInstrument;
+    private LoadHoldingsPort loadHoldings;
+
+    @MockitoBean
+    private ManageInstrumentUseCase manageInstrument;
+
+    @MockitoBean
+    private InstrumentDeletionTransaction deleteInstrumentTransaction;
 
     @MockitoBean
     private ResolveInstrumentUseCase resolveInstrument;
 
+    @MockitoBean
+    private JdbcOperations jdbcOperations;
+
     @BeforeEach
     void stubDefaults() {
         when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
-        when(saveInstrument.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(loadHoldings.findByInstrument(any())).thenReturn(List.of());
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(SP500);
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(SP500);
     }
-
-    @MockitoBean
-    private JdbcOperations jdbcOperations;
 
     @Test
     void listsEveryInstrument() throws Exception {
@@ -146,6 +160,19 @@ class InstrumentControllerTest {
     }
 
     @Test
+    void reportsTheHoldingCount() throws Exception {
+        when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
+        when(loadHoldings.findByInstrument(INSTRUMENT_ID))
+                .thenReturn(List.of(
+                        new Holding(UUID.randomUUID(), UUID.randomUUID(), INSTRUMENT_ID, BigDecimal.ONE, null),
+                        new Holding(UUID.randomUUID(), UUID.randomUUID(), INSTRUMENT_ID, BigDecimal.TEN, null)));
+
+        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.holdingCount").value(2));
+    }
+
+    @Test
     void reportsNoExternalUrlForAManuallyPricedInstrument() throws Exception {
         when(loadInstruments.findById(LIVRET_A_ID)).thenReturn(Optional.of(LIVRET_A));
 
@@ -154,13 +181,31 @@ class InstrumentControllerTest {
     }
 
     @Test
-    void updatesOnlyTheDescription() throws Exception {
-        mockMvc.perform(patch("/instruments/{id}", INSTRUMENT_ID)
+    void fullyUpdatesAnInstrument() throws Exception {
+        Instrument updated = new Instrument(
+                INSTRUMENT_ID,
+                "Amundi ETF PEA S&P 500",
+                "FR0011550185",
+                "EUR",
+                AssetClass.ETF,
+                PriceSource.YAHOO,
+                "ETF4.PA",
+                "Les 500 plus grandes capitalisations americaines");
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(updated);
+
+        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
                         .with(user("joan"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
-                        .content("{\"description\":\"Les 500 plus grandes capitalisations americaines\"}"))
-                .andExpect(status().isOk());
+                        .content("""
+                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO",
+                                 "isin":"FR0011550185","sourceRef":"ETF4.PA",
+                                 "description":"Les 500 plus grandes capitalisations americaines"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceRef").value("ETF4.PA"))
+                .andExpect(jsonPath("$.description").value("Les 500 plus grandes capitalisations americaines"));
     }
 
     @Test
@@ -172,33 +217,72 @@ class InstrumentControllerTest {
     }
 
     @Test
-    void refusesAWriteWithoutACsrfToken() throws Exception {
-        mockMvc.perform(patch("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("joan"))
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"description\":\"whatever\"}"))
-                .andExpect(status().isForbidden());
-    }
+    void reportsAnUnknownInstrumentOnUpdateAs404() throws Exception {
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new NotFoundException("instrument", LIVRET_A_ID));
 
-    @Test
-    void storesNoIsinWhenTheRequestCarriesABlankOne() throws Exception {
-        mockMvc.perform(post("/instruments")
+        mockMvc.perform(put("/instruments/{id}", LIVRET_A_ID)
                         .with(user("joan"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"name":"BNB","isin":"","currency":"EUR",
-                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":"binancecoin"}
+                                {"name":"Livret A","assetClass":"CASH","priceSource":"MANUAL"}
                                 """))
-                .andExpect(status().isCreated());
+                .andExpect(status().isNotFound());
+    }
 
-        ArgumentCaptor<Instrument> saved = ArgumentCaptor.forClass(Instrument.class);
-        verify(saveInstrument).save(saved.capture());
-        assertThat(saved.getValue().isin()).isNull();
+    @Test
+    void reportsADuplicateOnUpdateAsAConflict() throws Exception {
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
+
+        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO",
+                                 "sourceRef":"ETF3.PA"}
+                                """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void deletesAnInstrument() throws Exception {
+        mockMvc.perform(delete("/instruments/{id}", INSTRUMENT_ID)
+                        .with(user("joan"))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void reportsAnUnknownInstrumentOnDeleteAs404() throws Exception {
+        doThrow(new NotFoundException("instrument", LIVRET_A_ID))
+                .when(deleteInstrumentTransaction)
+                .run(LIVRET_A_ID);
+
+        mockMvc.perform(delete("/instruments/{id}", LIVRET_A_ID)
+                        .with(user("joan"))
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void refusesAWriteWithoutACsrfToken() throws Exception {
+        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
+                        .with(user("joan"))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO"}
+                                """))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void reportsAnInstrumentTheDomainRefusesAs422() throws Exception {
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new InvalidInstrumentException("sourceRef is required unless priceSource is MANUAL"));
+
         mockMvc.perform(post("/instruments")
                         .with(user("joan"))
                         .with(csrf())
@@ -212,7 +296,8 @@ class InstrumentControllerTest {
 
     @Test
     void reportsAnInstrumentThatAlreadyExistsAsAConflict() throws Exception {
-        when(saveInstrument.save(any())).thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
 
         mockMvc.perform(post("/instruments")
                         .with(user("joan"))

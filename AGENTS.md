@@ -70,13 +70,14 @@ not drift.
 
 ## Portfolio import
 
-`POST /portfolio/import` is the one place where several writes must succeed or fail together, and
-therefore the **only transaction boundary in the codebase**: `PortfolioImportTransaction`
-(`infrastructure/transaction/`), because `cairn-domain` is plain Java and cannot open a transaction
-itself. It calls the use case rather than implementing it, on purpose — `useCasesAreImplementedByDomainServicesOnly`
+`POST /portfolio/import` is one of two places where several writes must succeed or fail together,
+each with its own transaction boundary in `infrastructure/transaction/`: `PortfolioImportTransaction`
+for the import, and `InstrumentDeletionTransaction` for deleting an instrument, which also deletes
+every one of its holdings first. Both exist because `cairn-domain` is plain Java and cannot open a
+transaction itself. Both call the use case rather than implementing it, on purpose: `useCasesAreImplementedByDomainServicesOnly`
 rejects an inbound port implemented outside `..domain.service..`, and a wrapper that implemented it
-was the first shape tried. The controller depends on that class, not on the port, so the
-transaction cannot be bypassed by accident.
+was the first shape tried for the import. The corresponding controller depends on the wrapper class,
+not on the port, so the transaction cannot be bypassed by accident.
 
 Validation happens twice on purpose: `PortfolioCsvReader` checks shape, types and enums, the domain
 checks business rules. Both refuse with **every** offending row, never just the first, and both

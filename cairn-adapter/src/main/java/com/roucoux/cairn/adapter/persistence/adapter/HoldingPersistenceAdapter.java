@@ -39,6 +39,13 @@ public class HoldingPersistenceAdapter implements LoadHoldingsPort, SaveHoldingP
     }
 
     @Override
+    public List<Holding> findByInstrument(UUID instrumentId) {
+        return repository.findByInstrumentId(instrumentId).stream()
+                .map(HoldingEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public Holding save(Holding holding) {
         return repository.save(HoldingEntity.fromDomain(holding)).toDomain();
     }

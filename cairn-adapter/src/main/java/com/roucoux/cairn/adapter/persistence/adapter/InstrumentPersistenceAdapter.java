@@ -4,6 +4,7 @@ import com.roucoux.cairn.adapter.persistence.entity.InstrumentEntity;
 import com.roucoux.cairn.adapter.persistence.repository.InstrumentJpaRepository;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.util.List;
@@ -12,9 +13,9 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read and write ports for instruments with Spring Data JPA. */
+/** Outbound adapter: implements the domain's read, write and delete ports for instruments with Spring Data JPA. */
 @Component
-public class InstrumentPersistenceAdapter implements LoadInstrumentsPort, SaveInstrumentPort {
+public class InstrumentPersistenceAdapter implements LoadInstrumentsPort, SaveInstrumentPort, DeleteInstrumentPort {
 
     private final InstrumentJpaRepository repository;
 
@@ -42,5 +43,10 @@ public class InstrumentPersistenceAdapter implements LoadInstrumentsPort, SaveIn
     @Override
     public Instrument save(Instrument instrument) {
         return repository.save(InstrumentEntity.fromDomain(instrument)).toDomain();
+    }
+
+    @Override
+    public void delete(UUID id) {
+        repository.deleteById(id);
     }
 }

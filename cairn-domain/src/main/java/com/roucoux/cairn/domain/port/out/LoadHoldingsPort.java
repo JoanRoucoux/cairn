@@ -13,4 +13,6 @@ public interface LoadHoldingsPort {
     Optional<Holding> findById(UUID id);
 
     Optional<Holding> findByAccountAndInstrument(UUID accountId, UUID instrumentId);
+
+    List<Holding> findByInstrument(UUID instrumentId);
 }

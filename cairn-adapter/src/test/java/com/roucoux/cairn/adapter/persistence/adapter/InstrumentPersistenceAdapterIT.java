@@ -51,6 +51,15 @@ class InstrumentPersistenceAdapterIT {
         assertThat(refreshable).extracting(Instrument::sourceRef).containsExactly("ETF.PA");
     }
 
+    @Test
+    void deletesAnInstrument() {
+        Instrument saved = instruments.save(etf("ETF.PA"));
+
+        instruments.delete(saved.id());
+
+        assertThat(instruments.findById(saved.id())).isEmpty();
+    }
+
     private Instrument etf(String sourceRef) {
         return new Instrument(
                 UUID.randomUUID(), "MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, sourceRef, null);
