@@ -1,0 +1,7 @@
+# Cairn's batch schedule, in the server's timezone (Europe/Paris, set by infra's base role).
+# One asset class per line: Spring Batch reads a comma in a parameter value as `value,type`.
+# Installed by deploy/deploy.sh together with every other application's /srv/*/*.cron.
+0 19 * * 1-5 bash /srv/cairn/run-batch.sh KUMA_PUSH_EQUITY --spring.batch.job.name=refreshQuotesJob assetClasses=EQUITY 2>&1 | logger -t cairn-batch
+15 19 * * 1-5 bash /srv/cairn/run-batch.sh KUMA_PUSH_ETF --spring.batch.job.name=refreshQuotesJob assetClasses=ETF 2>&1 | logger -t cairn-batch
+0 11 * * 2-6 bash /srv/cairn/run-batch.sh KUMA_PUSH_FUND --spring.batch.job.name=refreshQuotesJob assetClasses=FUND 2>&1 | logger -t cairn-batch
+0 */4 * * * bash /srv/cairn/run-batch.sh KUMA_PUSH_CRYPTO --spring.batch.job.name=refreshQuotesJob assetClasses=CRYPTO 2>&1 | logger -t cairn-batch

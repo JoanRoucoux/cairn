@@ -1,0 +1,142 @@
+# Deploys every push to main, tagged sha-<7 characters>, and redeploys an earlier commit on demand.
+# cairn-web deploys itself from its own repository; see the `web` service in compose.prod.yaml.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full 40-character SHA of the commit to redeploy'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+# A running deploy is never cancelled, so none stops between the migration and the API start.
+# GitHub keeps only the newest pending run per group: a rollback dispatched while another run waits
+# can be superseded by a later push, so check the run list after dispatching one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  # Neither value is a secret. Pinning the host key is what stops the deploy from trusting
+  # whatever answers on that address; reinstalling the server changes it.
+  DEPLOY_HOST: 51.255.42.146
+  DEPLOY_KNOWN_HOSTS: '51.255.42.146 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEbEn9NUsA5n7n1DSBWaozWpMVcs7JsBn6Y82kH3oGxN'
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.tag.outputs.image }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - name: Resolve the image tag
+        id: tag
+        env:
+          SHA: ${{ inputs.sha || github.sha }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Not a full commit SHA: $SHA"; exit 1; }
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "image=sha-${SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+  ci:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: [tag, ci]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [api, schema, batch]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Context is the repository root: every Dockerfile copies the whole Maven reactor.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: cairn-${{ matrix.module }}/Dockerfile
+          push: true
+          tags: ghcr.io/joanroucoux/cairn-${{ matrix.module }}:${{ needs.tag.outputs.image }}
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
+
+  check_images:
+    needs: tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse a commit that has no images
+        env:
+          TAG: ${{ needs.tag.outputs.image }}
+        run: |
+          for module in api schema batch; do
+            docker manifest inspect "ghcr.io/joanroucoux/cairn-${module}:${TAG}" > /dev/null \
+              || { echo "::error::No cairn-${module} image tagged ${TAG}"; exit 1; }
+          done
+
+  deploy:
+    needs: [tag, images, check_images]
+    # A failed ci skips images rather than failing it, so "no failure" is not enough here.
+    if: ${{ !cancelled() && needs.tag.result == 'success' && (needs.images.result == 'success' || needs.check_images.result == 'success') }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      IMAGE_TAG: ${{ needs.tag.outputs.image }}
+    steps:
+      # The deployed commit's own files: a rollback must not pair old images with a newer compose file.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.sha }}
+
+      - name: Authorize this runner on the server
+        run: |
+          mkdir -p ~/.ssh
+          # tr -d '\r': a key pasted from Windows carries carriage returns OpenSSH rejects silently.
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Ship the files this repository owns
+        run: |
+          scp -i ~/.ssh/id_ed25519 compose.prod.yaml deploy/deploy.sh deploy/run-batch.sh deploy/cairn.cron \
+            "deploy@${DEPLOY_HOST}:/srv/cairn/"
+          scp -i ~/.ssh/id_ed25519 cairn.caddy "deploy@${DEPLOY_HOST}:/srv/proxy/sites/cairn.caddy"
+          # A reload, not a restart: the shared proxy keeps serving every other site.
+          ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" \
+            "docker exec proxy-caddy-1 caddy reload --config /etc/caddy/Caddyfile"
+
+      - name: Migrate then start
+        run: |
+          # The token goes down stdin: arguments are readable by every process on the host.
+          printf '%s\n' "${{ secrets.GITHUB_TOKEN }}" \
+            | ssh -i ~/.ssh/id_ed25519 "deploy@${DEPLOY_HOST}" \
+                "bash /srv/cairn/deploy.sh '${IMAGE_TAG}' '${{ github.actor }}'"
+
+      - name: Check that the API, and not the SPA, answers behind /api
+        run: |
+          # 200 only if the proxy routes /api to the API, strips the prefix and the API is up.
+          # A 401 on a protected path proves none of that: Spring answers 401 before routing.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' https://cairn.joanroucoux.fr/api/actuator/health)
+          echo "GET /api/actuator/health -> $code"
+          [ "$code" = "200" ] || { echo "expected 200 from the API, got $code"; exit 1; }
