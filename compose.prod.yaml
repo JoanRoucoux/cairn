@@ -1,14 +1,14 @@
-# Production overlay: pulls prebuilt images from GHCR instead of building locally, and exposes
-# nothing itself. TLS and ports 80/443 belong to the shared proxy (proxy/compose.yaml), a separate
-# compose project reached over the external `edge` network, so redeploying Cairn never restarts
-# the other applications on the host.
+# Production file: pulls prebuilt images from GHCR instead of building locally, and exposes
+# nothing itself. TLS and ports 80/443 belong to the shared proxy owned by the infra repository,
+# a separate compose project reached over the external `edge` network, so redeploying Cairn never
+# restarts the other applications on the host.
 #
-# Used as `docker compose -f compose.prod.yaml --profile migrate run --rm schema` then
-# `docker compose -f compose.prod.yaml up -d api web`, never with compose.yaml at the same time
-# (both declare the same service names against the same cairn-data volume).
+# Used by deploy/deploy.sh (schema run, then `up -d --wait postgres api`) and deploy/run-batch.sh,
+# never together with compose.yaml (both declare the same service names against the same
+# cairn-data volume).
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.11
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
@@ -63,7 +63,7 @@ services:
       - edge
     restart: unless-stopped
 
-  # Run by cron, never by `up`: `--profile batch run --rm batch`.
+  # Run by cron through deploy/run-batch.sh, never by `up`.
   batch:
     profiles: ['batch']
     image: ghcr.io/joanroucoux/cairn-batch:${TAG:?TAG must be set}

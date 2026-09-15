@@ -80,7 +80,7 @@ under test:
 export CAIRN_PASSWORD=s0me-real-secret
 export POSTGRES_PASSWORD=s0me-real-secret
 export CAIRN_ORIGIN=http://localhost   # the browser's origin through Caddy, not ng serve's :4200
-export WEB_TAG=v0.1.1                  # a released frontend, or a tag you built yourself
+export WEB_TAG=sha-1a2b3c4             # a deployed frontend, or a tag you built yourself
 
 docker compose --profile migrate up --build schema
 docker compose up -d --build
@@ -89,9 +89,9 @@ docker compose up -d --build
 Then open `http://localhost`, never `http://localhost:8080`: the second bypasses the proxy and with
 it everything this stack exists to check. `curl -sS -o /dev/null -w '%{http_code}'
 http://localhost/api/actuator/health` answers 200 only if the prefix is being stripped, which is
-the same assertion the release workflow makes against production.
+the same assertion the deploy workflow makes against production.
 
-To run a frontend you have not released, build it in its own repository under a tag and name it:
+To run a frontend that is not deployed, build it in its own repository under a tag and name it:
 
 ```bash
 docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
@@ -104,32 +104,23 @@ the schema is migrated explicitly, out-of-band, and the batch job is meant to be
 
 ## Running in production
 
-Cairn assumes a host shared with other applications, so it owns no ports: a separate Caddy project
-terminates TLS for everything, and Cairn joins it over an external Docker network.
+Cairn assumes a host shared with other applications. The server, the shared Caddy proxy and the
+monitoring belong to the `infra` repository; Cairn owns `/srv/cairn` only.
 
 ```
-/srv/proxy/    proxy/compose.yaml + Caddyfile + sites/   Caddy alone, ports 80/443
-/srv/cairn/    compose.prod.yaml + .env                  postgres, api, web, batch
+/srv/proxy/    infra's: Caddy alone, ports 80/443, one snippet per site in sites/
+/srv/cairn/    compose.prod.yaml, .env, deploy.sh, run-batch.sh, cairn.cron
 ```
 
-Set up the proxy once, then never again when deploying Cairn:
+Every push to `main` deploys (see AGENTS.md's Deployment section). The core of what deploy.sh does,
+by hand, once the images are pulled:
 
 ```bash
-docker network create edge
-cp env.example .env        # in /srv/proxy: set CAIRN_DOMAIN to the real subdomain
-cp cairn.caddy /srv/proxy/sites/
-docker compose -f /srv/proxy/compose.yaml up -d
-```
-
-Then, for each release:
-
-```bash
-export TAG=v1.2.3
-export CAIRN_DOMAIN=cairn.example.com
-export CAIRN_PASSWORD=s0me-real-secret
-export POSTGRES_PASSWORD=s0me-real-secret
-docker compose -f compose.prod.yaml --profile migrate run --rm schema
-docker compose -f compose.prod.yaml up -d api web
+cd /srv/cairn
+sed -i "s|^TAG=.*|TAG=sha-1a2b3c4|" .env
+docker compose -f compose.prod.yaml --profile migrate --profile batch pull schema api batch
+docker compose -f compose.prod.yaml --profile migrate run --rm -T schema </dev/null
+docker compose -f compose.prod.yaml up -d --wait postgres api
 ```
 
 The migration runs first, on purpose: `ddl-auto: validate` means a failed migration must block the
@@ -161,8 +152,7 @@ cairn-schema/        Liquibase changelogs (db/changelog/) — owns the schema, n
 cairn-batch/         Spring Boot application: Spring Batch jobs over cairn-domain/cairn-adapter
 compose.prod.yaml          Production overlay: GHCR images, no published port
 cairn.caddy                Cairn's routing, deployed into the shared proxy's sites/
-proxy/                     The shared edge proxy — NOT Cairn's, kept here until a second
-                           application needs it (see AGENTS.md's Deployment section)
+deploy/                    deploy.sh, run-batch.sh and cairn.cron, shipped to /srv/cairn
 ```
 
 Dependency rules: `cairn-domain` depends on nothing but the JDK (a Maven guarantee); `cairn-adapter` implements the domain's outbound ports and reaches the domain only through its ports, model and exceptions (ArchUnit); `cairn-api`/`cairn-batch` depend on `cairn-adapter` at **runtime scope only**, so neither can reach adapter internals even by accident. Errors map by family in the `@RestControllerAdvice` — `BusinessException` → 422, `TechnicalException` → 502; authentication and authorization (401/403) are handled by Spring Security.

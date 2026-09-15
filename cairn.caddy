@@ -1,5 +1,6 @@
 # Cairn's own routing, owned by this repository and deployed into the shared proxy's
-# /etc/caddy/sites/ (see proxy/compose.yaml). Routing is by path, not by container: nginx
+# /etc/caddy/sites/ (see the infra repository's proxy/compose.yaml). Routing is by path, not by
+# container: nginx
 # (cairn-web's image) only ever serves static files, so the split between the SPA and the API
 # happens here instead of baking a backend hostname into the frontend image. Front and API
 # therefore share one origin, which the session cookie requires (secure, SameSite=Strict).

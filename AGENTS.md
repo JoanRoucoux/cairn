@@ -101,17 +101,15 @@ new import scenarios on already-existing instruments for the same reason.
 
 ## Deployment
 
-The host is assumed to run **several applications**, so Cairn owns no ports. Two compose projects,
-joined by an external Docker network created once with `docker network create edge`:
+The host runs **several applications**, so Cairn owns neither ports nor host configuration. Both
+belong to the `infra` repository: Terraform for the OVH resources, Ansible for the server, the
+shared Caddy proxy in `/srv/proxy` and the monitoring. Cairn joins the proxy over the external
+`edge` network and drops its own site snippet into `/srv/proxy/sites/`.
 
-- **`proxy/`** — the shared edge proxy, deployed to `/srv/proxy`. Caddy alone, holding ports 80/443
-  and the certificate volume, `import`ing every `sites/*.caddy` snippet. **It does not belong to
-  Cairn** and is only kept here until a second application needs it, at which point it moves to its
-  own repository. Redeploying Cairn must never restart it.
-- **`compose.prod.yaml`** — a standalone overlay, not a merge target for `compose.yaml`: it pulls
-  prebuilt images from GHCR instead of building, and publishes no port at all. The backend images
-  are tagged `${TAG}` and the frontend `${WEB_TAG}`, deliberately two variables: `cairn-web` is a
-  separate repository with its own history, and neither half should wait on the other to release.
+**`compose.prod.yaml`** is a standalone file, not a merge target for `compose.yaml`: it pulls
+prebuilt images from GHCR and publishes no port. The backend images are tagged `${TAG}` and the
+frontend `${WEB_TAG}`, deliberately two variables: `cairn-web` is a separate repository with its
+own history, and neither half waits on the other to deploy.
 
 `cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path,
 so no backend hostname is baked into `cairn-web`'s image and both halves share one origin, which
@@ -134,26 +132,46 @@ Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default
 reach of every other application sharing the proxy.
 
 `CAIRN_DOMAIN` is set twice, and the two must agree: in `/srv/cairn/.env` (feeding the api
-container's `CAIRN_RP_ID`/`CAIRN_ORIGIN`) and in `/srv/proxy/.env` (feeding the snippet's site
-address, since Caddy is what reads it). It should be a subdomain, never the apex: an apex `rp-id`
+container's `CAIRN_RP_ID`/`CAIRN_ORIGIN`) and in `/srv/proxy/.env`, written by infra's Ansible
+(feeding the snippet's site address, since Caddy is what reads it). It should be a subdomain,
+never the apex: an apex `rp-id`
 would make Cairn's passkeys usable by every other application on the domain. Changing it after the
 first passkey registration breaks every existing credential — `rp-id` is bound into them.
 
 Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
 `postgres`/`api`/`web`/`schema`/`batch` against the same `cairn-data` volume name.
 
-**Releasing.** `.github/workflows/release.yml` fires on a tag matching `v*` and on nothing else:
-committing to `main` never touches production. It builds `api`, `schema` and `batch`, pushes them
-to GHCR under the tag name, ships `compose.prod.yaml` and `cairn.caddy` to the server, applies the
-Liquibase changelog on its own before anything starts, then brings up `postgres` and `api` and
-waits for `/api/actuator/health`. Rolling back is retagging the previous version, not reverting a
-commit. `cairn-web` has the mirror workflow for `web` alone; it must never restart the API or the
-database, and Cairn's deploy never restarts the shared proxy, only reloads it.
+**Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml`,
+builds `api`, `schema` and `batch`, pushes them to GHCR as `sha-` followed by the commit's first
+7 characters, ships `compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh`
+and `deploy/cairn.cron` to the server, applies the Liquibase changelog on its own before anything
+starts, then brings up `postgres` and `api` and waits for `/api/actuator/health`. Rolling back is
+running the workflow by hand with the full SHA of an earlier commit: it checks that the images
+exist, then deploys that commit's files and images without building. A running deploy is never
+cancelled; GitHub keeps only the newest pending run in the `deploy` concurrency group, so a
+rollback dispatched while another run waits can be superseded by a later push, and the run list
+must be checked after dispatching one. `cairn-web` has the mirror workflow for `web` alone; both
+scripts take `/srv/cairn/.deploy.lock` because both edit `/srv/cairn/.env`, and GitHub concurrency
+does not span repositories.
 
-The deploy authenticates as the `deploy` user with the key in the `DEPLOY_SSH_KEY` secret, which
-both repositories need. The host address and its SSH host key sit in the workflow in clear: neither
-is a secret, and pinning the fingerprint is what stops a deploy from trusting whatever answers on
-that address.
+**Scheduled jobs.** `deploy/cairn.cron` holds the batch schedule, in the server's timezone
+(Europe/Paris). `deploy.sh` rebuilds the deploy user's crontab from every application's
+`/srv/*/*.cron`, so never install a fragment alone. Each line goes through `deploy/run-batch.sh`,
+which adds a unique `run.at` job parameter (the jobs have no incrementer, and Spring Batch refuses
+to rerun a completed instance with identical parameters) and pings the Uptime Kuma push monitor
+named in `/srv/cairn/.env` only when the run succeeds.
+
+**Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image
+prune` only removes untagged images, and each deploy leaves three tagged ones behind.
+
+The deploy authenticates as the `deploy` user with the key in the `DEPLOY_SSH_KEY` secret of the
+`production` environment, which both repositories need. The host address and its SSH host key sit
+in the workflow in clear: neither is a secret, and pinning the fingerprint is what stops a deploy
+from trusting whatever answers on that address. Reinstalling the server changes that host key.
+
+Rollback reaches only commits deployed this way: earlier commits have no `sha-` images. Liquibase
+never undoes a changeset either, so rolling back across a schema change leaves an older API facing a
+newer schema, which `ddl-auto: validate` may refuse.
 
 ## Gotchas
 

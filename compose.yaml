@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.11
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
@@ -70,12 +70,12 @@ services:
         condition: service_healthy
 
   # The published frontend image, not a build: cairn-web is a separate repository and this
-  # file must not reach outside its own. To run a frontend you have not released yet, build
+  # file must not reach outside its own. To run a frontend that is not deployed yet, build
   # it there under a tag and name that tag here:
   #   docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
   #   WEB_TAG=local docker compose up -d
   web:
-    image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set, e.g. v0.1.1 or a locally built tag}
+    image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set, e.g. sha-1a2b3c4 or a locally built tag}
 
   # The same proxy, reading the same cairn.caddy, as the server runs. It is the whole point
   # of this service: a browser talking straight to api:8080 exercises neither the /api prefix
@@ -83,14 +83,15 @@ services:
   # exactly that. CAIRN_DOMAIN carries the http:// scheme so Caddy serves plain HTTP instead
   # of minting a certificate from an authority no browser here trusts.
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.4-alpine
     environment:
       CAIRN_DOMAIN: http://localhost
     ports:
       - '80:80'
     volumes:
-      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./cairn.caddy:/etc/caddy/sites/cairn.caddy:ro
+      # A Caddyfile holding a single site block is valid on its own; the server imports the same
+      # snippet from infra's shared proxy.
+      - ./cairn.caddy:/etc/caddy/Caddyfile:ro
     depends_on: [api, web]
 
 volumes:

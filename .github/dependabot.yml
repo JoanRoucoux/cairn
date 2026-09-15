@@ -21,3 +21,29 @@ updates:
       actions:
         patterns:
           - '*'
+
+  - package-ecosystem: docker
+    directories:
+      - /cairn-api
+      - /cairn-schema
+      - /cairn-batch
+    schedule:
+      interval: weekly
+    groups:
+      images:
+        patterns:
+          - '*'
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # A major PostgreSQL release cannot read the previous one's data directory: that upgrade is
+      # a dump and restore, never a tag bump.
+      - dependency-name: postgres
+        update-types: ['version-update:semver-major']
+    groups:
+      images:
+        patterns:
+          - '*'
