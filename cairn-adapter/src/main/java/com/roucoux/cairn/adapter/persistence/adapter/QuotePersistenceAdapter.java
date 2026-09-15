@@ -59,6 +59,8 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
 
     @Override
     public void upsertAll(List<Quote> quotes) {
-        repository.saveAll(quotes.stream().map(QuoteEntity::fromDomain).toList());
+        // Flushed here, not at the caller's commit: a batch writer can only skip the one offending
+        // quote, such as one whose instrument was deleted mid-run, if the violation surfaces inside it.
+        repository.saveAllAndFlush(quotes.stream().map(QuoteEntity::fromDomain).toList());
     }
 }

@@ -55,6 +55,11 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
             } catch (RuntimeException failure) {
                 // Deliberately every runtime failure, not only the expected one: a single provider
                 // answering something nobody foresaw must not leave the other instruments unpriced.
+                if (loadInstruments.findById(instrument.id()).isEmpty()) {
+                    // Deleted since it was read: a failure recorded against it would break the
+                    // same foreign key as the quote did, and escape this catch.
+                    continue;
+                }
                 String reason = reasonOf(failure);
                 recordFailure.record(instrument.id(), instrument.priceSource(), reason);
                 failures.add(new RefreshReport.Failure(

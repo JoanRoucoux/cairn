@@ -2,7 +2,6 @@ package com.roucoux.cairn.batch.job;
 
 import static java.util.stream.Collectors.toSet;
 
-import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Quote;
@@ -59,8 +58,10 @@ class RefreshQuotesJobConfig {
                 .processor(refreshQuoteProcessor)
                 .writer(quoteWriter)
                 .faultTolerant()
-                .skip(MarketDataUnavailableException.class)
-                .skipLimit(10)
+                // Every runtime failure and no limit, like the refresh the API runs: an instrument
+                // deleted mid-run or a provider answering something unforeseen, even on every
+                // line during an outage, must not leave the remaining instruments unpriced.
+                .skipPolicy((failure, skipCount) -> failure instanceof RuntimeException)
                 .listener(skipListener)
                 .build();
     }

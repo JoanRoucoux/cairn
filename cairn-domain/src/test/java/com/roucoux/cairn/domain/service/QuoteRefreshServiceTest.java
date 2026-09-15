@@ -104,6 +104,21 @@ class QuoteRefreshServiceTest {
     }
 
     @Test
+    void anInstrumentDeletedDuringTheRunIsNotRecordedAsAFailure() {
+        RecordingFailurePort failures = new RecordingFailurePort();
+        QuoteRefreshService service = new QuoteRefreshService(
+                List.of(new CrashingPort(PriceSource.YAHOO, ETF2.id())),
+                new StubLoadInstrumentsPort(List.of(ETF2, ETF), Set.of(ETF2.id())),
+                new NoOpSaveQuotePort(),
+                failures);
+
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
+
+        assertThat(report.refreshed()).isEqualTo(1);
+        assertThat(failures.recorded()).isEmpty();
+    }
+
+    @Test
     void failsLoudlyWhenNoAdapterSupportsTheSource() {
         QuoteRefreshService service = service(List.of(), List.of(ETF));
 
@@ -226,9 +241,15 @@ class QuoteRefreshServiceTest {
 
     private static final class StubLoadInstrumentsPort implements LoadInstrumentsPort {
         private final List<Instrument> instruments;
+        private final Set<UUID> deletedSinceRead;
 
         private StubLoadInstrumentsPort(List<Instrument> instruments) {
+            this(instruments, Set.of());
+        }
+
+        private StubLoadInstrumentsPort(List<Instrument> instruments, Set<UUID> deletedSinceRead) {
             this.instruments = instruments;
+            this.deletedSinceRead = deletedSinceRead;
         }
 
         @Override
@@ -240,6 +261,7 @@ class QuoteRefreshServiceTest {
         public Optional<Instrument> findById(UUID id) {
             return instruments.stream()
                     .filter(instrument -> instrument.id().equals(id))
+                    .filter(instrument -> !deletedSinceRead.contains(id))
                     .findFirst();
         }
 

@@ -34,6 +34,9 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -80,6 +83,9 @@ class RefreshQuotesJobIT {
 
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void clearPreviousRuns() {
@@ -159,6 +165,37 @@ class RefreshQuotesJobIT {
         when(yahooQuoteAdapter.fetch(failing)).thenThrow(new MarketDataUnavailableException("simulated timeout"));
     }
 
+    private void givenOneInstrumentFailingUnexpectedly() {
+        Instrument working = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
+        Instrument failing = instruments.save(etf("Amundi ESR-E", "0P0001D8GQ.F"));
+
+        when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
+        when(yahooQuoteAdapter.fetch(working)).thenReturn(quoteOf(working, "456.78"));
+        when(yahooQuoteAdapter.fetch(failing)).thenThrow(new NullPointerException());
+    }
+
+    private void givenOneInstrumentDeletedWhileItsQuoteIsFetched() {
+        Instrument working = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
+        Instrument deleted = instruments.save(etf("Lyxor CAC 40", "CAC.PA"));
+        TransactionTemplate separateTransaction = new TransactionTemplate(transactionManager);
+        separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
+        when(yahooQuoteAdapter.fetch(working)).thenReturn(quoteOf(working, "456.78"));
+        when(yahooQuoteAdapter.fetch(deleted)).thenAnswer(invocation -> {
+            separateTransaction.executeWithoutResult(status -> instrumentRepository.deleteById(deleted.id()));
+            return quoteOf(deleted, "42.00");
+        });
+    }
+
+    private void givenMoreFailingInstrumentsThanTheOldSkipLimit() {
+        when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
+        for (int index = 0; index < 12; index++) {
+            Instrument failing = instruments.save(etf("Fund " + index, "FUND" + index));
+            when(yahooQuoteAdapter.fetch(failing)).thenThrow(new MarketDataUnavailableException("simulated outage"));
+        }
+    }
+
     private void givenTwoWorkingInstruments() {
         Instrument working1 = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
         Instrument working2 = instruments.save(etf("Amundi PEA S&P 500", "ETF2.PA"));
@@ -194,6 +231,37 @@ class RefreshQuotesJobIT {
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
         assertThat(quotes.countAll()).isEqualTo(2);
         assertThat(failures.countAll()).isEqualTo(1);
+    }
+
+    @Test
+    void anUnexpectedFailureOfOneSourceDoesNotStopTheRun() throws Exception {
+        givenOneInstrumentFailingUnexpectedly();
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
+
+        assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
+        assertThat(quotes.countAll()).isEqualTo(1);
+        assertThat(failures.countAll()).isEqualTo(1);
+    }
+
+    @Test
+    void anInstrumentDeletedDuringTheRunDoesNotStopIt() throws Exception {
+        givenOneInstrumentDeletedWhileItsQuoteIsFetched();
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
+
+        assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
+        assertThat(quotes.countAll()).isEqualTo(1);
+    }
+
+    @Test
+    void anOutageOfEverySourceStillCompletesWithEachFailureRecorded() throws Exception {
+        givenMoreFailingInstrumentsThanTheOldSkipLimit();
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
+
+        assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
+        assertThat(failures.countAll()).isEqualTo(12);
     }
 
     @Test
