@@ -1,21 +1,23 @@
 version: 2
 updates:
+  # One pull request for the whole Maven tree, not one per family: every module is parented by
+  # spring-boot-starter-parent separately, so a Spring bump and the plugins it manages land
+  # together or leave the modules out of step. Dependabot cannot group two ecosystems together,
+  # so actions keep their own.
   - package-ecosystem: maven
     directory: /
     schedule:
       interval: weekly
     groups:
-      spring:
-        patterns:
-          - 'org.springframework*'
-      dev-dependencies:
-        applies-to: version-updates
+      dependencies:
         patterns:
           - '*'
-        exclude-patterns:
-          - 'org.springframework*'
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
