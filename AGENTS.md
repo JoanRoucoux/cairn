@@ -188,6 +188,19 @@ holds. A rollback redeploys an already released commit and mints no version.
 
 ## Gotchas
 
+- **A killed migration leaves a lock that blocks every later deploy.** Liquibase takes a row in
+  `DATABASECHANGELOGLOCK` before applying anything and releases it on exit. A `schema` container
+  killed mid-run, by a reboot or a `docker kill`, never releases it: the next deploy waits five
+  minutes on `Waiting for changelog lock` and fails with `Could not acquire change log lock`.
+  Nothing times out on its own and no retry helps. Clear it on the server, then redeploy:
+
+  ```bash
+  docker exec -i cairn-postgres-1 psql -U app -d app -c "update databasechangeloglock set locked = false, lockgranted = null, lockedby = null;"
+  ```
+
+  Check first that no migration is genuinely running (`docker ps | grep schema`): releasing the
+  lock under a live migration lets a second one run against a half-applied changeset.
+
 - **`deploy.sh` is shipped as a file, never piped into `ssh bash -s`.** `docker compose run`
   attaches the caller's stdin to the container, so a piped script is read and discarded by the
   migration container: the first release migrated the database and then silently never started the
