@@ -31,7 +31,8 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 
 ## Conventions
 
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org).
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org). What is enforced is the **pull request title**, which the squash merge turns into the commit on main (`pr.yml`).
+- **Comments are the exception, not the norm**, in code and in configuration alike. Write one only for a trap that no test and no error message would catch. If a failing test would catch the edit the comment warns about, or if the sentence belongs in this file, it does not belong in the file it annotates.
 - Formatting is Spotless/palantir; records for immutable data; constructor injection without Lombok. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
 - Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}` — that would silently mean the wrong thing once a module is extracted.
 - Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`).
@@ -113,7 +114,9 @@ own history, and neither half waits on the other to deploy.
 
 `cairn.caddy` is Cairn's own site snippet, deployed into the proxy's `sites/`. Routing is by path,
 so no backend hostname is baked into `cairn-web`'s image and both halves share one origin, which
-the session cookie requires (`secure`, `SameSite=Strict`).
+the session cookie requires (`secure`, `SameSite=Strict`). Caddy resolves `api` and `web` over
+`edge` per request, not at startup, so the proxy comes up and recovers whether or not Cairn is
+running.
 
 **`/api` is a proxy-only prefix and must be stripped.** The contract declares `/session`,
 `/portfolio` and the rest at the root; the prefix exists solely to tell the two backends apart at
@@ -144,7 +147,8 @@ Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
 **Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml`,
 builds `api`, `schema` and `batch`, pushes them to GHCR as `sha-` followed by the commit's first
 7 characters, ships `compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh`
-and `deploy/cairn.cron` to the server, applies the Liquibase changelog on its own before anything
+and `deploy/cairn.cron` to the server, reloads the shared proxy rather than restarting it so the
+other sites keep serving, applies the Liquibase changelog on its own before anything
 starts, then brings up `postgres` and `api` and waits for `/api/actuator/health`. Rolling back is
 running the workflow by hand with the full SHA of an earlier commit: it checks that the images
 exist, then deploys that commit's files and images without building. A running deploy is never
@@ -173,7 +177,21 @@ Rollback reaches only commits deployed this way: earlier commits have no `sha-` 
 never undoes a changeset either, so rolling back across a schema change leaves an older API facing a
 newer schema, which `ddl-auto: validate` may refuse.
 
+### Releasing
+
+Work happens on a short branch and lands through a pull request; a squash merge makes the PR title
+the commit on main. The merge deploys, and a deploy that worked publishes a CalVer release,
+`vYYYY.MM.DD.n`, whose notes git-cliff builds from the commit subjects since the previous one
+(`cliff.toml`). The Releases page is therefore the history of what production has run. There is no
+CHANGELOG.md: it would mean a bot commit on main per deploy, for content the Releases page already
+holds. A rollback redeploys an already released commit and mints no version.
+
 ## Gotchas
+
+- **`deploy.sh` is shipped as a file, never piped into `ssh bash -s`.** `docker compose run`
+  attaches the caller's stdin to the container, so a piped script is read and discarded by the
+  migration container: the first release migrated the database and then silently never started the
+  API.
 
 - **The `local` profile hides the whole security layer.** `app.security.permit-all=true` disables
   CSRF and authentication outright, so nothing that depends on them is exercised until production.

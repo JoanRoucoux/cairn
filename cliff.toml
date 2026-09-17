@@ -1,0 +1,30 @@
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}[**breaking**] {% endif %}\
+            {% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
+            {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})\
+    {% endfor %}
+{% endfor %}\n
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+protect_breaking_commits = true
+sort_commits = "oldest"
+tag_pattern = "v[0-9]*"
+# The HTML comment is a sort key that striptags removes; groups are alphabetical otherwise.
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Bug fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Refactoring" },
+  { message = "^revert", group = "<!-- 4 -->Reverts" },
+  { message = "^(build|chore)[(]deps[)]", group = "<!-- 5 -->Dependencies" },
+  { message = ".*", group = "<!-- 6 -->Housekeeping" },
+]
