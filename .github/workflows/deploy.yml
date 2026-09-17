@@ -130,7 +130,7 @@ jobs:
 
   release:
     needs: deploy
-    if: github.event_name == 'push'
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
