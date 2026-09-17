@@ -7,22 +7,17 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - cairn-data:/var/lib/postgresql/data
-    # no port published: only the compose network's own services reach it
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U app -d app']
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # One-shot migration: `docker compose --profile migrate up --build schema`. Never started by
-  # `up` alone, and never run by a long-lived application (see cairn-schema/AGENTS.md).
   schema:
     profiles: ['migrate']
     build: { context: ., dockerfile: cairn-schema/Dockerfile }
     environment:
-      # Without these, Liquibase falls back to the Dockerfile defaults and only ever reaches a
-      # database whose password happens to be `app`. compose.prod.yaml has always passed them.
-      LIQUIBASE_USERNAME: app
+      LIQUIBASE_USERNAME: app  # without these two, Liquibase migrates the Dockerfile default database
       LIQUIBASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     depends_on:
       postgres:
@@ -31,33 +26,18 @@ services:
   api:
     build: { context: ., dockerfile: cairn-api/Dockerfile }
     environment:
-      # Bare-name form: Compose forwards these only when set in the host shell, and omits the key
-      # entirely otherwise. Unlike `KEY: ${VAR}`, an unset CAIRN_RP_ID/CAIRN_ORIGIN never becomes
-      # an empty-string value here, so cairn-api/application.yml's own
-      # `${CAIRN_RP_ID:localhost}`/`${CAIRN_ORIGIN:http://localhost:4200}` defaults — both sane
-      # for local/single-user use — actually get to fire.
       - CAIRN_RP_ID
       - CAIRN_ORIGIN
-      # WebAuthnConfig refuses to boot outside the local profile with the default password. An
-      # unset variable must fail `docker compose up` itself, not resolve to an empty string that
-      # would boot the app with a blank password instead (Compose's default ${VAR} behavior).
       - CAIRN_PASSWORD=${CAIRN_PASSWORD:?CAIRN_PASSWORD must be set}
-      # cairn-api/application.yml hardcodes localhost:5432, which only resolves inside the
-      # container's own network namespace. Overridden here to the compose service name so the
-      # container reaches the postgres service instead of itself.
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app
       - SPRING_DATASOURCE_USERNAME=app
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-app}
-    # Published for curl and for `pnpm start`, which proxies here. Never point a browser at
-    # it to judge the application: it bypasses Caddy, and therefore the /api prefix and the
-    # single origin, which is precisely where the production-only defects live.
     ports:
       - '8080:8080'
     depends_on:
       postgres:
         condition: service_healthy
 
-  # Run on demand or by cron, never by `up`: `docker compose run --rm batch`.
   batch:
     profiles: ['batch']
     build: { context: ., dockerfile: cairn-batch/Dockerfile }
@@ -69,19 +49,9 @@ services:
       postgres:
         condition: service_healthy
 
-  # The published frontend image, not a build: cairn-web is a separate repository and this
-  # file must not reach outside its own. To run a frontend that is not deployed yet, build
-  # it there under a tag and name that tag here:
-  #   docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
-  #   WEB_TAG=local docker compose up -d
   web:
     image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set, e.g. sha-1a2b3c4 or a locally built tag}
 
-  # The same proxy, reading the same cairn.caddy, as the server runs. It is the whole point
-  # of this service: a browser talking straight to api:8080 exercises neither the /api prefix
-  # nor the single origin the session cookie needs, and both have shipped broken because of
-  # exactly that. CAIRN_DOMAIN carries the http:// scheme so Caddy serves plain HTTP instead
-  # of minting a certificate from an authority no browser here trusts.
   caddy:
     image: caddy:2.11.4-alpine
     environment:
@@ -89,8 +59,6 @@ services:
     ports:
       - '80:80'
     volumes:
-      # A Caddyfile holding a single site block is valid on its own; the server imports the same
-      # snippet from infra's shared proxy.
       - ./cairn.caddy:/etc/caddy/Caddyfile:ro
     depends_on: [api, web]
 

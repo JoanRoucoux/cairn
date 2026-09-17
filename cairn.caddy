@@ -1,33 +1,10 @@
-# Cairn's own routing, owned by this repository and deployed into the shared proxy's
-# /etc/caddy/sites/ (see the infra repository's proxy/compose.yaml). Routing is by path, not by
-# container: nginx
-# (cairn-web's image) only ever serves static files, so the split between the SPA and the API
-# happens here instead of baking a backend hostname into the frontend image. Front and API
-# therefore share one origin, which the session cookie requires (secure, SameSite=Strict).
-#
-# `api` and `web` resolve over the `edge` network. Caddy resolves them per request, so it starts
-# and recovers on its own whether or not Cairn happens to be running.
-#
-# CAIRN_DOMAIN comes from /srv/proxy/.env and must match the api container's CAIRN_RP_ID: it is
-# bound into every passkey registered against it and cannot change afterwards.
 {$CAIRN_DOMAIN} {
 	encode zstd gzip
 
-	# handle_path, not handle: it strips the matched prefix. The API serves /session, /portfolio
-	# and the rest at its root, with no /api anywhere in the contract; the prefix exists only to
-	# tell the two backends apart at this one point. cairn-web's proxy.conf.json strips it the
-	# same way in development, which is why forwarding it verbatim 404'd every authenticated call
-	# while looking perfectly healthy from outside: unauthenticated, Spring answers 401 before
-	# routing, so a missing route and a protected one are indistinguishable.
 	handle_path /api/* {
 		reverse_proxy api:8080
 	}
 
-	# Spring Security serves these itself, at these exact paths, so they are forwarded unchanged.
-	# /login is deliberately absent: cairn-web owns the sign-in screen, and Spring's own page is
-	# switched off. /webauthn/* carries both the registration page and the ceremony endpoints;
-	# /login/webauthn and /login/webauthn.js are the assertion endpoint and its script, which sit
-	# under /login rather than /webauthn; /default-ui.css styles the registration page.
 	@springOwned path /logout* /webauthn/* /login/webauthn /login/webauthn.js /default-ui.css
 	handle @springOwned {
 		reverse_proxy api:8080

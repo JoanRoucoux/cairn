@@ -25,9 +25,7 @@ jobs:
           java-version: '25'
           cache: maven
 
-      # -am is not optional: cairn-adapter depends on cairn-domain, which a fresh runner has
-      # never installed. Without it Maven stops in two seconds on an unresolved artifact and
-      # never reaches a provider at all.
+      # -am is not optional: a fresh runner has never installed cairn-domain.
       - name: Verify against the real providers
         run: ./mvnw -ntp verify -pl cairn-adapter -am -Pexternal
 

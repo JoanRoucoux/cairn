@@ -1,11 +1,3 @@
-# Production file: pulls prebuilt images from GHCR instead of building locally, and exposes
-# nothing itself. TLS and ports 80/443 belong to the shared proxy owned by the infra repository,
-# a separate compose project reached over the external `edge` network, so redeploying Cairn never
-# restarts the other applications on the host.
-#
-# Used by deploy/deploy.sh (schema run, then `up -d --wait postgres api`) and deploy/run-batch.sh,
-# never together with compose.yaml (both declare the same service names against the same
-# cairn-data volume).
 services:
   postgres:
     image: postgres:17.11
@@ -20,11 +12,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    # Default network only, deliberately: never on `edge`, so no other application sharing the
-    # proxy can reach the database at all.
     restart: unless-stopped
 
-  # One-shot migration, run before api/web on every deploy: `--profile migrate run --rm schema`.
   schema:
     profiles: ['migrate']
     image: ghcr.io/joanroucoux/cairn-schema:${TAG:?TAG must be set}
@@ -44,7 +33,6 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app
       - SPRING_DATASOURCE_USERNAME=app
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-    # No published port: reached only by the proxy, over `edge`, by service name.
     networks:
       - default
       - edge
@@ -53,17 +41,13 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # WEB_TAG, and not TAG: this image is built from the cairn-web repository, which has its own
-  # history and its own tags. Each repository deploys its own half without waiting for the other.
   web:
     image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set}
-    # No published port either, for the same reason as api.
     networks:
       - default
       - edge
     restart: unless-stopped
 
-  # Run by cron through deploy/run-batch.sh, never by `up`.
   batch:
     profiles: ['batch']
     image: ghcr.io/joanroucoux/cairn-batch:${TAG:?TAG must be set}
@@ -76,7 +60,6 @@ services:
         condition: service_healthy
 
 networks:
-  # Created once on the host with `docker network create edge`, and shared with the proxy.
   edge:
     external: true
 

@@ -29,11 +29,9 @@ jobs:
       - name: Check formatting
         run: ./mvnw -ntp -B spotless:check
 
-      # Unit tests, ArchUnit rules, integration tests (Testcontainers), coverage check.
       - name: Verify
         run: ./mvnw -ntp -B verify
 
-  # A broken Dockerfile would otherwise surface only during a deploy.
   docker:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
