@@ -12,7 +12,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns:
@@ -33,7 +33,7 @@ updates:
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     ignore:
       # A major PostgreSQL release cannot read the previous one's data directory: that upgrade is
       # a dump and restore, never a tag bump.
