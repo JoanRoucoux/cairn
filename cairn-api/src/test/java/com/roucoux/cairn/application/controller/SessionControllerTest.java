@@ -15,15 +15,19 @@ import com.roucoux.cairn.application.mapper.SessionRestMapper;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,6 +45,9 @@ class SessionControllerTest {
 
     @MockitoBean
     UserCredentialRepository credentials;
+
+    @MockitoBean
+    FindByIndexNameSessionRepository<Session> sessions;
 
     private void givenOwner(String username, String displayName) {
         PublicKeyCredentialUserEntity owner = org.mockito.Mockito.mock(PublicKeyCredentialUserEntity.class);
@@ -144,6 +151,25 @@ class SessionControllerTest {
                 .andExpect(status().isConflict());
 
         verify(credentials, never()).delete(any());
+    }
+
+    @Test
+    void revokingAPasskeySignsOutEveryOtherSessionOfTheOwner() throws Exception {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        when(sessions.findByPrincipalName("joan"))
+                .thenReturn(Map.of(
+                        "current-session-id", org.mockito.Mockito.mock(Session.class),
+                        "other-session-id", org.mockito.Mockito.mock(Session.class)));
+
+        mockMvc.perform(delete("/session/passkeys/{id}", "bWFj")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .session(new MockHttpSession(null, "current-session-id")))
+                .andExpect(status().isNoContent());
+
+        verify(sessions).deleteById("other-session-id");
+        verify(sessions, never()).deleteById("current-session-id");
     }
 
     @Test
