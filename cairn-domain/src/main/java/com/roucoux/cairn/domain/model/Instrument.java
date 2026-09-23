@@ -44,6 +44,10 @@ public record Instrument(
         return priceSource != PriceSource.MANUAL;
     }
 
+    public boolean isPricedAtPar() {
+        return assetClass == AssetClass.CASH && priceSource == PriceSource.MANUAL;
+    }
+
     public Optional<String> externalUrl() {
         return switch (priceSource) {
             case YAHOO -> Optional.of("https://finance.yahoo.com/quote/" + sourceRef);

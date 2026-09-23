@@ -235,7 +235,7 @@ class PortfolioServiceTest {
         };
 
         return new PortfolioService(
-                loadHoldings, new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes), CLOCK);
+                loadHoldings, new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, CLOCK), CLOCK);
     }
 
     private static PortfolioService serviceWithSamplePortfolio() {

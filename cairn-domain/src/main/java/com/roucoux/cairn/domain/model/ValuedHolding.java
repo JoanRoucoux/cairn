@@ -33,11 +33,17 @@ public record ValuedHolding(
     }
 
     public Optional<Money> unrealizedGain() {
+        if (instrument.isPricedAtPar()) {
+            return quote.map(q -> new Money(BigDecimal.ZERO, q.currency()));
+        }
         return quote.flatMap(q -> holding.costBasis()
                 .map(cost -> valueAt(q).minus(new Money(holding.quantity().multiply(cost), q.currency()))));
     }
 
     public Optional<BigDecimal> unrealizedGainRatio() {
+        if (instrument.isPricedAtPar()) {
+            return quote.map(q -> BigDecimal.ZERO);
+        }
         return quote.flatMap(q -> holding.costBasis()
                 .filter(cost -> cost.signum() != 0)
                 .map(cost -> q.price().subtract(cost).divide(cost, RATIO_SCALE, RoundingMode.HALF_UP)));
