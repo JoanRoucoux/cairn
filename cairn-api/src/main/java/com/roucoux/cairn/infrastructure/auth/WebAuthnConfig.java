@@ -1,6 +1,7 @@
 package com.roucoux.cairn.infrastructure.auth;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.session.autoconfigure.DefaultCookieSerializerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -51,6 +52,9 @@ public class WebAuthnConfig {
 
     static final String LOCAL_PROFILE = "local";
 
+    /** 30 days, sliding: the persistent {@code SESSION} cookie's Max-Age (see {@link #sessionCookieCustomizer()}). */
+    static final int SESSION_COOKIE_MAX_AGE_SECONDS = 2_592_000;
+
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -88,6 +92,25 @@ public class WebAuthnConfig {
                         (request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .build();
+    }
+
+    /**
+     * {@code server.servlet.session.cookie.*} is only honored by Spring Boot's embedded-web-server
+     * session auto-configuration branch. A {@code @SpringBootTest} in its default MOCK web
+     * environment carries a {@code ServletContext} with no embedded server behind it, which Spring
+     * Boot's condition treats as a WAR deployment instead, a branch that reads cookie attributes
+     * from the servlet container's own {@code SessionCookieConfig} and ignores those properties
+     * entirely. This customizer is applied last on both branches, so the persistent, `Secure`,
+     * `HttpOnly`, `SameSite=Strict` cookie holds regardless of how the application is deployed.
+     */
+    @Bean
+    DefaultCookieSerializerCustomizer sessionCookieCustomizer() {
+        return serializer -> {
+            serializer.setUseSecureCookie(true);
+            serializer.setUseHttpOnlyCookie(true);
+            serializer.setSameSite("Strict");
+            serializer.setCookieMaxAge(SESSION_COOKIE_MAX_AGE_SECONDS);
+        };
     }
 
     @Bean

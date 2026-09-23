@@ -1,13 +1,17 @@
-server:
-  servlet:
-    session:
-      cookie:
-        secure: true
-        same-site: strict
-
 spring:
   application:
     name: cairn-api
+  session:
+    # spring.session.timeout, not server.servlet.session.timeout: a @SpringBootTest's default MOCK
+    # web environment carries a ServletContext without an embedded server behind it, which Spring
+    # Boot's session auto-configuration treats as a WAR deployment, a branch that reads
+    # spring.session.timeout directly and never falls back to server.servlet.session.timeout. The
+    # cookie's own Secure/HttpOnly/SameSite/Max-Age attributes have the same problem and are set in
+    # WebAuthnConfig#sessionCookieCustomizer instead, which both branches honor identically.
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
+      cleanup-cron: "0 0 * * * *"
   datasource:
     url: jdbc:postgresql://localhost:5432/app
     username: app
