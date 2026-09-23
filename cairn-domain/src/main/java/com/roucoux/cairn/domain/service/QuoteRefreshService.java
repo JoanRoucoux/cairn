@@ -6,6 +6,8 @@ import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -21,16 +23,19 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
     private final LoadInstrumentsPort loadInstruments;
     private final SaveQuotePort saveQuote;
     private final RecordQuoteFailurePort recordFailure;
+    private final AnnounceQuotesUseCase announce;
 
     public QuoteRefreshService(
             List<FetchQuotePort> fetchers,
             LoadInstrumentsPort loadInstruments,
             SaveQuotePort saveQuote,
-            RecordQuoteFailurePort recordFailure) {
+            RecordQuoteFailurePort recordFailure,
+            AnnounceQuotesUseCase announce) {
         this.fetchers = List.copyOf(fetchers);
         this.loadInstruments = loadInstruments;
         this.saveQuote = saveQuote;
         this.recordFailure = recordFailure;
+        this.announce = announce;
     }
 
     @Override
@@ -39,7 +44,7 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
     }
 
     @Override
-    public RefreshReport refreshAll(Set<AssetClass> assetClasses) {
+    public RefreshReport refreshAll(Set<AssetClass> assetClasses, RefreshTrigger trigger) {
         int refreshed = 0;
         int skipped = 0;
         List<RefreshReport.Failure> failures = new ArrayList<>();
@@ -50,7 +55,9 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                 continue;
             }
             try {
-                saveQuote.upsert(refresh(instrument));
+                Quote quote = refresh(instrument);
+                saveQuote.upsert(quote);
+                announce.quotesSaved(List.of(quote));
                 refreshed++;
             } catch (RuntimeException failure) {
                 // Deliberately every runtime failure, not only the expected one: a single provider
@@ -66,6 +73,7 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                         instrument.id(), instrument.name(), instrument.priceSource(), reason));
             }
         }
+        announce.refreshCompleted(assetClasses, refreshed, failures.size(), trigger);
         return new RefreshReport(refreshed, skipped, List.copyOf(failures));
     }
 

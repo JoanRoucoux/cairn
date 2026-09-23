@@ -1,12 +1,15 @@
 package com.roucoux.cairn.batch.config;
 
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
+import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.service.BackfillService;
+import com.roucoux.cairn.domain.service.QuoteAnnouncementService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
 import java.time.Clock;
 import java.util.List;
@@ -50,12 +53,23 @@ class BatchDomainConfig {
     }
 
     @Bean
+    AnnounceQuotesUseCase announceQuotes(PublishEventPort publishEvent) {
+        return new QuoteAnnouncementService(publishEvent);
+    }
+
+    /**
+     * Required to satisfy {@code QuoteRefreshService}'s constructor, but never exercised here: the
+     * step below calls {@code refresh(Instrument)} and {@code SaveQuotePort} directly through its
+     * own reader/processor/writer, bypassing {@code refreshAll} and the announcements it makes.
+     */
+    @Bean
     RefreshQuotesUseCase refreshQuotes(
             List<FetchQuotePort> fetchers,
             LoadInstrumentsPort loadInstruments,
             SaveQuotePort saveQuote,
-            RecordQuoteFailurePort recordFailure) {
-        return new QuoteRefreshService(fetchers, loadInstruments, saveQuote, recordFailure);
+            RecordQuoteFailurePort recordFailure,
+            AnnounceQuotesUseCase announceQuotes) {
+        return new QuoteRefreshService(fetchers, loadInstruments, saveQuote, recordFailure, announceQuotes);
     }
 
     @Bean

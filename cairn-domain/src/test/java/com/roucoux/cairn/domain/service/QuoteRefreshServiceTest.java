@@ -9,6 +9,8 @@ import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
@@ -18,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -47,7 +50,7 @@ class QuoteRefreshServiceTest {
         RecordingPort coinGecko = new RecordingPort(PriceSource.COINGECKO);
         QuoteRefreshService service = service(List.of(yahoo, coinGecko), List.of(ETHEREUM));
 
-        service.refreshAll(Set.of(AssetClass.CRYPTO));
+        service.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.MANUAL);
 
         assertThat(coinGecko.calls()).containsExactly(ETHEREUM.id());
         assertThat(yahoo.calls()).isEmpty();
@@ -58,7 +61,7 @@ class QuoteRefreshServiceTest {
         RecordingPort yahoo = new RecordingPort(PriceSource.YAHOO);
         QuoteRefreshService service = service(List.of(yahoo), List.of(LIVRET_A));
 
-        RefreshReport report = service.refreshAll(Set.of(AssetClass.CASH));
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.CASH), RefreshTrigger.MANUAL);
 
         assertThat(yahoo.calls()).isEmpty();
         assertThat(report.skipped()).isEqualTo(1);
@@ -70,7 +73,7 @@ class QuoteRefreshServiceTest {
         FetchQuotePort failing = new FailingPort(PriceSource.YAHOO, ETF2.id());
         QuoteRefreshService service = service(List.of(failing), List.of(ETF2, ETF));
 
-        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
         assertThat(report.failures())
@@ -83,7 +86,7 @@ class QuoteRefreshServiceTest {
         FetchQuotePort crashing = new CrashingPort(PriceSource.YAHOO, ETF2.id());
         QuoteRefreshService service = service(List.of(crashing), List.of(ETF2, ETF));
 
-        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
         assertThat(report.failures()).singleElement().satisfies(failure -> {
@@ -98,7 +101,7 @@ class QuoteRefreshServiceTest {
         QuoteRefreshService service =
                 service(List.of(new FailingPort(PriceSource.YAHOO, ETF2.id())), List.of(ETF2), failures);
 
-        service.refreshAll(Set.of(AssetClass.ETF));
+        service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(failures.recorded()).hasSize(1);
     }
@@ -110,9 +113,10 @@ class QuoteRefreshServiceTest {
                 List.of(new CrashingPort(PriceSource.YAHOO, ETF2.id())),
                 new StubLoadInstrumentsPort(List.of(ETF2, ETF), Set.of(ETF2.id())),
                 new NoOpSaveQuotePort(),
-                failures);
+                failures,
+                new NoOpAnnounceQuotesUseCase());
 
-        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF));
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
         assertThat(failures.recorded()).isEmpty();
@@ -127,6 +131,50 @@ class QuoteRefreshServiceTest {
                 .hasMessageContaining("YAHOO");
     }
 
+    @Test
+    void announcesEachSavedQuoteThenTheEndOfTheRefresh() {
+        Instrument aaa = new Instrument(
+                UUID.randomUUID(), "AAA", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "AAA.PA", null);
+        Instrument bbb = new Instrument(
+                UUID.randomUUID(), "BBB", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "BBB.PA", null);
+        Instrument ccc = new Instrument(
+                UUID.randomUUID(), "CCC", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CCC.PA", null);
+        RecordingAnnounceUseCase announced = new RecordingAnnounceUseCase(Map.of(
+                aaa.id(), "AAA",
+                bbb.id(), "BBB",
+                ccc.id(), "CCC"));
+        FetchQuotePort fetcher = new FailingPort(PriceSource.YAHOO, ccc.id());
+        QuoteRefreshService service = new QuoteRefreshService(
+                List.of(fetcher),
+                new StubLoadInstrumentsPort(List.of(aaa, bbb, ccc)),
+                new NoOpSaveQuotePort(),
+                new RecordingFailurePort(),
+                announced);
+
+        service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+        assertThat(announced.events()).containsExactly("saved:AAA", "saved:BBB", "completed:2:1:MANUAL");
+    }
+
+    @Test
+    void announcesAQuoteOnlyAfterItWasSaved() {
+        Instrument aaa = new Instrument(
+                UUID.randomUUID(), "AAA", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "AAA.PA", null);
+        Instrument bbb = new Instrument(
+                UUID.randomUUID(), "BBB", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "BBB.PA", null);
+        RecordingAnnounceUseCase announced = new RecordingAnnounceUseCase(Map.of(aaa.id(), "AAA", bbb.id(), "BBB"));
+        QuoteRefreshService service = new QuoteRefreshService(
+                List.of(new RecordingPort(PriceSource.YAHOO)),
+                new StubLoadInstrumentsPort(List.of(aaa, bbb)),
+                new FailingSaveQuotePort(bbb.id()),
+                new RecordingFailurePort(),
+                announced);
+
+        service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+        assertThat(announced.events()).containsExactly("saved:AAA", "completed:1:1:MANUAL");
+    }
+
     private static QuoteRefreshService service(List<FetchQuotePort> fetchers, List<Instrument> instruments) {
         return service(fetchers, instruments, new RecordingFailurePort());
     }
@@ -134,7 +182,11 @@ class QuoteRefreshServiceTest {
     private static QuoteRefreshService service(
             List<FetchQuotePort> fetchers, List<Instrument> instruments, RecordQuoteFailurePort failurePort) {
         return new QuoteRefreshService(
-                fetchers, new StubLoadInstrumentsPort(instruments), new NoOpSaveQuotePort(), failurePort);
+                fetchers,
+                new StubLoadInstrumentsPort(instruments),
+                new NoOpSaveQuotePort(),
+                failurePort,
+                new NoOpAnnounceQuotesUseCase());
     }
 
     private static final class RecordingPort implements FetchQuotePort {
@@ -279,5 +331,55 @@ class QuoteRefreshServiceTest {
 
         @Override
         public void upsertAll(List<Quote> quotes) {}
+    }
+
+    private static final class FailingSaveQuotePort implements SaveQuotePort {
+        private final UUID failingInstrumentId;
+
+        private FailingSaveQuotePort(UUID failingInstrumentId) {
+            this.failingInstrumentId = failingInstrumentId;
+        }
+
+        @Override
+        public void upsert(Quote quote) {
+            if (quote.instrumentId().equals(failingInstrumentId)) {
+                throw new IllegalStateException("simulated write failure");
+            }
+        }
+
+        @Override
+        public void upsertAll(List<Quote> quotes) {}
+    }
+
+    private static final class NoOpAnnounceQuotesUseCase implements AnnounceQuotesUseCase {
+        @Override
+        public void quotesSaved(List<Quote> quotes) {}
+
+        @Override
+        public void refreshCompleted(Set<AssetClass> assetClasses, int refreshed, int failed, RefreshTrigger trigger) {}
+    }
+
+    /** Records "saved:REF" per announced quote, then "completed:refreshed:failed:trigger", in order. */
+    private static final class RecordingAnnounceUseCase implements AnnounceQuotesUseCase {
+        private final Map<UUID, String> refsByInstrumentId;
+        private final List<String> events = new ArrayList<>();
+
+        private RecordingAnnounceUseCase(Map<UUID, String> refsByInstrumentId) {
+            this.refsByInstrumentId = refsByInstrumentId;
+        }
+
+        @Override
+        public void quotesSaved(List<Quote> quotes) {
+            quotes.forEach(quote -> events.add("saved:" + refsByInstrumentId.get(quote.instrumentId())));
+        }
+
+        @Override
+        public void refreshCompleted(Set<AssetClass> assetClasses, int refreshed, int failed, RefreshTrigger trigger) {
+            events.add("completed:" + refreshed + ":" + failed + ":" + trigger);
+        }
+
+        List<String> events() {
+            return events;
+        }
     }
 }

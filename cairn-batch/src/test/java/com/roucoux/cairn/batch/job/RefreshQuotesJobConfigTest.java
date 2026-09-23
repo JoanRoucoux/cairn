@@ -7,6 +7,7 @@ import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
@@ -99,7 +100,7 @@ class RefreshQuotesJobConfigTest {
         }
 
         @Override
-        public RefreshReport refreshAll(Set<AssetClass> assetClasses) {
+        public RefreshReport refreshAll(Set<AssetClass> assetClasses, RefreshTrigger trigger) {
             return new RefreshReport(0, 0, List.of());
         }
 

@@ -79,7 +79,7 @@ class QuoteControllerTest {
 
     @Test
     void refreshesEveryQuoteAndReportsTheFailures() throws Exception {
-        when(refreshQuotes.refreshAll(any()))
+        when(refreshQuotes.refreshAll(any(), any()))
                 .thenReturn(new RefreshReport(
                         25,
                         3,
