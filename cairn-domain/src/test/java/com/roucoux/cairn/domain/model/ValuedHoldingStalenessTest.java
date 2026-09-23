@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 class ValuedHoldingStalenessTest {
 
     private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
-    // Le 2026-08-21 est un vendredi : le "jour ouvre precedent" est le jeudi 20.
     private static final Instant FRIDAY_NOON =
             LocalDate.of(2026, 8, 21).atTime(12, 0).atZone(PARIS).toInstant();
     private static final Clock CLOCK = Clock.fixed(FRIDAY_NOON, PARIS);
@@ -36,7 +35,6 @@ class ValuedHoldingStalenessTest {
 
     @Test
     void aFundWhoseLatestNavIsDaysOldButWasFetchedTodayIsFresh() {
-        // The real case of 2026-09-23: NAV of the 18th, fetched successfully on the morning of the 23rd.
         Instant fetchedThisMorning = FRIDAY_NOON.minus(Duration.ofHours(3));
 
         assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 16), fetchedThisMorning)

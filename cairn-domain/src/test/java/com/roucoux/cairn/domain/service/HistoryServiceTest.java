@@ -17,6 +17,8 @@ import com.roucoux.cairn.domain.port.out.LoadSnapshotsPort;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +36,6 @@ class HistoryServiceTest {
 
     @Test
     void valuesEachDayAtTheQuantitiesHeldToday() {
-        // 29 ETF shares: 690.81 on the 20th, 686.31 on the 21st.
         HistoryService service = serviceWith(
                 holding(ETF_ID, new BigDecimal("29")),
                 quotes(
@@ -53,7 +54,6 @@ class HistoryServiceTest {
 
     @Test
     void carriesTheLastKnownPriceForwardOnDaysWithoutAQuote() {
-        // A fund doesn't publish on weekends: Friday's price carries over to Saturday and Sunday.
         HistoryService service = serviceWith(
                 holding(FCPE_ID, new BigDecimal("100")),
                 quotes(FCPE_ID, Map.of(LocalDate.of(2026, 8, 21), new BigDecimal("68.34"))));
@@ -67,8 +67,6 @@ class HistoryServiceTest {
 
     @Test
     void startsOnlyOnceEveryHoldingCanBePriced() {
-        // Without this rule, the curve would show a false ramp: the total would climb simply
-        // because the instruments appear one after another.
         HistoryService service = serviceWith(
                 List.of(holding(ETF_ID, BigDecimal.ONE), holding(FCPE_ID, BigDecimal.ONE)),
                 Map.of(
@@ -91,12 +89,13 @@ class HistoryServiceTest {
                         instrument(CASH_ID, AssetClass.FUND, PriceSource.MANUAL)));
 
         assertThat(service.history(HistoryMode.CONSTANT_MIX, LocalDate.of(2026, 8, 20), LocalDate.of(2026, 8, 21)))
-                .isNotEmpty();
+                .extracting(HistoryPoint::totalEur)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("10"), new BigDecimal("10"));
     }
 
     @Test
     void seedsALineWithItsLastQuoteBeforeTheWindow() {
-        // NAV of Friday the 18th; the window opens on Tuesday the 22nd with no new NAV yet.
         HistoryService service = serviceWith(
                 holding(FCPE_ID, new BigDecimal("100")),
                 quotes(FCPE_ID, Map.of(LocalDate.of(2026, 9, 18), new BigDecimal("60.39"))));
@@ -174,7 +173,7 @@ class HistoryServiceTest {
     }
 
     private static List<Quote> quotesFrom(LocalDate from) {
-        List<Quote> series = new java.util.ArrayList<>();
+        List<Quote> series = new ArrayList<>();
         for (LocalDate day = from; !day.isAfter(FAR_FUTURE); day = day.plusDays(1)) {
             series.add(quote(UUID.randomUUID(), day, BigDecimal.TEN));
         }
@@ -260,7 +259,7 @@ class HistoryServiceTest {
                 for (UUID instrumentId : instrumentIds) {
                     quotesByInstrument.getOrDefault(instrumentId, List.of()).stream()
                             .filter(q -> !q.asOf().isAfter(day))
-                            .max(java.util.Comparator.comparing(Quote::asOf))
+                            .max(Comparator.comparing(Quote::asOf))
                             .ifPresent(q -> result.put(instrumentId, q));
                 }
                 return result;

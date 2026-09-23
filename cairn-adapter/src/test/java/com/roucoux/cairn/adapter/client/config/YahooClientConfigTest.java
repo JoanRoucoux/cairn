@@ -18,7 +18,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
-/** No Spring context: the configuration is called directly, against a WireMock server. */
 class YahooClientConfigTest {
 
     private static final WireMockServer server =

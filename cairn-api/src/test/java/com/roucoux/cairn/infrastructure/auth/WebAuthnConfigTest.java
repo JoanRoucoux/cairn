@@ -8,7 +8,6 @@ import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/** No Spring context: the bean-wiring method is called directly, per the module's convention. */
 class WebAuthnConfigTest {
 
     private final WebAuthnConfig config = new WebAuthnConfig();
