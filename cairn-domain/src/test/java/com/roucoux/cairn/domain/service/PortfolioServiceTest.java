@@ -232,10 +232,15 @@ class PortfolioServiceTest {
             public Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to) {
                 return Map.of();
             }
+
+            @Override
+            public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
+                return Map.of();
+            }
         };
 
         return new PortfolioService(
-                loadHoldings, new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes), CLOCK);
+                loadHoldings, new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, CLOCK), CLOCK);
     }
 
     private static PortfolioService serviceWithSamplePortfolio() {

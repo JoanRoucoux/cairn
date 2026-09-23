@@ -26,7 +26,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.web.client.RestClient;
 
-/** No Spring context: the adapter is built directly against a WireMock server. */
 class SgSiriusQuoteAdapterTest {
 
     private WireMockServer wireMock;

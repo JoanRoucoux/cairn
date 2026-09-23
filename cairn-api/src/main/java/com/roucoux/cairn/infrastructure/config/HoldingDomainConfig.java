@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.service.HoldingService;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -36,7 +37,10 @@ class HoldingDomainConfig {
      */
     @Bean
     ValueHoldingUseCase valueHoldingUseCase(
-            LoadInstrumentsPort loadInstruments, LoadAccountsPort loadAccounts, LoadQuotesPort loadQuotes) {
-        return new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes);
+            LoadInstrumentsPort loadInstruments,
+            LoadAccountsPort loadAccounts,
+            LoadQuotesPort loadQuotes,
+            Clock clock) {
+        return new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, clock);
     }
 }

@@ -1,8 +1,10 @@
 package com.roucoux.cairn.adapter.client.config;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -14,7 +16,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
-/** No Spring context: the configuration is called directly, against a WireMock server. */
 class CoinGeckoClientConfigTest {
 
     private static final WireMockServer server =
@@ -39,5 +40,24 @@ class CoinGeckoClientConfigTest {
         RestClient client = new CoinGeckoClientConfig().coinGeckoRestClient(properties);
 
         assertThat(client.get().uri("/price").retrieve().body(String.class)).isEqualTo("reached");
+    }
+
+    @Test
+    void retriesAServerErrorOnce() {
+        server.stubFor(get(urlEqualTo("/flaky"))
+                .inScenario("flaky")
+                .whenScenarioStateIs(STARTED)
+                .willSetStateTo("up")
+                .willReturn(aResponse().withStatus(503)));
+        server.stubFor(get(urlEqualTo("/flaky"))
+                .inScenario("flaky")
+                .whenScenarioStateIs("up")
+                .willReturn(ok("reached")));
+        CoinGeckoClientProperties properties =
+                new CoinGeckoClientProperties(server.baseUrl(), Duration.ofSeconds(2), Duration.ofSeconds(5));
+
+        RestClient client = new CoinGeckoClientConfig().coinGeckoRestClient(properties);
+
+        assertThat(client.get().uri("/flaky").retrieve().body(String.class)).isEqualTo("reached");
     }
 }

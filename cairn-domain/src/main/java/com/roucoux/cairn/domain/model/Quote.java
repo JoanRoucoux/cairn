@@ -17,4 +17,8 @@ public record Quote(
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(fetchedAt, "fetchedAt");
     }
+
+    public static Quote atPar(UUID instrumentId, String currency, LocalDate asOf, Instant fetchedAt) {
+        return new Quote(instrumentId, asOf, BigDecimal.ONE, currency, PriceSource.MANUAL, fetchedAt);
+    }
 }

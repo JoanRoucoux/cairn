@@ -29,7 +29,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
-/** No Spring context: the adapter is built directly against a WireMock server. */
 class CoinGeckoQuoteAdapterTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-26T10:00:00Z"), ZoneId.of("Europe/Paris"));

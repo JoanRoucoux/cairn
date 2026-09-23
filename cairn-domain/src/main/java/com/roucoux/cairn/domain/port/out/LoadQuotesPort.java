@@ -19,4 +19,7 @@ public interface LoadQuotesPort {
 
     /** One grouped read for the whole interval, rather than one query per instrument per day. */
     Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to);
+
+    /** For each instrument, its most recent quote dated on or before {@code day}; absent when it has none. */
+    Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day);
 }

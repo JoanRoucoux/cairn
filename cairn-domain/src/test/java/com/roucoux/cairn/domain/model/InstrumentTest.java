@@ -87,6 +87,20 @@ class InstrumentTest {
         assertThat(cash.sourceRef()).isNull();
     }
 
+    @Test
+    void onlyManualCashIsPricedAtPar() {
+        UUID id = UUID.randomUUID();
+        assertThat(new Instrument(id, "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null)
+                        .isPricedAtPar())
+                .isTrue();
+        assertThat(new Instrument(id, "Fonds", null, "EUR", AssetClass.FUND, PriceSource.MANUAL, null, null)
+                        .isPricedAtPar())
+                .isFalse();
+        assertThat(new Instrument(id, "ETF", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CW8.PA", null)
+                        .isPricedAtPar())
+                .isFalse();
+    }
+
     private static Instrument instrument(PriceSource source, String sourceRef) {
         return new Instrument(UUID.randomUUID(), "Test", null, "EUR", AssetClass.EQUITY, source, sourceRef, null);
     }

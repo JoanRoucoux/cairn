@@ -26,6 +26,13 @@ public interface QuoteJpaRepository extends JpaRepository<QuoteEntity, QuoteId> 
     List<QuoteEntity> findAllBetween(
             @Param("ids") Set<UUID> ids, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    @Query(
+            value = "select distinct on (instrument_id) * from quotes "
+                    + "where instrument_id in (:ids) and as_of <= :day "
+                    + "order by instrument_id, as_of desc",
+            nativeQuery = true)
+    List<QuoteEntity> findLatestOnOrBefore(@Param("ids") Set<UUID> ids, @Param("day") LocalDate day);
+
     default long countAll() {
         return count();
     }

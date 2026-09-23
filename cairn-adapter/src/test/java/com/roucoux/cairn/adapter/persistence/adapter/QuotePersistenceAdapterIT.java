@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +84,31 @@ class QuotePersistenceAdapterIT {
         assertThat(quotes.findLatest(instrumentId).orElseThrow().price()).isEqualByComparingTo("33.3069");
     }
 
+    @Test
+    void readsForEachInstrumentItsLatestQuoteOnOrBeforeADay() {
+        UUID fund = givenAnInstrument();
+        UUID etf = givenAnInstrument();
+        UUID young = givenAnInstrument();
+        quotes.upsertAll(List.of(
+                quote(fund, LocalDate.of(2026, 9, 11), new BigDecimal("60.10")),
+                quote(fund, LocalDate.of(2026, 9, 18), new BigDecimal("60.39")),
+                quote(etf, LocalDate.of(2026, 9, 22), new BigDecimal("703.73")),
+                quote(etf, LocalDate.of(2026, 9, 23), new BigDecimal("705.00")),
+                quote(young, LocalDate.of(2026, 9, 23), new BigDecimal("10.00"))));
+
+        Map<UUID, Quote> latest = quotes.findLatestOnOrBefore(Set.of(fund, etf, young), LocalDate.of(2026, 9, 22));
+
+        assertThat(latest).containsOnlyKeys(fund, etf);
+        assertThat(latest.get(fund).asOf()).isEqualTo(LocalDate.of(2026, 9, 18));
+        assertThat(latest.get(etf).price()).isEqualByComparingTo("703.73");
+    }
+
+    @Test
+    void readsNothingForNoInstrument() {
+        assertThat(quotes.findLatestOnOrBefore(Set.of(), LocalDate.of(2026, 9, 22)))
+                .isEmpty();
+    }
+
     private UUID givenAnInstrument() {
         return instruments
                 .save(new Instrument(
@@ -91,7 +118,7 @@ class QuotePersistenceAdapterIT {
                         "EUR",
                         AssetClass.ETF,
                         PriceSource.YAHOO,
-                        "ETF.PA",
+                        "T" + UUID.randomUUID().toString().substring(0, 8),
                         null))
                 .id();
     }

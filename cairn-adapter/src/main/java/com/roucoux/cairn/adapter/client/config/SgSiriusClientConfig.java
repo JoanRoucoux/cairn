@@ -28,6 +28,7 @@ class SgSiriusClientConfig {
                 .defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent())
                 .configureMessageConverters(converters -> converters.withJsonConverter(jsonFromHtml))
                 .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
+                .requestInterceptor(new TransientFailureRetryInterceptor())
                 .build();
     }
 }

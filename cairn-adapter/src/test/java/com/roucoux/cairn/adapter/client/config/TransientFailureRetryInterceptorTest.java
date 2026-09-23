@@ -1,0 +1,239 @@
+package com.roucoux.cairn.adapter.client.config;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.http.Fault;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
+
+class TransientFailureRetryInterceptorTest {
+
+    private static final WireMockServer server =
+            new WireMockServer(WireMockConfiguration.options().dynamicPort());
+
+    private final List<Duration> waits = new ArrayList<>();
+
+    @BeforeAll
+    static void startServer() {
+        server.start();
+    }
+
+    @AfterAll
+    static void stopServer() {
+        server.stop();
+    }
+
+    @BeforeEach
+    void reset() {
+        server.resetAll();
+        waits.clear();
+    }
+
+    @Test
+    void retriesAfterAConnectionFailure() {
+        stubSequence(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER), ok("price"));
+
+        assertThat(call()).isEqualTo("price");
+        assertThat(waits).containsExactly(Duration.ofSeconds(1));
+    }
+
+    @Test
+    void retriesAServerErrorWithAGrowingWait() {
+        stubSequence(aResponse().withStatus(503), aResponse().withStatus(502), ok("price"));
+
+        assertThat(call()).isEqualTo("price");
+        assertThat(waits).containsExactly(Duration.ofSeconds(1), Duration.ofSeconds(3));
+    }
+
+    @Test
+    void honoursAShortRetryAfterOnTooManyRequests() {
+        stubSequence(aResponse().withStatus(429).withHeader("Retry-After", "2"), ok("price"));
+
+        assertThat(call()).isEqualTo("price");
+        assertThat(waits).containsExactly(Duration.ofSeconds(2));
+    }
+
+    @Test
+    void givesUpAtOnceWhenRetryAfterIsTooLong() {
+        stubSequence(aResponse().withStatus(429).withHeader("Retry-After", "60"), ok("price"));
+
+        assertThatThrownBy(this::call).isInstanceOf(HttpClientErrorException.TooManyRequests.class);
+        assertThat(waits).isEmpty();
+    }
+
+    @Test
+    void neverRetriesAClientError() {
+        stubSequence(aResponse().withStatus(404), ok("price"));
+
+        assertThatThrownBy(this::call).isInstanceOf(HttpClientErrorException.NotFound.class);
+        server.verify(1, getRequestedFor(urlEqualTo("/quote")));
+    }
+
+    @Test
+    void stopsAfterTwoRetries() {
+        stubSequence(
+                aResponse().withStatus(503),
+                aResponse().withStatus(503),
+                aResponse().withStatus(503),
+                ok("price"));
+
+        assertThatThrownBy(this::call).isInstanceOf(HttpServerErrorException.class);
+        server.verify(3, getRequestedFor(urlEqualTo("/quote")));
+    }
+
+    @Test
+    void doesNotRetryAReadTimeout() {
+        server.stubFor(get(urlEqualTo("/quote")).willReturn(ok("price").withFixedDelay(2000)));
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(Duration.ofMillis(300));
+        RestClient client = RestClient.builder()
+                .baseUrl(server.baseUrl())
+                .requestFactory(requestFactory)
+                .requestInterceptor(new TransientFailureRetryInterceptor(
+                        List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), waits::add))
+                .build();
+
+        assertThatThrownBy(() -> client.get().uri("/quote").retrieve().body(String.class))
+                .isInstanceOf(ResourceAccessException.class);
+        assertThat(waits).isEmpty();
+        server.verify(1, getRequestedFor(urlEqualTo("/quote")));
+    }
+
+    @Test
+    void rethrowsTheLastConnectionFailure() {
+        stubSequence(
+                aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER),
+                aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER),
+                aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER));
+
+        assertThatThrownBy(this::call).isInstanceOf(ResourceAccessException.class);
+    }
+
+    @Test
+    void honoursAnHttpDateRetryAfterAsTheBackoffSchedule() {
+        stubSequence(
+                aResponse().withStatus(429).withHeader("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT"), ok("price"));
+
+        assertThat(call()).isEqualTo("price");
+        assertThat(waits).containsExactly(Duration.ofSeconds(1));
+    }
+
+    @Test
+    void closesTheDiscardedResponseBeforeRetrying() throws IOException {
+        FakeResponse serverError = new FakeResponse(HttpStatus.SERVICE_UNAVAILABLE);
+        FakeResponse success = new FakeResponse(HttpStatus.OK);
+        List<FakeResponse> responses = List.of(serverError, success);
+        ClientHttpRequestExecution execution = new ClientHttpRequestExecution() {
+            private int calls = 0;
+
+            @Override
+            public ClientHttpResponse execute(HttpRequest request, byte[] body) {
+                return responses.get(calls++);
+            }
+        };
+        TransientFailureRetryInterceptor interceptor = new TransientFailureRetryInterceptor(
+                List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), duration -> {});
+
+        ClientHttpResponse result = interceptor.intercept(null, new byte[0], execution);
+
+        assertThat(result).isSameAs(success);
+        assertThat(serverError.closed).isTrue();
+        assertThat(success.closed).isFalse();
+    }
+
+    @Test
+    void interruptedSleepThrowsAndKeepsTheThreadInterrupted() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> TransientFailureRetryInterceptor.Sleeper.THREAD.sleep(Duration.ofSeconds(1)))
+                    .isInstanceOf(InterruptedIOException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    private static final class FakeResponse implements ClientHttpResponse {
+
+        private final HttpStatus status;
+        private boolean closed;
+
+        private FakeResponse(HttpStatus status) {
+            this.status = status;
+        }
+
+        @Override
+        public HttpStatusCode getStatusCode() {
+            return status;
+        }
+
+        @Override
+        public String getStatusText() {
+            return status.getReasonPhrase();
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+
+        @Override
+        public InputStream getBody() {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public HttpHeaders getHeaders() {
+            return new HttpHeaders();
+        }
+    }
+
+    private String call() {
+        RestClient client = RestClient.builder()
+                .baseUrl(server.baseUrl())
+                .requestInterceptor(new TransientFailureRetryInterceptor(
+                        List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), waits::add))
+                .build();
+        return client.get().uri("/quote").retrieve().body(String.class);
+    }
+
+    private static void stubSequence(ResponseDefinitionBuilder... responses) {
+        for (int i = 0; i < responses.length; i++) {
+            server.stubFor(get(urlEqualTo("/quote"))
+                    .inScenario("sequence")
+                    .whenScenarioStateIs(i == 0 ? STARTED : "step" + i)
+                    .willSetStateTo("step" + (i + 1))
+                    .willReturn(responses[i]));
+        }
+    }
+}

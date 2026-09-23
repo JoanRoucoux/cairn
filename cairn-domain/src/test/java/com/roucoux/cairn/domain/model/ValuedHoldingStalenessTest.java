@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 class ValuedHoldingStalenessTest {
 
     private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
-    // Le 2026-08-21 est un vendredi : le "jour ouvre precedent" est le jeudi 20.
     private static final Instant FRIDAY_NOON =
             LocalDate.of(2026, 8, 21).atTime(12, 0).atZone(PARIS).toInstant();
     private static final Clock CLOCK = Clock.fixed(FRIDAY_NOON, PARIS);
@@ -35,10 +34,32 @@ class ValuedHoldingStalenessTest {
     }
 
     @Test
-    void aFundIsFreshUpToFourCalendarDays() {
-        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), FRIDAY_NOON).isStale(CLOCK))
+    void aFundWhoseLatestNavIsDaysOldButWasFetchedTodayIsFresh() {
+        Instant fetchedThisMorning = FRIDAY_NOON.minus(Duration.ofHours(3));
+
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 16), fetchedThisMorning)
+                        .isStale(CLOCK))
                 .isFalse();
-        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 16), FRIDAY_NOON).isStale(CLOCK))
+    }
+
+    @Test
+    void aFundNotFetchedForMoreThanFourDaysIsStale() {
+        Instant justUnderFourDays = FRIDAY_NOON.minus(Duration.ofDays(4)).plus(Duration.ofHours(1));
+        Instant justOverFourDays = FRIDAY_NOON.minus(Duration.ofDays(4)).minus(Duration.ofHours(1));
+
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), justUnderFourDays)
+                        .isStale(CLOCK))
+                .isFalse();
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), justOverFourDays)
+                        .isStale(CLOCK))
+                .isTrue();
+    }
+
+    @Test
+    void aFundWhoseNavIsOlderThanTenDaysIsStaleEvenWhenFetchedToday() {
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 11), FRIDAY_NOON).isStale(CLOCK))
+                .isFalse();
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 10), FRIDAY_NOON).isStale(CLOCK))
                 .isTrue();
     }
 

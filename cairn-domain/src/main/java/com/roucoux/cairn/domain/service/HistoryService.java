@@ -6,28 +6,40 @@ import static java.util.stream.Collectors.toSet;
 import com.roucoux.cairn.domain.model.HistoryMode;
 import com.roucoux.cairn.domain.model.HistoryPoint;
 import com.roucoux.cairn.domain.model.Holding;
+import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.GetHistoryUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
+import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.LoadSnapshotsPort;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class HistoryService implements GetHistoryUseCase {
 
     private final LoadHoldingsPort loadHoldings;
+    private final LoadInstrumentsPort loadInstruments;
     private final LoadQuotesPort loadQuotes;
     private final LoadSnapshotsPort loadSnapshots;
 
-    public HistoryService(LoadHoldingsPort loadHoldings, LoadQuotesPort loadQuotes, LoadSnapshotsPort loadSnapshots) {
+    public HistoryService(
+            LoadHoldingsPort loadHoldings,
+            LoadInstrumentsPort loadInstruments,
+            LoadQuotesPort loadQuotes,
+            LoadSnapshotsPort loadSnapshots) {
         this.loadHoldings = loadHoldings;
+        this.loadInstruments = loadInstruments;
         this.loadQuotes = loadQuotes;
         this.loadSnapshots = loadSnapshots;
     }
@@ -45,21 +57,43 @@ public class HistoryService implements GetHistoryUseCase {
 
     private List<HistoryPoint> constantMix(LocalDate from, LocalDate to) {
         List<Holding> holdings = loadHoldings.findAll();
-        Map<UUID, List<Quote>> quotes = loadQuotes.findBetweenForAll(
-                holdings.stream().map(Holding::instrumentId).collect(toSet()), from, to);
+        Map<UUID, Instrument> instruments =
+                loadInstruments.findAll().stream().collect(Collectors.toMap(Instrument::id, instrument -> instrument));
+        Set<UUID> held = holdings.stream().map(Holding::instrumentId).collect(toSet());
+        Set<UUID> quoted =
+                held.stream().filter(id -> !isPricedAtPar(instruments.get(id))).collect(toSet());
+
+        Map<UUID, List<Quote>> window = loadQuotes.findBetweenForAll(quoted, from, to);
+        Map<UUID, Quote> seeds = loadQuotes.findLatestOnOrBefore(quoted, from.minusDays(1));
+
+        Map<UUID, List<Quote>> quotes = new HashMap<>();
+        for (UUID id : quoted) {
+            List<Quote> series = new ArrayList<>();
+            Optional.ofNullable(seeds.get(id)).ifPresent(series::add);
+            series.addAll(window.getOrDefault(id, List.of()));
+            if (!series.isEmpty()) {
+                quotes.put(id, series);
+            }
+        }
+        for (UUID id : held) {
+            Instrument instrument = instruments.get(id);
+            if (isPricedAtPar(instrument)) {
+                quotes.put(id, List.of(Quote.atPar(id, instrument.currency(), from, Instant.EPOCH)));
+            }
+        }
 
         List<Holding> priceable = holdings.stream()
-                .filter(holding ->
-                        !quotes.getOrDefault(holding.instrumentId(), List.of()).isEmpty())
+                .filter(holding -> quotes.containsKey(holding.instrumentId()))
                 .toList();
         if (priceable.isEmpty()) {
             return List.of();
         }
 
-        LocalDate start = priceable.stream()
+        LocalDate firstPriced = priceable.stream()
                 .map(holding -> quotes.get(holding.instrumentId()).getFirst().asOf())
                 .max(naturalOrder())
                 .orElseThrow();
+        LocalDate start = firstPriced.isBefore(from) ? from : firstPriced;
 
         Map<UUID, Iterator<Quote>> cursors = new HashMap<>();
         Map<UUID, Quote> pending = new HashMap<>();
@@ -104,5 +138,9 @@ public class HistoryService implements GetHistoryUseCase {
         } else {
             pending.put(instrumentId, candidate);
         }
+    }
+
+    private static boolean isPricedAtPar(Instrument instrument) {
+        return instrument != null && instrument.isPricedAtPar();
     }
 }
