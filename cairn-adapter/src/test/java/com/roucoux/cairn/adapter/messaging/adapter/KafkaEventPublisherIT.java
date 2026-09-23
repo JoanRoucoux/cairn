@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -38,18 +39,15 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Builds the {@code KafkaTemplate} straight from {@code KafkaMessagingConfig}'s wiring, without a
- * Spring context, the same way the client slice's {@code *ConfigTest} classes call their
- * {@code @Bean} methods directly — this module has no Spring Boot application of its own.
- */
 @Testcontainers
 class KafkaEventPublisherIT {
 
     private static final UUID INSTRUMENT = UUID.randomUUID();
+    private static final String APPLICATION_NAME = "cairn-api";
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);
     private static final KafkaMessagingProperties PROPERTIES =
             new KafkaMessagingProperties("cairn.prices", "cairn.portfolio");
@@ -58,6 +56,7 @@ class KafkaEventPublisherIT {
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.3.1");
 
     private static JsonMapper json;
+
     private static DefaultKafkaProducerFactory<String, String> producerFactory;
     private static KafkaTemplate<String, String> kafkaTemplate;
 
@@ -66,7 +65,11 @@ class KafkaEventPublisherIT {
 
     @BeforeAll
     static void startBrokerAndCreateTopics() throws Exception {
-        json = JsonMapper.builder().build();
+        // Same configuration as KafkaMessagingConfig.plainBigDecimalJsonMapperCustomizer, applied
+        // directly since that config class is package-private to a sibling package.
+        json = JsonMapper.builder()
+                .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+                .build();
         producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
@@ -89,7 +92,7 @@ class KafkaEventPublisherIT {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaEventPublisher(kafkaTemplate, json, PROPERTIES);
+        publisher = new KafkaEventPublisher(kafkaTemplate, json, PROPERTIES, APPLICATION_NAME);
         consumer = new KafkaConsumer<>(Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 kafka.getBootstrapServers(),
@@ -119,32 +122,62 @@ class KafkaEventPublisherIT {
                 PriceSource.COINGECKO,
                 Instant.parse("2026-09-23T13:45:02Z"))));
 
-        ConsumerRecord<String, String> record = pollOne(PROPERTIES.pricesTopic());
+        ConsumerRecord<String, String> record =
+                pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("2396.17"));
+        JsonNode envelope = json.readTree(record.value());
+        JsonNode data = envelope.get("data");
 
         assertThat(record.key()).isEqualTo(INSTRUMENT.toString());
-        JsonNode envelope = json.readTree(record.value());
         assertThat(envelope.get("type").asText()).isEqualTo("price.updated");
         assertThat(envelope.get("version").asInt()).isEqualTo(1);
-        assertThat(envelope.get("data").get("price").decimalValue()).isEqualByComparingTo("2396.17");
         assertThat(envelope.get("id").asText()).isNotBlank();
+        assertThat(envelope.get("source").asText()).isEqualTo(APPLICATION_NAME);
+        assertThatCode(() -> Instant.parse(envelope.get("occurredAt").asText())).doesNotThrowAnyException();
+
+        assertThat(data.get("instrumentId").asText()).isEqualTo(INSTRUMENT.toString());
+        assertThat(data.get("asOf").asText()).isEqualTo("2026-09-23");
+        assertThat(data.get("price").decimalValue()).isEqualByComparingTo("2396.17");
+        assertThat(data.get("currency").asText()).isEqualTo("EUR");
+        assertThat(data.get("priceSource").asText()).isEqualTo("COINGECKO");
+        assertThat(data.has("fetchedAt")).isFalse();
     }
 
     @Test
-    void publishesTheEndOfARefreshOnThePortfolioTopic() {
+    void writesATinyPriceAsPlainDecimalNeverInScientificNotation() {
+        publisher.publish(new PriceUpdated(new Quote(
+                INSTRUMENT,
+                LocalDate.of(2026, 9, 23),
+                new BigDecimal("0.000000120000"),
+                "EUR",
+                PriceSource.COINGECKO,
+                Instant.parse("2026-09-23T13:45:02Z"))));
+
+        ConsumerRecord<String, String> record =
+                pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("0.000000120000"));
+
+        assertThat(record.value()).contains("0.000000120000").doesNotContainIgnoringCase("e-7");
+    }
+
+    @Test
+    void publishesTheEndOfARefreshOnThePortfolioTopicWithNoKey() {
         publisher.publish(new RefreshCompleted(Set.of(AssetClass.ETF), 7, 1, RefreshTrigger.MANUAL));
 
-        ConsumerRecord<String, String> record = pollOne(PROPERTIES.portfolioTopic());
-
+        ConsumerRecord<String, String> record =
+                pollMatching(PROPERTIES.portfolioTopic(), value -> value.contains("\"refreshed\":7"));
         JsonNode envelope = json.readTree(record.value());
+        JsonNode data = envelope.get("data");
+
+        assertThat(record.key()).isNull();
         assertThat(envelope.get("type").asText()).isEqualTo("refresh.completed");
         assertThat(envelope.get("version").asInt()).isEqualTo(1);
-        assertThat(envelope.get("data").get("trigger").asText()).isEqualTo("MANUAL");
-        assertThat(envelope.get("data").get("refreshed").asInt()).isEqualTo(7);
-        assertThat(envelope.get("data").get("failed").asInt()).isEqualTo(1);
+        assertThat(data.get("assetClasses")).extracting(JsonNode::asText).containsExactly("ETF");
+        assertThat(data.get("refreshed").asInt()).isEqualTo(7);
+        assertThat(data.get("failed").asInt()).isEqualTo(1);
+        assertThat(data.get("trigger").asText()).isEqualTo("MANUAL");
     }
 
     @Test
-    void neverThrowsWhenTheBrokerIsUnreachable() {
+    void neverThrowsWhenTheBrokerIsUnreachableEvenAcrossSeveralEvents() {
         // Left open, the producer's background thread keeps retrying forever and the JVM never
         // exits, so Surefire has to kill the whole fork after its 30s grace period.
         DefaultKafkaProducerFactory<String, String> unreachableFactory = new DefaultKafkaProducerFactory<>(Map.of(
@@ -155,13 +188,17 @@ class KafkaEventPublisherIT {
                 ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 StringSerializer.class,
                 ProducerConfig.MAX_BLOCK_MS_CONFIG,
-                1000));
+                250));
         try {
-            KafkaEventPublisher unreachable =
-                    new KafkaEventPublisher(new KafkaTemplate<>(unreachableFactory), json, PROPERTIES);
+            KafkaEventPublisher unreachable = new KafkaEventPublisher(
+                    new KafkaTemplate<>(unreachableFactory), json, PROPERTIES, APPLICATION_NAME);
 
             long start = System.nanoTime();
-            assertThatCode(() -> unreachable.publish(new RefreshCompleted(Set.of(), 0, 0, RefreshTrigger.MANUAL)))
+            assertThatCode(() -> {
+                        for (int i = 0; i < 5; i++) {
+                            unreachable.publish(new RefreshCompleted(Set.of(), 0, 0, RefreshTrigger.MANUAL));
+                        }
+                    })
                     .doesNotThrowAnyException();
 
             assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(3));
@@ -170,16 +207,19 @@ class KafkaEventPublisherIT {
         }
     }
 
-    private ConsumerRecord<String, String> pollOne(String topic) {
+    // auto.offset.reset=earliest means every test's fresh consumer group re-reads every record
+    // any earlier test in this class already published to the same topic, so matching by topic
+    // alone would return a stale record instead of the one this test just published.
+    private ConsumerRecord<String, String> pollMatching(String topic, Predicate<String> valueMatches) {
         long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
         while (System.nanoTime() < deadline) {
             ConsumerRecords<String, String> polled = consumer.poll(Duration.ofMillis(200));
             for (ConsumerRecord<String, String> record : polled) {
-                if (record.topic().equals(topic)) {
+                if (record.topic().equals(topic) && valueMatches.test(record.value())) {
                     return record;
                 }
             }
         }
-        throw new AssertionError("no record polled on topic " + topic + " within " + POLL_TIMEOUT);
+        throw new AssertionError("no matching record polled on topic " + topic + " within " + POLL_TIMEOUT);
     }
 }

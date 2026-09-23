@@ -57,11 +57,6 @@ class BatchDomainConfig {
         return new QuoteAnnouncementService(publishEvent);
     }
 
-    /**
-     * Required to satisfy {@code QuoteRefreshService}'s constructor, but never exercised here: the
-     * step below calls {@code refresh(Instrument)} and {@code SaveQuotePort} directly through its
-     * own reader/processor/writer, bypassing {@code refreshAll} and the announcements it makes.
-     */
     @Bean
     RefreshQuotesUseCase refreshQuotes(
             List<FetchQuotePort> fetchers,
