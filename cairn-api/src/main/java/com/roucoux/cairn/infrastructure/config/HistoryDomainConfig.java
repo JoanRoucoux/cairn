@@ -1,6 +1,7 @@
 package com.roucoux.cairn.infrastructure.config;
 
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
+import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.LoadSnapshotsPort;
 import com.roucoux.cairn.domain.service.HistoryService;
@@ -17,7 +18,10 @@ class HistoryDomainConfig {
 
     @Bean
     HistoryService historyService(
-            LoadHoldingsPort loadHoldings, LoadQuotesPort loadQuotes, LoadSnapshotsPort loadSnapshots) {
-        return new HistoryService(loadHoldings, loadQuotes, loadSnapshots);
+            LoadHoldingsPort loadHoldings,
+            LoadInstrumentsPort loadInstruments,
+            LoadQuotesPort loadQuotes,
+            LoadSnapshotsPort loadSnapshots) {
+        return new HistoryService(loadHoldings, loadInstruments, loadQuotes, loadSnapshots);
     }
 }
