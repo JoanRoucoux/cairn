@@ -2,6 +2,7 @@ package com.roucoux.cairn.adapter.client.config;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +39,8 @@ class TransientFailureRetryInterceptor implements ClientHttpRequestInterceptor {
             ClientHttpResponse response;
             try {
                 response = execution.execute(request, body);
+            } catch (HttpTimeoutException timeout) {
+                throw timeout;
             } catch (IOException failure) {
                 if (lastAttempt) {
                     throw failure;

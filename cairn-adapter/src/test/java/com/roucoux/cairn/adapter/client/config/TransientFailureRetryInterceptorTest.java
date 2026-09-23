@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.http.Fault;
 import java.io.ByteArrayInputStream;
@@ -29,11 +30,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
-/** No Spring context: the interceptor sits on a plain RestClient, against a WireMock server. */
 class TransientFailureRetryInterceptorTest {
 
     private static final WireMockServer server =
@@ -105,8 +107,26 @@ class TransientFailureRetryInterceptorTest {
                 aResponse().withStatus(503),
                 ok("price"));
 
-        assertThatThrownBy(this::call).isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
+        assertThatThrownBy(this::call).isInstanceOf(HttpServerErrorException.class);
         server.verify(3, getRequestedFor(urlEqualTo("/quote")));
+    }
+
+    @Test
+    void doesNotRetryAReadTimeout() {
+        server.stubFor(get(urlEqualTo("/quote")).willReturn(ok("price").withFixedDelay(2000)));
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(Duration.ofMillis(300));
+        RestClient client = RestClient.builder()
+                .baseUrl(server.baseUrl())
+                .requestFactory(requestFactory)
+                .requestInterceptor(new TransientFailureRetryInterceptor(
+                        List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), waits::add))
+                .build();
+
+        assertThatThrownBy(() -> client.get().uri("/quote").retrieve().body(String.class))
+                .isInstanceOf(ResourceAccessException.class);
+        assertThat(waits).isEmpty();
+        server.verify(1, getRequestedFor(urlEqualTo("/quote")));
     }
 
     @Test
@@ -207,7 +227,7 @@ class TransientFailureRetryInterceptorTest {
         return client.get().uri("/quote").retrieve().body(String.class);
     }
 
-    private static void stubSequence(com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder... responses) {
+    private static void stubSequence(ResponseDefinitionBuilder... responses) {
         for (int i = 0; i < responses.length; i++) {
             server.stubFor(get(urlEqualTo("/quote"))
                     .inScenario("sequence")
