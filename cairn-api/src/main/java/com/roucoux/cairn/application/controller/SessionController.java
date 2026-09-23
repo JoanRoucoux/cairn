@@ -70,10 +70,6 @@ class SessionController implements SessionApi {
             throw new LastPasskeyException();
         }
 
-        // Sessions first, credential last: a retry after a failure here must never find the
-        // credential gone but another device's session still alive on it. The reverse order
-        // would let a client that got a 500 after the delete retry into a 404 with the revocation
-        // half-done.
         signOutEveryOtherSessionOf(username);
         credentials.delete(target.getCredentialId());
         return ResponseEntity.noContent().build();
