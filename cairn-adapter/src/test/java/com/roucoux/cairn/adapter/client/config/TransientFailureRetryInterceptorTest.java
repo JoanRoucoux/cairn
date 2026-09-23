@@ -12,6 +12,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.http.Fault;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -107,6 +117,85 @@ class TransientFailureRetryInterceptorTest {
                 aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER));
 
         assertThatThrownBy(this::call).isInstanceOf(ResourceAccessException.class);
+    }
+
+    @Test
+    void honoursAnHttpDateRetryAfterAsTheBackoffSchedule() {
+        stubSequence(
+                aResponse().withStatus(429).withHeader("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT"), ok("price"));
+
+        assertThat(call()).isEqualTo("price");
+        assertThat(waits).containsExactly(Duration.ofSeconds(1));
+    }
+
+    @Test
+    void closesTheDiscardedResponseBeforeRetrying() throws IOException {
+        FakeResponse serverError = new FakeResponse(HttpStatus.SERVICE_UNAVAILABLE);
+        FakeResponse success = new FakeResponse(HttpStatus.OK);
+        List<FakeResponse> responses = List.of(serverError, success);
+        ClientHttpRequestExecution execution = new ClientHttpRequestExecution() {
+            private int calls = 0;
+
+            @Override
+            public ClientHttpResponse execute(HttpRequest request, byte[] body) {
+                return responses.get(calls++);
+            }
+        };
+        TransientFailureRetryInterceptor interceptor = new TransientFailureRetryInterceptor(
+                List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), duration -> {});
+
+        ClientHttpResponse result = interceptor.intercept(null, new byte[0], execution);
+
+        assertThat(result).isSameAs(success);
+        assertThat(serverError.closed).isTrue();
+        assertThat(success.closed).isFalse();
+    }
+
+    @Test
+    void interruptedSleepThrowsAndKeepsTheThreadInterrupted() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> TransientFailureRetryInterceptor.Sleeper.THREAD.sleep(Duration.ofSeconds(1)))
+                    .isInstanceOf(InterruptedIOException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    private static final class FakeResponse implements ClientHttpResponse {
+
+        private final HttpStatus status;
+        private boolean closed;
+
+        private FakeResponse(HttpStatus status) {
+            this.status = status;
+        }
+
+        @Override
+        public HttpStatusCode getStatusCode() {
+            return status;
+        }
+
+        @Override
+        public String getStatusText() {
+            return status.getReasonPhrase();
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+
+        @Override
+        public InputStream getBody() {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public HttpHeaders getHeaders() {
+            return new HttpHeaders();
+        }
     }
 
     private String call() {
