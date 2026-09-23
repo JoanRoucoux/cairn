@@ -1,5 +1,6 @@
 package com.roucoux.cairn.application.controller;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -170,6 +171,20 @@ class SessionControllerTest {
 
         verify(sessions).deleteById("other-session-id");
         verify(sessions, never()).deleteById("current-session-id");
+    }
+
+    @Test
+    void leavesTheCredentialInPlaceWhenSigningOutOtherSessionsFails() {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        when(sessions.findByPrincipalName("joan")).thenThrow(new RuntimeException("session store unavailable"));
+
+        assertThatThrownBy(() -> mockMvc.perform(delete("/session/passkeys/{id}", "bWFj")
+                        .with(user("joan"))
+                        .with(csrf())))
+                .isInstanceOf(Exception.class);
+
+        verify(credentials, never()).delete(any());
     }
 
     @Test
