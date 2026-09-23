@@ -35,10 +35,33 @@ class ValuedHoldingStalenessTest {
     }
 
     @Test
-    void aFundIsFreshUpToFourCalendarDays() {
-        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), FRIDAY_NOON).isStale(CLOCK))
+    void aFundWhoseLatestNavIsDaysOldButWasFetchedTodayIsFresh() {
+        // The real case of 2026-09-23: NAV of the 18th, fetched successfully on the morning of the 23rd.
+        Instant fetchedThisMorning = FRIDAY_NOON.minus(Duration.ofHours(3));
+
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 16), fetchedThisMorning)
+                        .isStale(CLOCK))
                 .isFalse();
-        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 16), FRIDAY_NOON).isStale(CLOCK))
+    }
+
+    @Test
+    void aFundNotFetchedForMoreThanFourDaysIsStale() {
+        Instant justUnderFourDays = FRIDAY_NOON.minus(Duration.ofDays(4)).plus(Duration.ofHours(1));
+        Instant justOverFourDays = FRIDAY_NOON.minus(Duration.ofDays(4)).minus(Duration.ofHours(1));
+
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), justUnderFourDays)
+                        .isStale(CLOCK))
+                .isFalse();
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 17), justOverFourDays)
+                        .isStale(CLOCK))
+                .isTrue();
+    }
+
+    @Test
+    void aFundWhoseNavIsOlderThanTenDaysIsStaleEvenWhenFetchedToday() {
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 11), FRIDAY_NOON).isStale(CLOCK))
+                .isFalse();
+        assertThat(line(AssetClass.FUND, LocalDate.of(2026, 8, 10), FRIDAY_NOON).isStale(CLOCK))
                 .isTrue();
     }
 

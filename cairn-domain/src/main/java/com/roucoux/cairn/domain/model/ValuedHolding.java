@@ -13,7 +13,8 @@ public record ValuedHolding(
         Holding holding, Instrument instrument, Account account, Optional<Quote> quote, Optional<Quote> previousQuote) {
 
     private static final int RATIO_SCALE = 10;
-    private static final int FUND_FRESHNESS_DAYS = 4;
+    private static final Duration FUND_FETCH_FRESHNESS = Duration.ofDays(4);
+    private static final int FUND_PUBLICATION_FRESHNESS_DAYS = 10;
     private static final Duration CRYPTO_FRESHNESS = Duration.ofHours(6);
 
     public ValuedHolding {
@@ -72,7 +73,9 @@ public record ValuedHolding(
         return switch (instrument.assetClass()) {
             case CASH -> false;
             case CRYPTO -> q.fetchedAt().isBefore(clock.instant().minus(CRYPTO_FRESHNESS));
-            case FUND -> q.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_FRESHNESS_DAYS));
+            case FUND ->
+                q.fetchedAt().isBefore(clock.instant().minus(FUND_FETCH_FRESHNESS))
+                        || q.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_PUBLICATION_FRESHNESS_DAYS));
             case EQUITY, ETF -> q.asOf().isBefore(previousBusinessDay(LocalDate.now(clock)));
         };
     }
