@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Spring Session's own tables, verbatim from spring-session-jdbc, same pattern as
+         002-spring-batch-metadata: a raw SQL script here lets the application run with
+         spring.session.jdbc.initialize-schema=never in every environment. -->
+    <changeSet id="013-create-spring-session-tables" author="cairn">
+        <sqlFile path="../sql/spring-session-postgresql.sql" relativeToChangelogFile="true" splitStatements="true" endDelimiter=";"/>
+        <rollback>
+            <dropTable tableName="spring_session_attributes"/>
+            <dropTable tableName="spring_session"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

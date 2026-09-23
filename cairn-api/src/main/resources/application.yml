@@ -4,10 +4,16 @@ server:
       cookie:
         secure: true
         same-site: strict
+        max-age: 30d
 
 spring:
   application:
     name: cairn-api
+  session:
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
+      cleanup-cron: "0 0 * * * *"
   datasource:
     url: jdbc:postgresql://localhost:5432/app
     username: app

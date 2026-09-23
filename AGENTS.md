@@ -58,7 +58,9 @@ not drift.
    authenticates with WebAuthn, which needs server-side state to hold the challenge between the
    registration/assertion options call and its verification. Consequence on tests: controller
    tests use spring-security-test's `user()` post-processor instead of `jwt()`, and carry no
-   `@MockitoBean JwtDecoder`.
+   `@MockitoBean JwtDecoder`. The session itself is stored in PostgreSQL by Spring Session JDBC
+   (tables from changeset 013, 30 days sliding, persistent `SESSION` cookie), so a deploy no
+   longer signs everyone out.
 2. **CSRF is active**, where the starter disables it. Disabling CSRF is correct for a bearer token
    carried in a header, which a browser never attaches on its own — but the WebAuthn session is
    carried by a cookie, which the browser does attach automatically, so CSRF protection stays on.
