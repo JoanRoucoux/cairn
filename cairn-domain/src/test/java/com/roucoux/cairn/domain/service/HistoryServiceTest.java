@@ -185,6 +185,11 @@ class HistoryServiceTest {
                 }
                 return result;
             }
+
+            @Override
+            public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
+                return Map.of();
+            }
         };
         LoadSnapshotsPort loadSnapshots = (from, to) -> List.of();
         return new HistoryService(loadHoldings, loadQuotes, loadSnapshots);
@@ -230,6 +235,11 @@ class HistoryServiceTest {
 
             @Override
             public Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to) {
+                return Map.of();
+            }
+
+            @Override
+            public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
                 return Map.of();
             }
         };

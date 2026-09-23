@@ -53,6 +53,17 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
     }
 
     @Override
+    public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
+        // "in ()" is not valid SQL: an empty set must never reach the native query.
+        if (instrumentIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findLatestOnOrBefore(instrumentIds, day).stream()
+                .map(QuoteEntity::toDomain)
+                .collect(Collectors.toMap(Quote::instrumentId, quote -> quote));
+    }
+
+    @Override
     public void upsert(Quote quote) {
         repository.save(QuoteEntity.fromDomain(quote));
     }
