@@ -20,6 +20,7 @@ class CoinGeckoClientConfig {
         return RestClient.builder()
                 .baseUrl(properties.baseUrl())
                 .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
+                .requestInterceptor(new TransientFailureRetryInterceptor())
                 .build();
     }
 }

@@ -22,6 +22,7 @@ class YahooClientConfig {
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent())
                 .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
+                .requestInterceptor(new TransientFailureRetryInterceptor())
                 .build();
     }
 }

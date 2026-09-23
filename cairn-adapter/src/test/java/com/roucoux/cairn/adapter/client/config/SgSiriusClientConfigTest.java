@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -44,6 +45,26 @@ class SgSiriusClientConfigTest {
         assertThat(client.get().uri("/history").retrieve().body(SirusHistory.class))
                 .isEqualTo(new SirusHistory(42));
         server.verify(getRequestedFor(urlEqualTo("/history")).withHeader("User-Agent", equalTo("Mozilla/5.0")));
+    }
+
+    @Test
+    void retriesAServerErrorOnce() {
+        server.stubFor(get(urlEqualTo("/flaky"))
+                .inScenario("flaky")
+                .whenScenarioStateIs(STARTED)
+                .willSetStateTo("up")
+                .willReturn(aResponse().withStatus(503)));
+        server.stubFor(get(urlEqualTo("/flaky"))
+                .inScenario("flaky")
+                .whenScenarioStateIs("up")
+                .willReturn(aResponse().withHeader("Content-Type", "text/html").withBody("{\"value\":42}")));
+        SgSiriusClientProperties properties = new SgSiriusClientProperties(
+                server.baseUrl(), Duration.ofSeconds(2), Duration.ofSeconds(5), "Mozilla/5.0");
+
+        RestClient client = new SgSiriusClientConfig().sgSiriusRestClient(properties);
+
+        assertThat(client.get().uri("/flaky").retrieve().body(SirusHistory.class))
+                .isEqualTo(new SirusHistory(42));
     }
 
     private record SirusHistory(int value) {}
