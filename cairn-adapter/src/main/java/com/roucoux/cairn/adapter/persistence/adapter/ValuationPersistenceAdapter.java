@@ -8,7 +8,6 @@ import com.roucoux.cairn.domain.port.out.SaveValuationPort;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Outbound adapter: implements the domain's read and write ports for intraday valuations with Spring Data JPA. */
 @Component
@@ -33,7 +32,6 @@ public class ValuationPersistenceAdapter implements LoadValuationsPort, SaveValu
     }
 
     @Override
-    @Transactional
     public void deleteBefore(Instant cutoff) {
         repository.deleteByAtBefore(cutoff);
     }
