@@ -51,8 +51,6 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- No web starter: this worker runs with spring.main.web-application-type: none. Brings
-         spring-boot-autoconfigure, which spring-kafka and spring-boot-kafka alone do not. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter</artifactId>
