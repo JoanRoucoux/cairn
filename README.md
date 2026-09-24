@@ -165,26 +165,22 @@ the variable name its heartbeat uses:
 | `KUMA_PUSH_INTRADAY`    | worker's intraday refresh scheduler | not a cron job |
 | `KUMA_PUSH_SUMMARY`     | worker's daily Telegram summary scheduler | `0 45 19 * * MON-FRI`, interval 73 h |
 
-`KUMA_PUSH_SUMMARY`'s monitor runs Monday to Friday only, so the gap between Friday evening's ping
-and Monday evening's is three days (72 h): a 25 h interval, the usual choice for a daily job, would
-make Kuma alert every Saturday and Sunday for a job that never runs on those days. 73 h avoids that
-false alarm at the cost of slower detection on a genuine weekday failure (up to 73 h instead of
-25 h) — accepted here since a missed Telegram summary is noticed the same evening anyway.
+The summary runs Monday to Friday only, so its monitor waits 73 h: a 25 h interval would alert
+every weekend. A weekday failure is noticed the same evening anyway, when no message arrives.
 
 ### Telegram summary
 
-Du lundi au vendredi a 19:45 (Europe/Paris), le worker envoie sur Telegram le patrimoine, la
-variation du jour et la variation par enveloppe, avec les memes chiffres que le dashboard en 1J :
+Monday to Friday at 19:45 (Europe/Paris), the worker sends net worth, the day's change and each
+envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
 
-1. Creer un bot avec [@BotFather](https://t.me/BotFather) (`/newbot`) et recuperer son token :
-   `TELEGRAM_BOT_TOKEN` dans `/srv/cairn/.env`.
-2. Envoyer un message au bot, puis appeler
-   `https://api.telegram.org/bot<token>/getUpdates` pour lire `message.chat.id` : `TELEGRAM_CHAT_ID`
-   dans `/srv/cairn/.env`.
-3. Creer le moniteur push Kuma decrit ci-dessus et renseigner son URL dans `KUMA_PUSH_SUMMARY`.
+1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and put its token in
+   `/srv/cairn/.env` as `TELEGRAM_BOT_TOKEN`.
+2. Send the bot any message, then open `https://api.telegram.org/bot<token>/getUpdates` and put
+   `message.chat.id` in `/srv/cairn/.env` as `TELEGRAM_CHAT_ID`.
+3. Create the push monitor above and put its URL in `/srv/cairn/.env` as `KUMA_PUSH_SUMMARY`.
 
-Le bot token n'apparait jamais dans les journaux : `docker logs cairn-worker-1` ne doit jamais le
-montrer, meme sur une erreur d'envoi.
+The bot token never appears in the logs, not even on a failed send: `docker logs cairn-worker-1`
+must never show it.
 
 ## Project structure
 
