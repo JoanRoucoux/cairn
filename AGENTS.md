@@ -189,7 +189,16 @@ Mon-Fri 9:00-17:45, CRYPTO every 15 min), which is why `CRYPTO` has left `deploy
 heartbeat is the `KUMA_PUSH_INTRADAY` push monitor, pinged only when a run refreshed something or
 had no failure. `snapshotJob` runs at 23:30 Paris (`30 23 * * *`), recording the day's measured
 portfolio value and its `ACCOUNT_TYPE`/`ASSET_CLASS` ventilations; its heartbeat is the
-`KUMA_PUSH_SNAPSHOT` push monitor, interval 25 h.
+`KUMA_PUSH_SNAPSHOT` push monitor, interval 25 h. The worker's `DailySummaryScheduler`
+(`kafka/schedule/`) sends the day's Telegram summary Monday to Friday at 19:45 Paris
+(`0 45 19 * * MON-FRI`), reading `GetPerformanceUseCase.performance(D1)` so its numbers match the
+dashboard's 1J tile; not on weekends, when a stock's day change would just replay Friday's. Its
+heartbeat is the `KUMA_PUSH_SUMMARY` push monitor, interval 73 h (see the README's push monitors
+section for why 25 h does not fit a weekday-only job). `TelegramNotificationAdapter`
+(`cairn-adapter`'s `client/`) is wired in every application, not the worker alone:
+`TelegramClientProperties`' `botToken`/`chatId` carry no validation annotation, so `cairn-api` and
+`cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks them when a
+send is actually attempted.
 
 **Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image
 prune` only removes untagged images, and each deploy leaves three tagged ones behind.

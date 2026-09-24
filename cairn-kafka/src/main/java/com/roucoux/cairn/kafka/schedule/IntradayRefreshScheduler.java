@@ -8,6 +8,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,9 @@ class IntradayRefreshScheduler {
     private final ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider;
     private final Heartbeat heartbeat;
 
-    IntradayRefreshScheduler(ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider, Heartbeat heartbeat) {
+    IntradayRefreshScheduler(
+            ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider,
+            @Qualifier("intradayHeartbeat") Heartbeat heartbeat) {
         this.refreshQuotesProvider = refreshQuotesProvider;
         this.heartbeat = heartbeat;
     }

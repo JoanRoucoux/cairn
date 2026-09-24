@@ -163,6 +163,24 @@ the variable name its heartbeat uses:
 | `KUMA_PUSH_FUND`        | `refreshQuotesJob` (FUND)   | `0 11 * * 2-6`     |
 | `KUMA_PUSH_SNAPSHOT`    | `snapshotJob`                | `30 23 * * *`, interval 25 h |
 | `KUMA_PUSH_INTRADAY`    | worker's intraday refresh scheduler | not a cron job |
+| `KUMA_PUSH_SUMMARY`     | worker's daily Telegram summary scheduler | `0 45 19 * * MON-FRI`, interval 73 h |
+
+The summary runs Monday to Friday only, so its monitor waits 73 h: a 25 h interval would alert
+every weekend. A weekday failure is noticed the same evening anyway, when no message arrives.
+
+### Telegram summary
+
+Monday to Friday at 19:45 (Europe/Paris), the worker sends net worth, the day's change and each
+envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and put its token in
+   `/srv/cairn/.env` as `TELEGRAM_BOT_TOKEN`.
+2. Send the bot any message, then open `https://api.telegram.org/bot<token>/getUpdates` and put
+   `message.chat.id` in `/srv/cairn/.env` as `TELEGRAM_CHAT_ID`.
+3. Create the push monitor above and put its URL in `/srv/cairn/.env` as `KUMA_PUSH_SUMMARY`.
+
+The bot token never appears in the logs, not even on a failed send: `docker logs cairn-worker-1`
+must never show it.
 
 ## Project structure
 

@@ -1,6 +1,8 @@
 app:
+  zone: Europe/Paris
   kuma:
     intraday-push-url: ${KUMA_PUSH_INTRADAY:}
+    summary-push-url: ${KUMA_PUSH_SUMMARY:}
   client:
     yahoo:
       base-url: https://query1.finance.yahoo.com
@@ -17,6 +19,12 @@ app:
       connect-timeout: 5s
       read-timeout: 30s
       user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  telegram:
+    base-url: https://api.telegram.org
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    chat-id: ${TELEGRAM_CHAT_ID:}
+    connect-timeout: 3s
+    read-timeout: 10s
 
 spring:
   application:

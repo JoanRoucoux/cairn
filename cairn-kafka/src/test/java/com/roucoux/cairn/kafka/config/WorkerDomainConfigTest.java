@@ -177,6 +177,42 @@ class WorkerDomainConfigTest {
     }
 
     @Test
+    void exposesTheConfiguredZone() {
+        assertThat(config.zone("Europe/Paris")).isEqualTo(java.time.ZoneId.of("Europe/Paris"));
+    }
+
+    @Test
+    void wiresThePerformanceSliceSoAnEmptyPortfolioHasNoChange() {
+        ValueHoldingUseCase valueHolding = config.valueHoldingUseCase(loadInstruments, loadAccounts, loadQuotes, CLOCK);
+        GetPortfolioUseCase getPortfolio = config.getPortfolioUseCase(loadHoldings, valueHolding, CLOCK);
+
+        com.roucoux.cairn.domain.port.in.GetPerformanceUseCase getPerformance =
+                config.getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+
+        assertThat(getPerformance
+                        .performance(com.roucoux.cairn.domain.model.PerformanceRange.D1)
+                        .change()
+                        .amount())
+                .isEqualByComparingTo("0");
+    }
+
+    @Test
+    void wiresTheDailySummarySliceSoSendingCallsTheNotificationPort() {
+        ValueHoldingUseCase valueHolding = config.valueHoldingUseCase(loadInstruments, loadAccounts, loadQuotes, CLOCK);
+        GetPortfolioUseCase getPortfolio = config.getPortfolioUseCase(loadHoldings, valueHolding, CLOCK);
+        com.roucoux.cairn.domain.port.in.GetPerformanceUseCase getPerformance =
+                config.getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+        List<com.roucoux.cairn.domain.model.DailySummary> sent = new ArrayList<>();
+        com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification = sent::add;
+
+        com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase sendDailySummary = config.sendDailySummaryUseCase(
+                getPerformance, sendNotification, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+        sendDailySummary.send();
+
+        assertThat(sent).hasSize(1);
+    }
+
+    @Test
     void wiresTheRefreshSliceSoARefreshAnnouncesItsEnd() {
         List<Quote> saved = new ArrayList<>();
         List<DomainEvent> published = new ArrayList<>();
