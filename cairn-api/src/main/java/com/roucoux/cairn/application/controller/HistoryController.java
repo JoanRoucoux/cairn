@@ -10,7 +10,6 @@ import com.roucoux.cairn.generated.model.IntradayHistoryResponse;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Locale;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,11 +28,11 @@ class HistoryController implements HistoryApi {
             GetHistoryUseCase getHistory,
             GetIntradayHistoryUseCase getIntradayHistory,
             HistoryRestMapper mapper,
-            @Value("${app.zone}") String zone) {
+            ZoneId zone) {
         this.getHistory = getHistory;
         this.getIntradayHistory = getIntradayHistory;
         this.mapper = mapper;
-        this.zone = ZoneId.of(zone);
+        this.zone = zone;
     }
 
     @Override

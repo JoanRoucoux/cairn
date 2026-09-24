@@ -8,8 +8,6 @@ import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -19,8 +17,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class PortfolioService implements GetPortfolioUseCase {
-
-    private static final int SHARE_SCALE = 10;
 
     private final LoadHoldingsPort loadHoldings;
     private final ValueHoldingUseCase valueHolding;
@@ -81,16 +77,10 @@ public class PortfolioService implements GetPortfolioUseCase {
             grouped.merge(by.apply(line), line.marketValue().orElseThrow(), Money::plus);
         }
         return grouped.entrySet().stream()
-                .map(entry -> new Allocation(entry.getKey(), entry.getValue(), share(entry.getValue(), total)))
+                .map(entry -> new Allocation(entry.getKey(), entry.getValue(), Shares.share(entry.getValue(), total)))
                 .sorted(Comparator.comparing(
                                 (Allocation allocation) -> allocation.value().amount())
                         .reversed())
                 .toList();
-    }
-
-    private static BigDecimal share(Money part, Money total) {
-        return total.amount().signum() == 0
-                ? BigDecimal.ZERO
-                : part.amount().divide(total.amount(), SHARE_SCALE, RoundingMode.HALF_UP);
     }
 }

@@ -4,6 +4,7 @@ import com.roucoux.cairn.domain.model.Allocation;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Portfolio;
+import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.generated.model.AllocationResponse;
 import com.roucoux.cairn.generated.model.ImportReportResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
@@ -71,8 +72,24 @@ public class PortfolioRestMapper {
         return response;
     }
 
+    /**
+     * The sum of {@code quantity x previousQuote.price} over the lines that have a previous
+     * quote — not {@code total - dayChange}, which would silently fold in the full current value
+     * of every line without one (a brand-new line, still priced but not yet a full day old) and
+     * dilute the ratio.
+     */
     private static BigDecimal previousTotal(Portfolio portfolio) {
-        return portfolio.total().amount().subtract(portfolio.dayChange().amount());
+        return portfolio.holdings().stream()
+                .filter(line ->
+                        line.marketValue().isPresent() && line.previousQuote().isPresent())
+                .map(PortfolioRestMapper::previousValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static BigDecimal previousValue(ValuedHolding line) {
+        return line.holding()
+                .quantity()
+                .multiply(line.previousQuote().orElseThrow().price());
     }
 
     private static BigDecimal costBasisTotal(Portfolio portfolio, Money unrealizedGain) {

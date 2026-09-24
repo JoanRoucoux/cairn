@@ -18,19 +18,22 @@ import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@TestPropertySource(properties = {"app.security.password=test-password", "app.zone=Europe/Paris"})
+@TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(HistoryController.class)
-@Import({WebAuthnConfig.class, HistoryRestMapper.class})
+@Import({WebAuthnConfig.class, HistoryRestMapper.class, HistoryControllerTest.ZoneConfig.class})
 class HistoryControllerTest {
 
     @Autowired
@@ -44,6 +47,14 @@ class HistoryControllerTest {
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
+
+    @TestConfiguration
+    static class ZoneConfig {
+        @Bean
+        ZoneId zone() {
+            return ZoneId.of("Europe/Paris");
+        }
+    }
 
     @Test
     void returnsTheSeriesForTheRequestedRange() throws Exception {

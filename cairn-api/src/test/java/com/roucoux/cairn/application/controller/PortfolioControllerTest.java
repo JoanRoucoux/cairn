@@ -133,6 +133,29 @@ class PortfolioControllerTest {
     }
 
     @Test
+    void basesTheDayChangeRatioOnTheStartValueOfLinesWithAPreviousQuoteOnly() throws Exception {
+        // 10 shares at 55, previously 50: start 500, current 550, dayChange +50.
+        ValuedHolding withPreviousQuote = eurLine(new BigDecimal("10"), new BigDecimal("55.00"), true);
+        // 5 shares at 20, no previous quote: contributes to the total but not to dayChange or its base.
+        ValuedHolding withoutPreviousQuote = eurLine(new BigDecimal("5"), new BigDecimal("20.00"), false);
+        Portfolio portfolio = new Portfolio(
+                Money.eur(new BigDecimal("650")),
+                Money.eur(new BigDecimal("50")),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(withPreviousQuote, withoutPreviousQuote),
+                0,
+                0);
+        when(getPortfolio.get()).thenReturn(portfolio);
+
+        mockMvc.perform(get("/portfolio").with(user("joan")))
+                // 50 / 500, not 50 / (650 - 50) = 50 / 600: a young line with no previous quote must
+                // not dilute the base.
+                .andExpect(jsonPath("$.dayChangeRatio").value(0.1));
+    }
+
+    @Test
     void servesThePortfolioAsACsvAttachmentDatedToday() throws Exception {
         Holding holding =
                 new Holding(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10"), null);
@@ -238,6 +261,32 @@ class PortfolioControllerTest {
                 List.of(),
                 0,
                 0);
+    }
+
+    private static ValuedHolding eurLine(BigDecimal quantity, BigDecimal price, boolean withPreviousQuote) {
+        UUID accountId = UUID.randomUUID();
+        UUID instrumentId = UUID.randomUUID();
+        Holding holding = new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, null);
+        Instrument instrument = new Instrument(
+                instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
+        Account account = new Account(accountId, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Quote quote = new Quote(
+                instrumentId,
+                LocalDate.of(2026, 8, 26),
+                price,
+                "EUR",
+                PriceSource.YAHOO,
+                Instant.parse("2026-08-26T20:00:00Z"));
+        Optional<Quote> previousQuote = withPreviousQuote
+                ? Optional.of(new Quote(
+                        instrumentId,
+                        LocalDate.of(2026, 8, 25),
+                        new BigDecimal("50.00"),
+                        "EUR",
+                        PriceSource.YAHOO,
+                        Instant.parse("2026-08-25T20:00:00Z")))
+                : Optional.empty();
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), previousQuote);
     }
 
     private static ValuedHolding aHolding() {

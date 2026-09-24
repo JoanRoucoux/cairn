@@ -129,6 +129,11 @@ class WorkerDomainConfigTest {
         public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
             return Map.of();
         }
+
+        @Override
+        public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
+            return Map.of();
+        }
     };
 
     @Test

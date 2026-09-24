@@ -110,6 +110,26 @@ class QuotePersistenceAdapterIT {
                 .isEmpty();
     }
 
+    @Test
+    void readsForEachInstrumentTheDateOfItsEarliestQuote() {
+        UUID fund = givenAnInstrument();
+        UUID etf = givenAnInstrument();
+        quotes.upsertAll(List.of(
+                quote(fund, LocalDate.of(2020, 1, 15), new BigDecimal("40.00")),
+                quote(fund, LocalDate.of(2024, 1, 2), new BigDecimal("48.00")),
+                quote(etf, LocalDate.of(2024, 1, 2), new BigDecimal("100.00"))));
+
+        Map<UUID, LocalDate> firstQuoteDates = quotes.findFirstQuoteDates(Set.of(fund, etf));
+
+        assertThat(firstQuoteDates.get(fund)).isEqualTo(LocalDate.of(2020, 1, 15));
+        assertThat(firstQuoteDates.get(etf)).isEqualTo(LocalDate.of(2024, 1, 2));
+    }
+
+    @Test
+    void readsNoFirstQuoteDateForNoInstrument() {
+        assertThat(quotes.findFirstQuoteDates(Set.of())).isEmpty();
+    }
+
     private UUID givenAnInstrument() {
         return instruments
                 .save(new Instrument(
