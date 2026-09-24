@@ -11,12 +11,21 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Outbound adapter: turns a domain event into the envelope on the wire, never failing the caller. */
 public class KafkaEventPublisher implements PublishEventPort {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaEventPublisher.class);
+
+    /** Derives the mapper this publisher needs from a base one: the envelope's price must never
+     * render in scientific notation, without changing how the base mapper serializes anything else. */
+    public static JsonMapper eventMapper(JsonMapper base) {
+        return base.rebuild()
+                .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+                .build();
+    }
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final JsonMapper jsonMapper;

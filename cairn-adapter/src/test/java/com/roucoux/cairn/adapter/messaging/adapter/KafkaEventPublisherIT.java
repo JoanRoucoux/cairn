@@ -39,7 +39,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
-import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -65,11 +64,9 @@ class KafkaEventPublisherIT {
 
     @BeforeAll
     static void startBrokerAndCreateTopics() throws Exception {
-        // Same configuration as KafkaMessagingConfig.plainBigDecimalJsonMapperCustomizer, applied
-        // directly since that config class is package-private to a sibling package.
-        json = JsonMapper.builder()
-                .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
-                .build();
+        // Standing in for the base JsonMapper Boot would inject: KafkaEventPublisher.eventMapper
+        // derives the same mapper the real publisher uses from it.
+        json = KafkaEventPublisher.eventMapper(JsonMapper.builder().build());
         producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
@@ -155,7 +152,10 @@ class KafkaEventPublisherIT {
         ConsumerRecord<String, String> record =
                 pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("0.000000120000"));
 
-        assertThat(record.value()).contains("0.000000120000").doesNotContainIgnoringCase("e-7");
+        // A literal match on the plain-decimal form already rules out scientific notation:
+        // checking the absence of "e-7" instead would be a false positive against a random
+        // UUID elsewhere in the envelope that happens to contain that substring.
+        assertThat(record.value()).contains("0.000000120000");
     }
 
     @Test

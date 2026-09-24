@@ -67,9 +67,6 @@ class RefreshQuotesJobConfig {
                 // line during an outage, must not leave the remaining instruments unpriced.
                 .skipPolicy((failure, skipCount) -> failure instanceof RuntimeException)
                 .listener(skipListener)
-                // Cast to each listener interface explicitly: the builder overloads them by
-                // type, and one object implementing three sibling interfaces makes an
-                // unqualified .listener(announcementListener) call ambiguous at compile time.
                 .listener((ItemWriteListener<Quote>) announcementListener)
                 .listener((ChunkListener) announcementListener)
                 .listener((StepExecutionListener) announcementListener)

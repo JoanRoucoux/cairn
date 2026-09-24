@@ -4,47 +4,61 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.adapter.messaging.adapter.KafkaEventPublisher;
 import com.roucoux.cairn.adapter.messaging.properties.KafkaMessagingProperties;
+import com.roucoux.cairn.domain.model.PriceSource;
+import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.model.event.PriceUpdated;
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import java.math.BigDecimal;
-import java.util.Map;
-import org.apache.kafka.clients.producer.ProducerConfig;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.apache.kafka.clients.producer.MockProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 class KafkaMessagingConfigTest {
 
+    private static final KafkaMessagingProperties PROPERTIES =
+            new KafkaMessagingProperties("cairn.prices", "cairn.portfolio");
+
     @Test
     void wiresAKafkaEventPublisher() {
-        KafkaTemplate<String, String> kafkaTemplate = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(Map.of(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "localhost:9092",
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class,
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class)));
+        MockProducer<String, String> mockProducer =
+                new MockProducer<>(true, null, new StringSerializer(), new StringSerializer());
 
         PublishEventPort port = new KafkaMessagingConfig()
                 .publishEventPort(
-                        kafkaTemplate,
+                        new KafkaTemplate<>(() -> mockProducer),
                         JsonMapper.builder().build(),
-                        new KafkaMessagingProperties("cairn.prices", "cairn.portfolio"),
+                        PROPERTIES,
                         "cairn-api");
 
         assertThat(port).isInstanceOf(KafkaEventPublisher.class);
     }
 
     @Test
-    void enablesPlainBigDecimalOnTheSharedJsonMapper() {
-        JsonMapperBuilderCustomizer customizer = new KafkaMessagingConfig().plainBigDecimalJsonMapperCustomizer();
+    void theWiredPublisherWritesATinyPriceAsPlainDecimal() {
+        MockProducer<String, String> mockProducer =
+                new MockProducer<>(true, null, new StringSerializer(), new StringSerializer());
+        PublishEventPort port = new KafkaMessagingConfig()
+                .publishEventPort(
+                        new KafkaTemplate<>(() -> mockProducer),
+                        JsonMapper.builder().build(),
+                        PROPERTIES,
+                        "cairn-api");
 
-        JsonMapper.Builder builder = JsonMapper.builder();
-        customizer.customize(builder);
-        JsonMapper mapper = builder.build();
+        port.publish(new PriceUpdated(new Quote(
+                UUID.randomUUID(),
+                LocalDate.of(2026, 9, 23),
+                new BigDecimal("0.000000120000"),
+                "EUR",
+                PriceSource.COINGECKO,
+                Instant.parse("2026-09-23T13:45:02Z"))));
 
-        assertThat(mapper.writeValueAsString(new BigDecimal("0.000000120000"))).isEqualTo("0.000000120000");
+        ProducerRecord<String, String> sent = mockProducer.history().getFirst();
+        assertThat(sent.value()).contains("0.000000120000");
     }
 }
