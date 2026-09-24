@@ -126,6 +126,25 @@ class PerformanceServiceTest {
     }
 
     @Test
+    void aFlatYoungLineStillCountsInTheRatiosBaseForAOneMonthRange() {
+        LocalDate wellBeforeRange = LocalDate.now(CLOCK).minusDays(40);
+        LocalDate tenDaysAgo = LocalDate.now(CLOCK).minusDays(10);
+        Line matured = equityLine(ACCOUNT_1, "110.00", "1", List.of(quoteOn(wellBeforeRange, "100.00")));
+        Line flatSinceItsOnlyQuote = equityLine(ACCOUNT_1, "50.00", "1", List.of(quoteOn(tenDaysAgo, "50.00")));
+
+        Fixture fixture = new Fixture(List.of(matured, flatSinceItsOnlyQuote));
+        Performance performance = fixture.service().performance(PerformanceRange.M1);
+
+        assertThat(performance.change().amount()).isEqualByComparingTo("10");
+        assertThat(performance.changeRatio())
+                .hasValueSatisfying(ratio -> assertThat(ratio).isEqualByComparingTo("0.0666666667"));
+        assertThat(performance.byEnvelope()).hasSize(1);
+        assertThat(performance.byEnvelope().getFirst().change().amount()).isEqualByComparingTo("10");
+        assertThat(performance.byEnvelope().getFirst().changeRatio())
+                .hasValueSatisfying(ratio -> assertThat(ratio).isEqualByComparingTo("0.0666666667"));
+    }
+
+    @Test
     void marksFiveYearsAndMaxAsReconstructedButNotShorterRanges() {
         Fixture fixture = new Fixture(List.of(equityLine(ACCOUNT_1, "55.00", "10", List.of())));
 
