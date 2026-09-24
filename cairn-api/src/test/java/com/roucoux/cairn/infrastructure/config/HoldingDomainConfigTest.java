@@ -98,4 +98,72 @@ class HoldingDomainConfigTest {
         assertThat(valued.marketValue().orElseThrow().amount()).isEqualByComparingTo("20000");
         assertThat(valued.quote().orElseThrow().asOf()).isEqualTo(LocalDate.now(CLOCK));
     }
+
+    @Test
+    void wiresTheCashBalanceServiceThroughSoItCreatesTheEurosInstrumentOnFirstUse() {
+        LoadInstrumentsPort loadInstruments = new LoadInstrumentsPort() {
+            @Override
+            public List<Instrument> findAll() {
+                return List.of();
+            }
+
+            @Override
+            public Optional<Instrument> findById(UUID id) {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<Instrument> findRefreshable(Set<AssetClass> assetClasses) {
+                return List.of();
+            }
+        };
+        LoadAccountsPort loadAccounts = new LoadAccountsPort() {
+            @Override
+            public List<Account> findAll() {
+                return List.of(ACCOUNT);
+            }
+
+            @Override
+            public Optional<Account> findById(UUID id) {
+                return ACCOUNT.id().equals(id) ? Optional.of(ACCOUNT) : Optional.empty();
+            }
+        };
+        com.roucoux.cairn.domain.port.out.SaveInstrumentPort saveInstrument = instrument -> instrument;
+        com.roucoux.cairn.domain.port.out.LoadHoldingsPort loadHoldings =
+                new com.roucoux.cairn.domain.port.out.LoadHoldingsPort() {
+                    @Override
+                    public List<Holding> findAll() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<Holding> findById(UUID id) {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public Optional<Holding> findByAccountAndInstrument(UUID accountId, UUID instrumentId) {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public List<Holding> findByInstrument(UUID instrumentId) {
+                        return List.of();
+                    }
+                };
+        List<Holding> saved = new java.util.ArrayList<>();
+        com.roucoux.cairn.domain.port.out.SaveHoldingPort saveHolding = holding -> {
+            saved.add(holding);
+            return holding;
+        };
+        com.roucoux.cairn.domain.port.out.DeleteHoldingPort deleteHolding = id -> {};
+
+        com.roucoux.cairn.domain.port.in.SetCashBalanceUseCase useCase = new HoldingDomainConfig()
+                .setCashBalanceUseCase(
+                        loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding);
+        useCase.setCashBalance(ACCOUNT.id(), new BigDecimal("732.40"));
+
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).quantity()).isEqualByComparingTo("732.40");
+    }
 }
