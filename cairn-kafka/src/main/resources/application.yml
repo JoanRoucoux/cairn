@@ -1,3 +1,7 @@
+app:
+  kuma:
+    intraday-push-url: ${KUMA_PUSH_INTRADAY:}
+
 spring:
   application:
     name: cairn-kafka

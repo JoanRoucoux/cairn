@@ -1,7 +1,9 @@
 package com.roucoux.cairn.kafka.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
@@ -10,14 +12,20 @@ import com.roucoux.cairn.domain.model.IntradayValuation;
 import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.event.DomainEvent;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
+import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
+import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
+import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
+import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
 import java.time.Clock;
 import java.time.Instant;
@@ -30,6 +38,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.scope.ScopedProxyUtils;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.stereotype.Component;
 
 /** Bean-wiring test, no Spring context: calls the {@code @Bean} methods directly. */
 class WorkerDomainConfigTest {
@@ -155,5 +169,83 @@ class WorkerDomainConfigTest {
     @Test
     void exposesASystemClock() {
         assertThat(config.clock()).isNotNull();
+    }
+
+    @Test
+    void wiresTheRefreshSliceSoASavedQuoteIsAnnounced() {
+        List<Quote> saved = new ArrayList<>();
+        List<DomainEvent> published = new ArrayList<>();
+        FetchQuotePort fetcher = new FetchQuotePort() {
+            @Override
+            public boolean supports(com.roucoux.cairn.domain.model.PriceSource source) {
+                return true;
+            }
+
+            @Override
+            public Quote fetch(Instrument instrument) {
+                throw new MarketDataUnavailableException("unused");
+            }
+
+            @Override
+            public List<Quote> fetchHistory(Instrument instrument, LocalDate from) {
+                return List.of();
+            }
+        };
+        SaveQuotePort saveQuote = new SaveQuotePort() {
+            @Override
+            public void upsert(Quote quote) {
+                saved.add(quote);
+            }
+
+            @Override
+            public void upsertAll(List<Quote> quotes) {
+                saved.addAll(quotes);
+            }
+        };
+        RecordQuoteFailurePort recordFailure = (instrumentId, source, message) -> {};
+        AnnounceQuotesUseCase announceQuotes = config.announceQuotes(published::add);
+
+        RefreshQuotesUseCase refreshQuotes =
+                config.refreshQuotes(List.of(fetcher), loadInstruments, saveQuote, recordFailure, announceQuotes);
+        refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER);
+
+        assertThat(saved).isEmpty();
+        assertThat(published).hasSize(1);
+    }
+
+    @Component("coinGeckoQuoteAdapter")
+    @Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
+    static class RequestScopedStandIn {}
+
+    @Test
+    void rescopesTheCoinGeckoAdaptersTargetBeanDefinitionFromRequestToPrototype() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.register(RequestScopedStandIn.class);
+            String targetBeanName = ScopedProxyUtils.getTargetBeanName("coinGeckoQuoteAdapter");
+            assertThat(context.getBeanFactory()
+                            .getBeanDefinition(targetBeanName)
+                            .getScope())
+                    .isEqualTo("request");
+
+            BeanFactoryPostProcessor processor = WorkerDomainConfig.coinGeckoQuoteAdapterPrototypeScoped();
+            processor.postProcessBeanFactory(context.getBeanFactory());
+
+            assertThat(context.getBeanFactory()
+                            .getBeanDefinition(targetBeanName)
+                            .getScope())
+                    .isEqualTo("prototype");
+        }
+    }
+
+    @Test
+    void doesNothingWhenNoScopedTargetIsRegistered() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.refresh();
+
+            BeanFactoryPostProcessor processor = WorkerDomainConfig.coinGeckoQuoteAdapterPrototypeScoped();
+
+            assertThatCode(() -> processor.postProcessBeanFactory(context.getBeanFactory()))
+                    .doesNotThrowAnyException();
+        }
     }
 }
