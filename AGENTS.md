@@ -128,12 +128,11 @@ this one point, and `cairn-web`'s `proxy.conf.json` strips it the same way in de
 `handle_path /api/*`, not `handle`. Forwarded verbatim it 404s every authenticated call while
 looking healthy from outside: unauthenticated, Spring answers 401 before routing, so a missing
 route is indistinguishable from a guarded one. What Spring Security serves itself is forwarded
-unchanged: `/logout*` for sign-out, `/webauthn/*` for the passkey registration page and the
-ceremony endpoints, `/login/webauthn` for the passkey assertion endpoint and `/login/webauthn.js`
-for the script it needs (both sit under `/login` rather than `/webauthn`), and `/default-ui.css`
-for the stylesheet the registration page loads. `/login` itself is deliberately absent and matched
-by neither `/webauthn/*` nor `/login/webauthn`: the frontend owns that path, since Spring's
-generated sign-in page is switched off.
+unchanged: `/logout*` for sign-out, and the two endpoints the SPA plays the passkey ceremony
+against itself: `/webauthn/*` for the registration options and verification, and `/login/webauthn`
+for the assertion endpoint (it sits under `/login` rather than `/webauthn`). `/login` itself is
+deliberately absent and matched by neither `/webauthn/*` nor `/login/webauthn`: the frontend owns
+that path, since Spring's generated sign-in page is switched off.
 
 Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default network**, out of
 reach of every other application sharing the proxy. So do `kafka` and `worker`: nothing outside
