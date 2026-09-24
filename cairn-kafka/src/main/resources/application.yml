@@ -3,7 +3,6 @@ spring:
     name: cairn-kafka
   main:
     web-application-type: none
-    # No listener and no scheduler yet at this lot: nothing else keeps the JVM alive.
     keep-alive: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

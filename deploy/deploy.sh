@@ -19,7 +19,7 @@ sed -i "s|^TAG=.*|TAG=${TAG}|" .env
 # batch as well: cron runs it later without registry credentials.
 docker compose -f compose.prod.yaml --profile migrate --profile batch pull schema api batch kafka worker
 docker compose -f compose.prod.yaml --profile migrate run --rm -T schema </dev/null
-docker compose -f compose.prod.yaml up -d --wait --wait-timeout 180 postgres kafka worker api
+docker compose -f compose.prod.yaml up -d --wait --wait-timeout 300 postgres kafka worker api
 
 awk 1 /srv/*/*.cron | crontab -
 

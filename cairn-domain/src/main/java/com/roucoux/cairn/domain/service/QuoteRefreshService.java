@@ -57,8 +57,8 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
             try {
                 Quote quote = refresh(instrument);
                 saveQuote.upsert(quote);
-                announce.quotesSaved(List.of(quote));
                 refreshed++;
+                announce.quotesSaved(List.of(quote));
             } catch (RuntimeException failure) {
                 // Deliberately every runtime failure, not only the expected one: a single provider
                 // answering something nobody foresaw must not leave the other instruments unpriced.

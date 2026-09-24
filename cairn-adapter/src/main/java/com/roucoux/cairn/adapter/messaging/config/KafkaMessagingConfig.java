@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(KafkaMessagingProperties.class)
@@ -17,10 +16,8 @@ class KafkaMessagingConfig {
     @Bean
     PublishEventPort publishEventPort(
             KafkaTemplate<String, String> kafkaTemplate,
-            JsonMapper jsonMapper,
             KafkaMessagingProperties properties,
             @Value("${spring.application.name}") String applicationName) {
-        return new KafkaEventPublisher(
-                kafkaTemplate, KafkaEventPublisher.eventMapper(jsonMapper), properties, applicationName);
+        return new KafkaEventPublisher(kafkaTemplate, properties, applicationName);
     }
 }

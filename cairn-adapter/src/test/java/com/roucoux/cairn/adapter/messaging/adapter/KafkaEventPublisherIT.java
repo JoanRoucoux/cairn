@@ -64,9 +64,7 @@ class KafkaEventPublisherIT {
 
     @BeforeAll
     static void startBrokerAndCreateTopics() throws Exception {
-        // Standing in for the base JsonMapper Boot would inject: KafkaEventPublisher.eventMapper
-        // derives the same mapper the real publisher uses from it.
-        json = KafkaEventPublisher.eventMapper(JsonMapper.builder().build());
+        json = KafkaEventPublisher.eventMapper();
         producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
@@ -89,7 +87,7 @@ class KafkaEventPublisherIT {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaEventPublisher(kafkaTemplate, json, PROPERTIES, APPLICATION_NAME);
+        publisher = new KafkaEventPublisher(kafkaTemplate, PROPERTIES, APPLICATION_NAME);
         consumer = new KafkaConsumer<>(Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 kafka.getBootstrapServers(),
@@ -190,8 +188,8 @@ class KafkaEventPublisherIT {
                 ProducerConfig.MAX_BLOCK_MS_CONFIG,
                 250));
         try {
-            KafkaEventPublisher unreachable = new KafkaEventPublisher(
-                    new KafkaTemplate<>(unreachableFactory), json, PROPERTIES, APPLICATION_NAME);
+            KafkaEventPublisher unreachable =
+                    new KafkaEventPublisher(new KafkaTemplate<>(unreachableFactory), PROPERTIES, APPLICATION_NAME);
 
             long start = System.nanoTime();
             assertThatCode(() -> {

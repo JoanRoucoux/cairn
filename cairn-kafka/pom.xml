@@ -17,7 +17,7 @@
   <packaging>jar</packaging>
   <name>cairn-kafka</name>
   <description>Third entry point over the same hexagon: a long-running worker declaring the Kafka
-    topics. Consumers and schedulers land in later lots.</description>
+    topics.</description>
 
   <properties>
     <java.version>25</java.version>
@@ -58,13 +58,6 @@
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
-    </dependency>
-    <!-- The autoconfigure-only module (Boot 4's fine-grained split): builds the KafkaAdmin bean
-         from spring.kafka.* properties, which is what turns TopicsConfig's NewTopic beans into
-         topics on the broker. -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-kafka</artifactId>
     </dependency>
     <!-- Starts compose.yaml (PostgreSQL) on spring-boot:run; inactive in tests and packaged apps. -->
     <dependency>

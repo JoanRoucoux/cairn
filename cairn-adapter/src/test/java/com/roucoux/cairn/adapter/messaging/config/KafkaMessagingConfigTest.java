@@ -17,7 +17,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
 class KafkaMessagingConfigTest {
 
@@ -30,11 +29,7 @@ class KafkaMessagingConfigTest {
                 new MockProducer<>(true, null, new StringSerializer(), new StringSerializer());
 
         PublishEventPort port = new KafkaMessagingConfig()
-                .publishEventPort(
-                        new KafkaTemplate<>(() -> mockProducer),
-                        JsonMapper.builder().build(),
-                        PROPERTIES,
-                        "cairn-api");
+                .publishEventPort(new KafkaTemplate<>(() -> mockProducer), PROPERTIES, "cairn-api");
 
         assertThat(port).isInstanceOf(KafkaEventPublisher.class);
     }
@@ -44,11 +39,7 @@ class KafkaMessagingConfigTest {
         MockProducer<String, String> mockProducer =
                 new MockProducer<>(true, null, new StringSerializer(), new StringSerializer());
         PublishEventPort port = new KafkaMessagingConfig()
-                .publishEventPort(
-                        new KafkaTemplate<>(() -> mockProducer),
-                        JsonMapper.builder().build(),
-                        PROPERTIES,
-                        "cairn-api");
+                .publishEventPort(new KafkaTemplate<>(() -> mockProducer), PROPERTIES, "cairn-api");
 
         port.publish(new PriceUpdated(new Quote(
                 UUID.randomUUID(),

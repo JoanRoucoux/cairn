@@ -48,7 +48,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Bean-wiring code (`@Bean` methods) is unit-tested by calling those methods directly, so the coverage gate does not depend on Docker being available.
 - External clients: WireMockServer without any Spring context.
 - ArchUnit rules are plain JUnit `@Test` methods over a static `ClassFileImporter` on purpose — do not migrate them to `@AnalyzeClasses`/`@ArchTest`. A rule whose subject matches nothing fails, so keep rules next to the code they constrain.
-- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports; only `cairn-adapter`'s `KafkaMessagingConfigTest`/`*IT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` exercise the real Kafka wiring, the latter through Testcontainers.
+- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, and the API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` exercise the real Kafka wiring, both through a Testcontainers broker.
 - Coverage gate: 70% lines per module (JaCoCo, merged unit+IT data).
 
 ## Deviations from the starter
@@ -141,9 +141,11 @@ this compose project needs to reach either.
 
 **`kafka`/`worker`.** `kafka` is a single-node KRaft broker (`apache/kafka`, no ZooKeeper),
 `worker` is `cairn-kafka`'s image: it declares the `cairn.prices`/`cairn.portfolio` topics on
-startup and otherwise idles (`spring.main.web-application-type: none`). `deploy.sh` brings them up
-before `api` (`postgres kafka worker api`), so the topics exist before any producer starts, and
-pulls/prunes the `cairn-kafka` image alongside the other three. **PostgreSQL first, then the
+startup and otherwise idles (`spring.main.web-application-type: none`). `deploy.sh`'s `up`
+argument order (`postgres kafka worker api`) is not a start order and `api` does not depend on
+`worker`: the worker creates the topics on its first start, and an event published before that is
+dropped and logged. `deploy.sh` pulls/prunes the `cairn-kafka` image alongside the other three.
+**PostgreSQL first, then the
 event**: `QuoteAnnouncementService` publishes only after the caller's transaction has written the
 quote/refresh outcome, never before, so a broker outage can drop an event but never leaves a
 published event pointing at data that was never saved.
@@ -156,19 +158,23 @@ would make Cairn's passkeys usable by every other application on the domain. Cha
 first passkey registration breaks every existing credential — `rp-id` is bound into them.
 
 Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
-`postgres`/`api`/`web`/`schema`/`batch` against the same `cairn-data` volume name.
+`postgres`/`api`/`web`/`schema`/`batch`/`kafka`/`worker` against the same `cairn-data` and
+`kafka-data` volume names.
 
 **Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml`,
-builds `api`, `schema` and `batch`, pushes them to GHCR as `sha-` followed by the commit's first
-7 characters, ships `compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh`
+builds `api`, `schema`, `batch` and `kafka`, pushes them to GHCR as `sha-` followed by the commit's
+first 7 characters, ships `compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh`
 and `deploy/cairn.cron` to the server, reloads the shared proxy rather than restarting it so the
 other sites keep serving, applies the Liquibase changelog on its own before anything
-starts, then brings up `postgres` and `api` and waits for `/api/actuator/health`. Rolling back is
+starts, then brings up `postgres`, `kafka`, `worker` and `api` and waits for `/api/actuator/health`. Rolling back is
 running the workflow by hand with the full SHA of an earlier commit: it checks that the images
 exist, then deploys that commit's files and images without building. A running deploy is never
 cancelled; GitHub keeps only the newest pending run in the `deploy` concurrency group, so a
 rollback dispatched while another run waits can be superseded by a later push, and the run list
-must be checked after dispatching one. `cairn-web` has the mirror workflow for `web` alone; both
+must be checked after dispatching one. Rolling back to a commit deployed before lot K means
+dispatching the Deploy workflow with "Use workflow from" set to the last release tag before lot K,
+so the old workflow runs with its old image list; `kafka` and `worker` then keep running untouched
+until the next deploy, which is harmless. `cairn-web` has the mirror workflow for `web` alone; both
 scripts take `/srv/cairn/.deploy.lock` because both edit `/srv/cairn/.env`, and GitHub concurrency
 does not span repositories.
 
