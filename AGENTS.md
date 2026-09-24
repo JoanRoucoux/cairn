@@ -187,7 +187,9 @@ named in `/srv/cairn/.env` only when the run succeeds. Intraday refreshes are no
 live in the worker itself, as a `@Scheduled` method (zone Europe/Paris, EQUITY+ETF every 15 min
 Mon-Fri 9:00-17:45, CRYPTO every 15 min), which is why `CRYPTO` has left `deploy/cairn.cron`. Its
 heartbeat is the `KUMA_PUSH_INTRADAY` push monitor, pinged only when a run refreshed something or
-had no failure.
+had no failure. `snapshotJob` runs at 23:30 Paris (`30 23 * * *`), recording the day's measured
+portfolio value and its `ACCOUNT_TYPE`/`ASSET_CLASS` ventilations; its heartbeat is the
+`KUMA_PUSH_SNAPSHOT` push monitor, interval 25 h.
 
 **Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image
 prune` only removes untagged images, and each deploy leaves three tagged ones behind.

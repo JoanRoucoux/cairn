@@ -3,6 +3,9 @@ package com.roucoux.cairn.batch.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.scope.ScopedProxyUtils;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
@@ -53,5 +56,13 @@ class BatchDomainConfigTest {
             assertThatCode(() -> processor.postProcessBeanFactory(context.getBeanFactory()))
                     .doesNotThrowAnyException();
         }
+    }
+
+    @Test
+    void clockIsFixedToTheConfiguredZone() {
+        Clock clock = new BatchDomainConfig().clock("Europe/Paris");
+
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("Europe/Paris"));
+        assertThat(LocalDate.now(clock)).isEqualTo(LocalDate.now(ZoneId.of("Europe/Paris")));
     }
 }

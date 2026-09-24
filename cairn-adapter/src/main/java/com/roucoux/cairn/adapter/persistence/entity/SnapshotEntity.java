@@ -6,15 +6,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
 
-/**
- * Persists only the measured total, {@code snapshot_breakdowns} is not read here: no consumer
- * needs the per-instrument quantities and prices yet, so {@link Snapshot#quantities()} and
- * {@link Snapshot#prices()} come back empty.
- */
 @Entity
 @Table(name = "snapshots")
 public class SnapshotEntity {
@@ -31,7 +27,19 @@ public class SnapshotEntity {
 
     protected SnapshotEntity() {}
 
-    public Snapshot toDomain() {
+    public static SnapshotEntity fromDomain(Snapshot snapshot, Clock clock) {
+        SnapshotEntity entity = new SnapshotEntity();
+        entity.asOf = snapshot.date();
+        entity.totalEur = snapshot.totalEur();
+        entity.createdAt = clock.instant();
+        return entity;
+    }
+
+    public Snapshot toDomainWithoutBreakdowns() {
         return new Snapshot(asOf, totalEur, Map.of(), Map.of());
+    }
+
+    public LocalDate asOf() {
+        return asOf;
     }
 }

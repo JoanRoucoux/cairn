@@ -32,6 +32,7 @@ spring:
       initialize-schema: never
 
 app:
+  zone: Europe/Paris
   client:
     yahoo:
       base-url: https://query1.finance.yahoo.com
