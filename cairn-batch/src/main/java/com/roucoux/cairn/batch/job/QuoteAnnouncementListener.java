@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.batch.core.ExitStatus;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.listener.ChunkListener;
 import org.springframework.batch.core.listener.ItemWriteListener;
 import org.springframework.batch.core.listener.StepExecutionListener;
@@ -18,14 +19,8 @@ import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.stereotype.Component;
 
-/**
- * Announces a chunk's quotes only once its transaction has committed. {@code afterWrite} runs
- * inside that still-open transaction, so it only buffers; {@code afterChunk} runs once Spring
- * Batch's {@code TaskletStep} has committed it, which is where the buffer is flushed. A rolled
- * back chunk reaches {@code afterChunkError} instead of {@code afterChunk} and clears the buffer,
- * so nothing announces quotes that were never persisted.
- */
 @Component
+@StepScope
 class QuoteAnnouncementListener implements ItemWriteListener<Quote>, ChunkListener, StepExecutionListener {
 
     private final AnnounceQuotesUseCase announceQuotes;
