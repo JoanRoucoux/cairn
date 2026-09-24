@@ -47,6 +47,24 @@ class IntradayHistoryServiceTest {
     }
 
     @Test
+    void aRecordedPointAtTodaysStartOfDayDoesNotDuplicateTheOpeningPoint() {
+        LocalDate today = LocalDate.of(2026, 9, 24);
+        Instant startOfDay = today.atStartOfDay(PARIS).toInstant();
+        Instant now = today.atStartOfDay(PARIS).plusHours(14).toInstant();
+        Clock clock = Clock.fixed(now, PARIS);
+        LoadValuationsPort loadValuations =
+                (from, to) -> List.of(new IntradayValuation(startOfDay, new BigDecimal("108000")));
+        IntradayHistoryService service = new IntradayHistoryService(() -> PORTFOLIO, loadValuations, clock);
+
+        List<IntradayPoint> points = service.intraday(today, PARIS);
+
+        assertThat(points)
+                .containsExactly(
+                        new IntradayPoint(startOfDay, new BigDecimal("108000")),
+                        new IntradayPoint(now, new BigDecimal("110000")));
+    }
+
+    @Test
     void returnsTwoPointsForTodayWhenNothingIsRecordedYet() {
         LocalDate today = LocalDate.of(2026, 9, 24);
         Instant now = today.atStartOfDay(PARIS).plusHours(9).toInstant();

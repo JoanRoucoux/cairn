@@ -85,5 +85,7 @@ class KafkaWorkerApplicationIT {
 
         assertThat(AopUtils.isAopProxy(applicationContext.getBean("coinGeckoQuoteAdapter")))
                 .isFalse();
+        assertThat(applicationContext.getBean("coinGeckoQuoteAdapter"))
+                .isNotSameAs(applicationContext.getBean("coinGeckoQuoteAdapter"));
     }
 }

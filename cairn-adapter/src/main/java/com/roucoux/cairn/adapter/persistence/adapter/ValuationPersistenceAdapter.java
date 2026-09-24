@@ -21,7 +21,7 @@ public class ValuationPersistenceAdapter implements LoadValuationsPort, SaveValu
 
     @Override
     public List<IntradayValuation> findBetween(Instant from, Instant to) {
-        return repository.findByAtBetweenOrderByAtAsc(from, to).stream()
+        return repository.findByAtGreaterThanEqualAndAtLessThanOrderByAtAsc(from, to).stream()
                 .map(IntradayValuationEntity::toDomain)
                 .toList();
     }

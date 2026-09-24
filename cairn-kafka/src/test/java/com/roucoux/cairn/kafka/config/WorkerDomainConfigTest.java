@@ -172,7 +172,7 @@ class WorkerDomainConfigTest {
     }
 
     @Test
-    void wiresTheRefreshSliceSoASavedQuoteIsAnnounced() {
+    void wiresTheRefreshSliceSoARefreshAnnouncesItsEnd() {
         List<Quote> saved = new ArrayList<>();
         List<DomainEvent> published = new ArrayList<>();
         FetchQuotePort fetcher = new FetchQuotePort() {

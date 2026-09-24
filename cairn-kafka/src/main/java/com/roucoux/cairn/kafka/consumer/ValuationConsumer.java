@@ -20,12 +20,6 @@ public class ValuationConsumer {
     private static final Logger log = LoggerFactory.getLogger(ValuationConsumer.class);
     private static final String REFRESH_COMPLETED = "refresh.completed";
 
-    /**
-     * Built the same way as {@code KafkaEventPublisher.eventMapper()} rather than reusing it: the
-     * worker depends on {@code cairn-adapter} at runtime only, and this class lives in
-     * {@code ..kafka..}, which {@code WorkerArchitectureTest} forbids from depending on
-     * {@code ..adapter..}.
-     */
     private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
 
     private final RecordValuationUseCase recordValuation;
@@ -36,7 +30,10 @@ public class ValuationConsumer {
         this.clock = clock;
     }
 
-    @KafkaListener(topics = "${app.messaging.kafka.portfolio-topic:cairn.portfolio}", groupId = "cairn-valuation")
+    @KafkaListener(
+            id = "cairn-valuation",
+            topics = "${app.messaging.kafka.portfolio-topic:cairn.portfolio}",
+            groupId = "cairn-valuation")
     public void onMessage(String payload) {
         String type;
         try {

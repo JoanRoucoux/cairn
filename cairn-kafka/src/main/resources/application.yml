@@ -35,7 +35,6 @@ spring:
         request.timeout.ms: 5000
         linger.ms: 0
     consumer:
-      group-id: cairn-valuation
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: latest
@@ -43,6 +42,8 @@ spring:
     url: jdbc:postgresql://localhost:5432/app
     username: app
     password: app
+    hikari:
+      maximum-pool-size: 3
   jpa:
     hibernate:
       ddl-auto: validate

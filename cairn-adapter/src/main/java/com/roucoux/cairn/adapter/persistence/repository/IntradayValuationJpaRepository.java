@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface IntradayValuationJpaRepository extends JpaRepository<IntradayValuationEntity, Instant> {
 
-    List<IntradayValuationEntity> findByAtBetweenOrderByAtAsc(Instant from, Instant to);
+    List<IntradayValuationEntity> findByAtGreaterThanEqualAndAtLessThanOrderByAtAsc(Instant from, Instant to);
 
     @Transactional
     @Modifying

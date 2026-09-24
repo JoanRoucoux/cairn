@@ -19,7 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -54,6 +56,9 @@ class ValuationRoundTripIT {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
+    private KafkaListenerEndpointRegistry registry;
+
+    @Autowired
     private IntradayValuationJpaRepository valuations;
 
     private KafkaConsumer<String, String> consumer;
@@ -81,34 +86,39 @@ class ValuationRoundTripIT {
 
     @Test
     void aRefreshCompletedEnvelopeIsTurnedIntoARecordedValuation() {
+        awaitTheCairnValuationContainerToHaveAssignedPartitions();
+
         String envelope = """
                 {"id":"22222222-2222-2222-2222-222222222222","type":"refresh.completed","version":1,\
                 "occurredAt":"2026-09-24T09:31:00Z","source":"cairn-api",\
                 "data":{"assetClasses":[],"refreshed":0,"failed":0,"trigger":"MANUAL"}}\
                 """;
-
-        awaitPublicationOf(envelope);
+        kafkaTemplate.send("cairn.portfolio", envelope);
 
         ConsumerRecord<String, String> published =
                 pollMatching(value -> value.contains("\"type\":\"valuation.recorded\""));
         JsonNode envelopeReceived = JSON_MAPPER.readTree(published.value());
 
         assertThat(envelopeReceived.get("data").get("totalEur").decimalValue()).isEqualByComparingTo("0");
-        assertThat(valuations.findAll()).isNotEmpty();
+        assertThat(valuations.findAll()).hasSize(1);
     }
 
-    // ValuationConsumer's listener container needs its partition assignment before "latest" ever
-    // sees a record: a single send right after context start-up can race that assignment, so the
-    // send is repeated until the worker's own valuation.recorded echo proves it was consumed.
-    private void awaitPublicationOf(String envelope) {
+    // The listener container only starts consuming once its partitions are assigned; sending
+    // before that happened would have the broker keep the record but the consumer never see it in
+    // time for the assertions below.
+    private void awaitTheCairnValuationContainerToHaveAssignedPartitions() {
+        MessageListenerContainer container = registry.getListenerContainer("cairn-valuation");
         long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
-        while (System.nanoTime() < deadline) {
-            kafkaTemplate.send("cairn.portfolio", envelope);
-            ConsumerRecords<String, String> polled = consumer.poll(Duration.ofMillis(500));
-            for (ConsumerRecord<String, String> record : polled) {
-                if (record.value().contains("\"type\":\"valuation.recorded\"")) {
-                    return;
-                }
+        while (container.getAssignedPartitions() == null
+                || container.getAssignedPartitions().isEmpty()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("cairn-valuation never got a partition assignment within " + POLL_TIMEOUT);
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
             }
         }
     }

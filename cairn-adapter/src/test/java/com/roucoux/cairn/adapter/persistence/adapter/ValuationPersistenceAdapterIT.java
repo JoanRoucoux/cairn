@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.domain.model.IntradayValuation;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,14 +39,14 @@ class ValuationPersistenceAdapterIT {
 
         valuations.upsert(new IntradayValuation(at, new BigDecimal("26000.0000")));
 
-        assertThat(valuations.findBetween(at, at))
+        assertThat(valuations.findBetween(at, at.plus(Duration.ofMinutes(1))))
                 .hasSize(1)
                 .extracting(IntradayValuation::totalEur)
                 .containsExactly(new BigDecimal("26000.0000"));
     }
 
     @Test
-    void findsPointsSortedAscendingAndBoundedByTheInterval() {
+    void findsPointsSortedAscendingWithFromIncludedAndToExcluded() {
         Instant first = Instant.parse("2026-09-24T13:45:00Z");
         Instant second = Instant.parse("2026-09-24T13:46:00Z");
         Instant outOfRange = Instant.parse("2026-09-24T13:50:00Z");
@@ -55,7 +56,27 @@ class ValuationPersistenceAdapterIT {
 
         assertThat(valuations.findBetween(first, second))
                 .extracting(IntradayValuation::at)
-                .containsExactly(first, second);
+                .containsExactly(first);
+    }
+
+    @Test
+    void aPointAtTheUpperBoundIsNotIncluded() {
+        Instant startOfDay = Instant.parse("2026-09-24T00:00:00Z");
+        Instant startOfNextDay = Instant.parse("2026-09-25T00:00:00Z");
+        valuations.upsert(new IntradayValuation(startOfNextDay, new BigDecimal("100")));
+
+        assertThat(valuations.findBetween(startOfDay, startOfNextDay)).isEmpty();
+    }
+
+    @Test
+    void aPointAtTheLowerBoundIsIncluded() {
+        Instant startOfDay = Instant.parse("2026-09-24T00:00:00Z");
+        Instant startOfNextDay = Instant.parse("2026-09-25T00:00:00Z");
+        valuations.upsert(new IntradayValuation(startOfDay, new BigDecimal("100")));
+
+        assertThat(valuations.findBetween(startOfDay, startOfNextDay))
+                .extracting(IntradayValuation::at)
+                .containsExactly(startOfDay);
     }
 
     @Test
@@ -67,7 +88,7 @@ class ValuationPersistenceAdapterIT {
 
         valuations.deleteBefore(kept);
 
-        assertThat(valuations.findBetween(Instant.EPOCH, kept))
+        assertThat(valuations.findBetween(Instant.EPOCH, kept.plus(Duration.ofMinutes(1))))
                 .extracting(IntradayValuation::at)
                 .containsExactly(kept);
     }

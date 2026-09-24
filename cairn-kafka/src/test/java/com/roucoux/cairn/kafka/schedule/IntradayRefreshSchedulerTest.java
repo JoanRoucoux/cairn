@@ -142,9 +142,10 @@ class IntradayRefreshSchedulerTest {
         ZonedDateTime mondayEightFortyFive = ZonedDateTime.of(LocalDate.of(2026, 9, 21), LocalTime.of(8, 45), PARIS);
 
         ZonedDateTime next = cron.next(mondayEightFortyFive);
+        ZonedDateTime afterThat = cron.next(next);
 
         assertThat(next.toLocalTime()).isEqualTo(LocalTime.of(9, 0));
-        assertThat(next.toLocalTime()).isNotEqualTo(LocalTime.of(18, 0));
+        assertThat(afterThat.toLocalTime()).isEqualTo(LocalTime.of(9, 15));
     }
 
     @Test
