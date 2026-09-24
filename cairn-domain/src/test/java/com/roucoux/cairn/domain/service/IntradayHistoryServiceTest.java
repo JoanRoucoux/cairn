@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -78,5 +79,21 @@ class IntradayHistoryServiceTest {
                         new IntradayPoint(today.atStartOfDay(PARIS).toInstant(), new BigDecimal("108000")),
                         new IntradayPoint(recordedAt, new BigDecimal("109200")),
                         new IntradayPoint(now, new BigDecimal("110000")));
+    }
+
+    @Test
+    void dropsARecordedPointAheadOfTheClockSoTheSeriesNeverGoesBackward() {
+        LocalDate today = LocalDate.of(2026, 9, 24);
+        Instant now = today.atStartOfDay(PARIS).plusHours(14).toInstant();
+        Instant futureRecordedAt = now.plusSeconds(5);
+        Clock clock = Clock.fixed(now, PARIS);
+        LoadValuationsPort loadValuations =
+                (from, to) -> List.of(new IntradayValuation(futureRecordedAt, new BigDecimal("111000")));
+        IntradayHistoryService service = new IntradayHistoryService(() -> PORTFOLIO, loadValuations, clock);
+
+        List<IntradayPoint> points = service.intraday(today, PARIS);
+
+        assertThat(points).isSortedAccordingTo(Comparator.comparing(IntradayPoint::at));
+        assertThat(points).last().isEqualTo(new IntradayPoint(now, new BigDecimal("110000")));
     }
 }

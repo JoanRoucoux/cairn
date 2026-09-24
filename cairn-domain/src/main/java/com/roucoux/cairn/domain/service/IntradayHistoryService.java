@@ -38,11 +38,12 @@ public class IntradayHistoryService implements GetIntradayHistoryUseCase {
         }
 
         Portfolio portfolio = getPortfolio.get();
+        Instant now = clock.instant();
         List<IntradayPoint> points = new ArrayList<>();
         points.add(new IntradayPoint(
                 startOfDay, portfolio.total().minus(portfolio.dayChange()).amount()));
-        points.addAll(recorded);
-        points.add(new IntradayPoint(clock.instant(), portfolio.total().amount()));
+        recorded.stream().filter(point -> !point.at().isAfter(now)).forEach(points::add);
+        points.add(new IntradayPoint(now, portfolio.total().amount()));
         return points;
     }
 }
