@@ -214,6 +214,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountResponse'
+  /accounts/{id}/cash:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Account]
+      operationId: setCashBalance
+      summary: Set an account's cash balance in one call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCashBalanceRequest'
+      responses:
+        '204':
+          description: Cash balance set
+        '404':
+          description: Unknown account
+        '422':
+          description: A negative amount
   /instruments:
     get:
       tags: [Instrument]
@@ -784,6 +809,12 @@ components:
           enum: [PEA, PEA_PME, CTO, PER, PEE, LIFE_INSURANCE, SAVINGS, CRYPTO]
         institution:
           type: string
+    SetCashBalanceRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
     InstrumentResponse:
       type: object
       required: [id, name, currency, assetClass, priceSource]

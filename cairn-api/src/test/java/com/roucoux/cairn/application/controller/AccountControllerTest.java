@@ -1,21 +1,27 @@
 package com.roucoux.cairn.application.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.AccountRestMapper;
+import com.roucoux.cairn.domain.exception.business.NegativeCashBalanceException;
+import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
+import com.roucoux.cairn.domain.port.in.SetCashBalanceUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -47,6 +53,9 @@ class AccountControllerTest {
 
     @MockitoBean
     private SaveAccountPort saveAccount;
+
+    @MockitoBean
+    private SetCashBalanceUseCase setCashBalance;
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
@@ -81,5 +90,45 @@ class AccountControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void setsAnAccountsCashBalance() throws Exception {
+        mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"amount\":732.40}"))
+                .andExpect(status().isNoContent());
+
+        verify(setCashBalance).setCashBalance(ACCOUNT_ID, new BigDecimal("732.40"));
+    }
+
+    @Test
+    void answersNotFoundForAnUnknownAccount() throws Exception {
+        org.mockito.Mockito.doThrow(new NotFoundException("account", ACCOUNT_ID))
+                .when(setCashBalance)
+                .setCashBalance(any(), any());
+
+        mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"amount\":732.40}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void answersUnprocessableForANegativeAmountRefusedByTheDomain() throws Exception {
+        org.mockito.Mockito.doThrow(new NegativeCashBalanceException())
+                .when(setCashBalance)
+                .setCashBalance(ACCOUNT_ID, new BigDecimal("-1"));
+
+        mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"amount\":-1}"))
+                .andExpect(status().isUnprocessableContent());
     }
 }
