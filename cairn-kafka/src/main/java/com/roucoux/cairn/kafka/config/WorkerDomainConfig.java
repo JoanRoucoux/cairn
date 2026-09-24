@@ -1,9 +1,11 @@
 package com.roucoux.cairn.kafka.config;
 
 import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
@@ -14,14 +16,19 @@ import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
+import com.roucoux.cairn.domain.port.out.SendNotificationPort;
+import com.roucoux.cairn.domain.service.DailySummaryService;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
+import com.roucoux.cairn.domain.service.PerformanceService;
 import com.roucoux.cairn.domain.service.PortfolioService;
 import com.roucoux.cairn.domain.service.QuoteAnnouncementService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
 import com.roucoux.cairn.domain.service.ValuationService;
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.aop.scope.ScopedProxyUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -106,7 +113,24 @@ class WorkerDomainConfig {
     }
 
     @Bean
+    GetPerformanceUseCase getPerformanceUseCase(
+            GetPortfolioUseCase getPortfolio, LoadQuotesPort loadQuotes, Clock clock, ZoneId zone) {
+        return new PerformanceService(getPortfolio, loadQuotes, clock, zone);
+    }
+
+    @Bean
+    SendDailySummaryUseCase sendDailySummaryUseCase(
+            GetPerformanceUseCase getPerformance, SendNotificationPort sendNotification, Clock clock, ZoneId zone) {
+        return new DailySummaryService(getPerformance, sendNotification, clock, zone);
+    }
+
+    @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    ZoneId zone(@Value("${app.zone}") String zone) {
+        return ZoneId.of(zone);
     }
 }

@@ -2,12 +2,14 @@ package com.roucoux.cairn;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -39,6 +41,20 @@ class ApplicationIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    /**
+     * No {@code TELEGRAM_*} variable is set for this test: the api never sends a summary, so its
+     * {@code TelegramNotificationAdapter} bean must wire without them, validating lazily instead.
+     */
+    @Test
+    void startsUpAndWiresTheTelegramAdapterWithoutAnyTelegramVariableSet() {
+        assertThat(System.getenv("TELEGRAM_BOT_TOKEN")).isNull();
+        assertThat(System.getenv("TELEGRAM_CHAT_ID")).isNull();
+        assertThat(applicationContext.getBean(SendNotificationPort.class)).isNotNull();
+    }
 
     @Test
     void refusesAnUnauthenticatedApiCall() {

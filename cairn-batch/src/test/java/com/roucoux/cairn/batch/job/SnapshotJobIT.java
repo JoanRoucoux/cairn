@@ -15,6 +15,7 @@ import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -74,6 +75,20 @@ class SnapshotJobIT {
 
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
+
+    @Autowired
+    private SendNotificationPort sendNotification;
+
+    /**
+     * No {@code TELEGRAM_*} variable is set for this test: the batch never sends a summary, so its
+     * {@code TelegramNotificationAdapter} bean must wire without them, validating lazily instead.
+     */
+    @Test
+    void startsUpAndWiresTheTelegramAdapterWithoutAnyTelegramVariableSet() {
+        assertThat(System.getenv("TELEGRAM_BOT_TOKEN")).isNull();
+        assertThat(System.getenv("TELEGRAM_CHAT_ID")).isNull();
+        assertThat(sendNotification).isNotNull();
+    }
 
     @TestConfiguration
     static class JobLauncherTestUtilsConfig {
