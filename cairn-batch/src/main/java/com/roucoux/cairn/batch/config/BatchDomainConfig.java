@@ -2,18 +2,30 @@ package com.roucoux.cairn.batch.config;
 
 import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.ComputeSnapshotUseCase;
+import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
+import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
+import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
+import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import com.roucoux.cairn.domain.port.out.SaveSnapshotPort;
 import com.roucoux.cairn.domain.service.BackfillService;
+import com.roucoux.cairn.domain.service.HoldingValuationService;
+import com.roucoux.cairn.domain.service.PortfolioService;
 import com.roucoux.cairn.domain.service.QuoteAnnouncementService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
+import com.roucoux.cairn.domain.service.SnapshotService;
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.aop.scope.ScopedProxyUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -28,8 +40,29 @@ import org.springframework.context.annotation.Configuration;
 class BatchDomainConfig {
 
     @Bean
-    Clock clock() {
-        return Clock.systemUTC();
+    Clock clock(@Value("${app.zone}") String zone) {
+        return Clock.system(ZoneId.of(zone));
+    }
+
+    @Bean
+    ValueHoldingUseCase valueHoldingUseCase(
+            LoadInstrumentsPort loadInstruments,
+            LoadAccountsPort loadAccounts,
+            LoadQuotesPort loadQuotes,
+            Clock clock) {
+        return new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, clock);
+    }
+
+    @Bean
+    GetPortfolioUseCase getPortfolioUseCase(
+            LoadHoldingsPort loadHoldings, ValueHoldingUseCase valueHolding, Clock clock) {
+        return new PortfolioService(loadHoldings, valueHolding, clock);
+    }
+
+    @Bean
+    ComputeSnapshotUseCase computeSnapshotUseCase(
+            GetPortfolioUseCase getPortfolio, SaveSnapshotPort saveSnapshot, Clock clock) {
+        return new SnapshotService(getPortfolio, saveSnapshot, clock);
     }
 
     /**

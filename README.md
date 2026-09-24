@@ -150,6 +150,20 @@ usable by any other application on the domain. Choose it once, too — `rp-id` i
 credential registered against it, so changing the domain later breaks every existing passkey. See
 AGENTS.md's Deployment section for the routing details.
 
+### Push monitors
+
+`deploy/run-batch.sh` pings an Uptime Kuma push monitor after each cron-triggered batch run, and
+the worker's intraday scheduler pings its own. Each monitor's URL lives in `/srv/cairn/.env`, under
+the variable name its heartbeat uses:
+
+| Variable               | Job                | Cron                     |
+| ----------------------- | ------------------ | ------------------------ |
+| `KUMA_PUSH_EQUITY`      | `refreshQuotesJob` (EQUITY) | `0 19 * * 1-5`     |
+| `KUMA_PUSH_ETF`         | `refreshQuotesJob` (ETF)    | `15 19 * * 1-5`    |
+| `KUMA_PUSH_FUND`        | `refreshQuotesJob` (FUND)   | `0 11 * * 2-6`     |
+| `KUMA_PUSH_SNAPSHOT`    | `snapshotJob`                | `30 23 * * *`, interval 25 h |
+| `KUMA_PUSH_INTRADAY`    | worker's intraday refresh scheduler | not a cron job |
+
 ## Project structure
 
 ```
