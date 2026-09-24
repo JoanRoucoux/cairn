@@ -33,8 +33,9 @@ import org.springframework.web.context.WebApplicationContext;
  * call, whereas {@link FetchQuotePort} is called instrument by instrument, so the adapter caches
  * the response for the duration of its own lifecycle. That lifecycle is what keeps the cache
  * correct: request-scoped for the API (one call per refresh, fresh again on the next request),
- * step-scoped for the batch (one call per step execution) — a singleton would serve a stale price
- * forever.
+ * step-scoped for the batch (one call per step execution), rescoped to a plain prototype for the
+ * worker (one call per intraday scheduler run, since it has neither an HTTP request nor a batch
+ * step of its own to hook into) — a singleton would serve a stale price forever.
  */
 @Component
 @Scope(value = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)

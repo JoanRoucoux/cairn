@@ -32,6 +32,10 @@ class IntradayRefreshSchedulerTest {
             0,
             0,
             List.of(new RefreshReport.Failure(UUID.randomUUID(), "Bitcoin", PriceSource.COINGECKO, "unavailable")));
+    private static final RefreshReport PARTIAL_SUCCESS = new RefreshReport(
+            2,
+            0,
+            List.of(new RefreshReport.Failure(UUID.randomUUID(), "Bitcoin", PriceSource.COINGECKO, "unavailable")));
 
     @SuppressWarnings("unchecked")
     private final ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider = mock(ObjectProvider.class);
@@ -102,6 +106,18 @@ class IntradayRefreshSchedulerTest {
         when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
         when(refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
                 .thenReturn(NOTHING_TO_REFRESH);
+
+        scheduler.refreshCryptos();
+
+        verify(heartbeat).ping();
+    }
+
+    @Test
+    void pingsTheHeartbeatWhenSomeInstrumentsRefreshedDespiteOtherFailures() {
+        RefreshQuotesUseCase refreshQuotes = mock(RefreshQuotesUseCase.class);
+        when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
+        when(refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(PARTIAL_SUCCESS);
 
         scheduler.refreshCryptos();
 

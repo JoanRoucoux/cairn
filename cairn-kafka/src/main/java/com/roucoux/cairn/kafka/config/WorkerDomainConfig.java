@@ -43,16 +43,10 @@ class WorkerDomainConfig {
     private static final String COIN_GECKO_BEAN_NAME = "coinGeckoQuoteAdapter";
 
     /**
-     * The adapter's {@code TARGET_CLASS} scoped proxy re-resolves its target through
-     * {@code getBean} on every method call, which is what request scope needs: several calls
-     * inside one HTTP request still land on the same request-cached instance. Only rescoping the
-     * target to prototype while keeping that proxy would instead hand out a new instance on every
-     * {@code supports()}/{@code fetch()} call, defeating the grouped-call cache within a single
-     * refresh run. So this drops the proxy entirely and registers a plain prototype bean definition
-     * under the adapter's name instead: it resolves once per injection, giving one fresh adapter per
-     * {@code RefreshQuotesUseCase} construction, by bean name only, since {@code cairn-kafka}
-     * depends on {@code cairn-adapter} at runtime scope and may not reference the class at compile
-     * time.
+     * A scoped proxy left over a prototype target re-resolves that target through {@code getBean}
+     * on every method call, so keeping the proxy while only rescoping its target would still hand
+     * out a new instance on every {@code supports()}/{@code fetch()} call, losing the one grouped
+     * CoinGecko call a refresh run is meant to make. This drops the proxy entirely instead.
      */
     @Bean
     static BeanFactoryPostProcessor coinGeckoQuoteAdapterPrototypeScoped() {
