@@ -14,6 +14,9 @@ import java.util.Set;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.listener.ChunkListener;
+import org.springframework.batch.core.listener.ItemWriteListener;
+import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -51,7 +54,8 @@ class RefreshQuotesJobConfig {
             ItemReader<Instrument> instrumentReader,
             ItemProcessor<Instrument, Quote> refreshQuoteProcessor,
             ItemWriter<Quote> quoteWriter,
-            QuoteFailureSkipListener skipListener) {
+            QuoteFailureSkipListener skipListener,
+            QuoteAnnouncementListener announcementListener) {
         return new StepBuilder("refreshQuotesStep", jobRepository)
                 .<Instrument, Quote>chunk(CHUNK_SIZE, transactionManager)
                 .reader(instrumentReader)
@@ -63,6 +67,9 @@ class RefreshQuotesJobConfig {
                 // line during an outage, must not leave the remaining instruments unpriced.
                 .skipPolicy((failure, skipCount) -> failure instanceof RuntimeException)
                 .listener(skipListener)
+                .listener((ItemWriteListener<Quote>) announcementListener)
+                .listener((ChunkListener) announcementListener)
+                .listener((StepExecutionListener) announcementListener)
                 .build();
     }
 

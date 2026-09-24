@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [api, schema, batch]
+        module: [api, schema, batch, kafka]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -82,7 +82,7 @@ jobs:
         env:
           TAG: ${{ needs.tag.outputs.image }}
         run: |
-          for module in api schema batch; do
+          for module in api schema batch kafka; do
             docker manifest inspect "ghcr.io/joanroucoux/cairn-${module}:${TAG}" > /dev/null \
               || { echo "::error::No cairn-${module} image tagged ${TAG}"; exit 1; }
           done

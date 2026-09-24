@@ -1,12 +1,15 @@
 package com.roucoux.cairn.batch.config;
 
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
+import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.service.BackfillService;
+import com.roucoux.cairn.domain.service.QuoteAnnouncementService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
 import java.time.Clock;
 import java.util.List;
@@ -50,12 +53,18 @@ class BatchDomainConfig {
     }
 
     @Bean
+    AnnounceQuotesUseCase announceQuotes(PublishEventPort publishEvent) {
+        return new QuoteAnnouncementService(publishEvent);
+    }
+
+    @Bean
     RefreshQuotesUseCase refreshQuotes(
             List<FetchQuotePort> fetchers,
             LoadInstrumentsPort loadInstruments,
             SaveQuotePort saveQuote,
-            RecordQuoteFailurePort recordFailure) {
-        return new QuoteRefreshService(fetchers, loadInstruments, saveQuote, recordFailure);
+            RecordQuoteFailurePort recordFailure,
+            AnnounceQuotesUseCase announceQuotes) {
+        return new QuoteRefreshService(fetchers, loadInstruments, saveQuote, recordFailure, announceQuotes);
     }
 
     @Bean

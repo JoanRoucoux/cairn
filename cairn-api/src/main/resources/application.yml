@@ -14,6 +14,16 @@ spring:
     jdbc:
       initialize-schema: never
       cleanup-cron: "0 0 * * * *"
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.block.ms: 250
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        linger.ms: 0
   datasource:
     url: jdbc:postgresql://localhost:5432/app
     username: app

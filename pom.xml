@@ -19,6 +19,7 @@
     <module>cairn-api</module>
     <module>cairn-schema</module>
     <module>cairn-batch</module>
+    <module>cairn-kafka</module>
   </modules>
 
   <properties>

@@ -1,6 +1,7 @@
 package com.roucoux.cairn.batch.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.roucoux.cairn.adapter.client.adapter.CoinGeckoQuoteAdapter;
@@ -13,13 +14,18 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
@@ -68,6 +74,9 @@ class RefreshQuotesJobIT {
 
     @MockitoBean
     private CoinGeckoQuoteAdapter coinGeckoQuoteAdapter;
+
+    @MockitoBean
+    private AnnounceQuotesUseCase announceQuotes;
 
     @Autowired
     private SaveInstrumentPort instruments;
@@ -231,6 +240,12 @@ class RefreshQuotesJobIT {
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
         assertThat(quotes.countAll()).isEqualTo(2);
         assertThat(failures.countAll()).isEqualTo(1);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Quote>> savedQuotes = ArgumentCaptor.forClass(List.class);
+        verify(announceQuotes).quotesSaved(savedQuotes.capture());
+        assertThat(savedQuotes.getValue()).hasSize(2);
+        verify(announceQuotes).refreshCompleted(Set.of(AssetClass.ETF), 2, 1, RefreshTrigger.BATCH);
     }
 
     @Test

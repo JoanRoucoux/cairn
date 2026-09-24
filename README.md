@@ -102,6 +102,23 @@ WEB_TAG=local docker compose up -d
 the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron
 (`docker compose run --rm batch`), not to run continuously.
 
+### Kafka
+
+`kafka` (a single-node KRaft broker) and `worker` (`cairn-kafka`, which declares the
+`cairn.prices`/`cairn.portfolio` topics and then idles) come up with the rest of `docker compose
+up`. Both `api` and `batch` publish to them through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`. Watch a
+topic from the host with the broker's own console consumer:
+
+```bash
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic cairn.prices --from-beginning
+```
+
+A refresh (`POST /quotes/refresh`, `docker compose run --rm batch`, or the cron job) publishes to
+`cairn.prices` and `cairn.portfolio` regardless of which entry point triggered it. `kafka` and
+`worker` being down does not fail a refresh: publishing is fire-and-forget from the caller's point
+of view, `api` stays `UP` even with the broker stopped.
+
 ## Running in production
 
 Cairn assumes a host shared with other applications. The server, the shared Caddy proxy and the

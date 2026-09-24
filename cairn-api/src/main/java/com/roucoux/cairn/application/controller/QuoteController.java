@@ -4,6 +4,7 @@ import com.roucoux.cairn.application.mapper.QuoteRestMapper;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
+import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.RecordManualQuoteUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
@@ -55,7 +56,7 @@ class QuoteController implements QuoteApi {
 
     @Override
     public ResponseEntity<RefreshReportResponse> refreshQuotes() {
-        RefreshReport report = refreshQuotes.refreshAll(Set.of(AssetClass.values()));
+        RefreshReport report = refreshQuotes.refreshAll(Set.of(AssetClass.values()), RefreshTrigger.MANUAL);
         return ResponseEntity.ok(mapper.toResponse(report));
     }
 }
