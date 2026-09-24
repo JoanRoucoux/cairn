@@ -59,6 +59,13 @@
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
     </dependency>
+    <!-- Compile scope on purpose: cairn-adapter only carries it at runtime, and the consumer
+         reads envelopes with the same JsonMapper settings as KafkaEventPublisher without
+         depending on that ..adapter.. class (WorkerArchitectureTest). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-json</artifactId>
+    </dependency>
     <!-- Starts compose.yaml (PostgreSQL) on spring-boot:run; inactive in tests and packaged apps. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
