@@ -74,6 +74,27 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ImportRejectionResponse'
+  /portfolio/performance:
+    get:
+      tags: [Performance]
+      operationId: getPortfolioPerformance
+      summary: Get the portfolio's current value and its change over a range, in total and per envelope
+      parameters:
+        - name: range
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1d, 7d, 1m, 1y, 5y, max]
+      responses:
+        '200':
+          description: The portfolio's value and change, in total and per envelope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceResponse'
+        '400':
+          description: Unknown range
   /portfolio/import/template:
     get:
       tags: [Portfolio]
@@ -514,6 +535,67 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HoldingResponse'
+    PerformanceResponse:
+      type: object
+      required: [range, from, to, reconstructed, total, byEnvelope]
+      properties:
+        range:
+          type: string
+          enum: [1d, 7d, 1m, 1y, 5y, max]
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        reconstructed:
+          type: boolean
+          description: >
+            True when the change is rebuilt at constant composition (5y and max) rather than
+            measured day over day.
+        lastPriceAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            The most recent fetchedAt among the quotes of the valued lines, excluding manual cash
+            at par. Absent when nothing is quoted yet.
+        total:
+          $ref: '#/components/schemas/PerformanceTotalResponse'
+        byEnvelope:
+          type: array
+          description: Sorted by valueEur, descending.
+          items:
+            $ref: '#/components/schemas/EnvelopePerformanceResponse'
+    PerformanceTotalResponse:
+      type: object
+      required: [valueEur, changeEur]
+      properties:
+        valueEur:
+          type: number
+        changeEur:
+          type: number
+        changeRatio:
+          type: number
+          nullable: true
+          description: Absent when the base value is zero.
+    EnvelopePerformanceResponse:
+      type: object
+      required: [accountType, valueEur, share, changeEur]
+      properties:
+        accountType:
+          type: string
+          enum: [PEA, PEA_PME, CTO, PER, PEE, LIFE_INSURANCE, SAVINGS, CRYPTO]
+        valueEur:
+          type: number
+        share:
+          type: number
+        changeEur:
+          type: number
+        changeRatio:
+          type: number
+          nullable: true
+          description: Absent when the base value is zero.
     ImportRejectionResponse:
       description: >-
         RFC 9457 problem detail for a refused import. Nothing was written: every row that could
