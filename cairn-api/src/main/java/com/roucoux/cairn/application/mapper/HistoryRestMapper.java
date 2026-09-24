@@ -1,9 +1,12 @@
 package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.domain.model.HistoryMode;
+import com.roucoux.cairn.domain.model.IntradayPoint;
 import com.roucoux.cairn.generated.model.HistoryResponse;
+import com.roucoux.cairn.generated.model.IntradayHistoryResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +34,20 @@ public class HistoryRestMapper {
     private com.roucoux.cairn.generated.model.HistoryPoint toPoint(com.roucoux.cairn.domain.model.HistoryPoint point) {
         com.roucoux.cairn.generated.model.HistoryPoint dto = new com.roucoux.cairn.generated.model.HistoryPoint();
         dto.setDate(point.date());
+        dto.setTotalEur(scaledAmount(point.totalEur()));
+        return dto;
+    }
+
+    public IntradayHistoryResponse toIntradayResponse(List<IntradayPoint> points) {
+        IntradayHistoryResponse response = new IntradayHistoryResponse();
+        response.setPoints(points.stream().map(this::toIntradayHistoryPoint).toList());
+        return response;
+    }
+
+    private com.roucoux.cairn.generated.model.IntradayHistoryPoint toIntradayHistoryPoint(IntradayPoint point) {
+        com.roucoux.cairn.generated.model.IntradayHistoryPoint dto =
+                new com.roucoux.cairn.generated.model.IntradayHistoryPoint();
+        dto.setAt(point.at().atOffset(ZoneOffset.UTC));
         dto.setTotalEur(scaledAmount(point.totalEur()));
         return dto;
     }
