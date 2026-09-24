@@ -1,8 +1,11 @@
 package com.roucoux.cairn.kafka.schedule;
 
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
+import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -20,7 +23,12 @@ class Heartbeat {
     private final String url;
 
     Heartbeat(RestClient.Builder restClientBuilder, @Value("${app.kuma.intraday-push-url:}") String url) {
-        this.restClient = restClientBuilder.build();
+        HttpClientSettings settings = HttpClientSettings.defaults()
+                .withConnectTimeout(Duration.ofSeconds(2))
+                .withReadTimeout(Duration.ofSeconds(5));
+        this.restClient = restClientBuilder
+                .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
+                .build();
         this.url = url;
     }
 

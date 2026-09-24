@@ -10,8 +10,10 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -40,6 +42,9 @@ class KafkaWorkerApplicationIT {
 
     private static Admin admin;
 
+    @Autowired
+    private Environment environment;
+
     @BeforeAll
     static void connectAdminClient() {
         admin = Admin.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers()));
@@ -55,5 +60,11 @@ class KafkaWorkerApplicationIT {
         Set<String> topics = admin.listTopics().names().get(10, TimeUnit.SECONDS);
 
         assertThat(topics).contains("cairn.prices", "cairn.portfolio");
+    }
+
+    @Test
+    void bindsTheYahooAndCoinGeckoClientProperties() {
+        assertThat(environment.getProperty("app.client.yahoo.base-url")).isNotNull();
+        assertThat(environment.getProperty("app.client.coingecko.base-url")).isNotNull();
     }
 }

@@ -67,12 +67,10 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-json</artifactId>
     </dependency>
-    <!-- RestClient itself lives here, for the Heartbeat's GET ping. -->
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-web</artifactId>
     </dependency>
-    <!-- RestClientAutoConfiguration: provides the RestClient.Builder bean Heartbeat wires. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-restclient</artifactId>

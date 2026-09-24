@@ -7,6 +7,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterEach;
@@ -40,13 +44,16 @@ class HeartbeatTest {
     }
 
     @Test
-    void callsNothingWhenNoUrlIsConfigured() {
-        Heartbeat heartbeat = new Heartbeat(RestClient.builder(), "");
+    void makesNoHttpCallWhenNoUrlIsConfigured() {
+        RestClient restClient = mock(RestClient.class);
+        RestClient.Builder builder = mock(RestClient.Builder.class);
+        when(builder.requestFactory(any())).thenReturn(builder);
+        when(builder.build()).thenReturn(restClient);
+        Heartbeat heartbeat = new Heartbeat(builder, "");
 
         heartbeat.ping();
 
-        assertThatCode(() -> wireMock.verify(0, getRequestedFor(urlEqualTo("/push"))))
-                .doesNotThrowAnyException();
+        verifyNoInteractions(restClient);
     }
 
     @Test

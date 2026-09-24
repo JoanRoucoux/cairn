@@ -217,10 +217,24 @@ class WorkerDomainConfigTest {
     @Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
     static class RequestScopedStandIn {}
 
+    @Component
+    @Scope("prototype")
+    static class PrototypeConsumer {
+        private final RequestScopedStandIn adapter;
+
+        PrototypeConsumer(RequestScopedStandIn adapter) {
+            this.adapter = adapter;
+        }
+
+        RequestScopedStandIn adapter() {
+            return adapter;
+        }
+    }
+
     @Test
-    void rescopesTheCoinGeckoAdaptersTargetBeanDefinitionFromRequestToPrototype() {
+    void replacesTheScopedProxySoEachConsumerConstructionGetsItsOwnPlainInstance() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-            context.register(RequestScopedStandIn.class);
+            context.register(RequestScopedStandIn.class, PrototypeConsumer.class);
             String targetBeanName = ScopedProxyUtils.getTargetBeanName("coinGeckoQuoteAdapter");
             assertThat(context.getBeanFactory()
                             .getBeanDefinition(targetBeanName)
@@ -229,11 +243,14 @@ class WorkerDomainConfigTest {
 
             BeanFactoryPostProcessor processor = WorkerDomainConfig.coinGeckoQuoteAdapterPrototypeScoped();
             processor.postProcessBeanFactory(context.getBeanFactory());
+            context.refresh();
 
-            assertThat(context.getBeanFactory()
-                            .getBeanDefinition(targetBeanName)
-                            .getScope())
-                    .isEqualTo("prototype");
+            PrototypeConsumer first = context.getBean(PrototypeConsumer.class);
+            PrototypeConsumer second = context.getBean(PrototypeConsumer.class);
+
+            assertThat(first.adapter()).isExactlyInstanceOf(RequestScopedStandIn.class);
+            assertThat(first.adapter()).isSameAs(first.adapter());
+            assertThat(first.adapter()).isNotSameAs(second.adapter());
         }
     }
 

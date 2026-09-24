@@ -25,6 +25,8 @@ import org.springframework.aop.scope.ScopedProxyUtils;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -38,12 +40,19 @@ import org.springframework.context.annotation.Scope;
 @Configuration(proxyBeanMethods = false)
 class WorkerDomainConfig {
 
+    private static final String COIN_GECKO_BEAN_NAME = "coinGeckoQuoteAdapter";
+
     /**
-     * The adapter is request-scoped for the API, where request-lifetime caching keeps its single
-     * grouped call fresh across a call. The worker has no request scope and no per-run scope of its
-     * own either, so its target bean definition is switched to prototype instead — by bean name
-     * only, since {@code cairn-kafka} depends on {@code cairn-adapter} at runtime scope and may not
-     * reference the class at compile time (same technique as {@code BatchDomainConfig}).
+     * The adapter's {@code TARGET_CLASS} scoped proxy re-resolves its target through
+     * {@code getBean} on every method call, which is what request scope needs: several calls
+     * inside one HTTP request still land on the same request-cached instance. Only rescoping the
+     * target to prototype while keeping that proxy would instead hand out a new instance on every
+     * {@code supports()}/{@code fetch()} call, defeating the grouped-call cache within a single
+     * refresh run. So this drops the proxy entirely and registers a plain prototype bean definition
+     * under the adapter's name instead: it resolves once per injection, giving one fresh adapter per
+     * {@code RefreshQuotesUseCase} construction, by bean name only, since {@code cairn-kafka}
+     * depends on {@code cairn-adapter} at runtime scope and may not reference the class at compile
+     * time.
      */
     @Bean
     static BeanFactoryPostProcessor coinGeckoQuoteAdapterPrototypeScoped() {
@@ -51,11 +60,18 @@ class WorkerDomainConfig {
     }
 
     private static void rescopeCoinGeckoQuoteAdapterToPrototype(ConfigurableListableBeanFactory beanFactory) {
-        String targetBeanName = ScopedProxyUtils.getTargetBeanName("coinGeckoQuoteAdapter");
-        if (beanFactory.containsBeanDefinition(targetBeanName)) {
-            BeanDefinition target = beanFactory.getBeanDefinition(targetBeanName);
-            target.setScope("prototype");
+        String targetBeanName = ScopedProxyUtils.getTargetBeanName(COIN_GECKO_BEAN_NAME);
+        if (!(beanFactory instanceof BeanDefinitionRegistry registry)
+                || !registry.containsBeanDefinition(targetBeanName)) {
+            return;
         }
+        String targetClassName = registry.getBeanDefinition(targetBeanName).getBeanClassName();
+        GenericBeanDefinition prototypeDefinition = new GenericBeanDefinition();
+        prototypeDefinition.setBeanClassName(targetClassName);
+        prototypeDefinition.setScope(BeanDefinition.SCOPE_PROTOTYPE);
+        registry.removeBeanDefinition(COIN_GECKO_BEAN_NAME);
+        registry.removeBeanDefinition(targetBeanName);
+        registry.registerBeanDefinition(COIN_GECKO_BEAN_NAME, prototypeDefinition);
     }
 
     @Bean
@@ -63,8 +79,6 @@ class WorkerDomainConfig {
         return new QuoteAnnouncementService(publishEvent);
     }
 
-    /** Prototype-scoped so the intraday scheduler's {@code ObjectProvider} gets a fresh instance,
-     * and with it a fresh {@code CoinGeckoQuoteAdapter}, on every run. */
     @Bean
     @Scope("prototype")
     RefreshQuotesUseCase refreshQuotes(

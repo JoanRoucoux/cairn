@@ -8,20 +8,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.roucoux.cairn.domain.model.AssetClass;
+import com.roucoux.cairn.domain.model.PriceSource;
+import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.support.CronExpression;
 
 class IntradayRefreshSchedulerTest {
 
-    private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
+    private static final ZoneId PARIS = ZoneId.of(IntradayRefreshScheduler.ZONE);
+    private static final RefreshReport ALL_REFRESHED = new RefreshReport(3, 0, List.of());
+    private static final RefreshReport NOTHING_TO_REFRESH = new RefreshReport(0, 0, List.of());
+    private static final RefreshReport ALL_FAILED = new RefreshReport(
+            0,
+            0,
+            List.of(new RefreshReport.Failure(UUID.randomUUID(), "Bitcoin", PriceSource.COINGECKO, "unavailable")));
 
     @SuppressWarnings("unchecked")
     private final ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider = mock(ObjectProvider.class);
@@ -34,6 +44,8 @@ class IntradayRefreshSchedulerTest {
     void refreshesEquitiesAndEtfsOnAFreshInstanceThenPingsTheHeartbeat() {
         RefreshQuotesUseCase refreshQuotes = mock(RefreshQuotesUseCase.class);
         when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
+        when(refreshQuotes.refreshAll(Set.of(AssetClass.EQUITY, AssetClass.ETF), RefreshTrigger.SCHEDULER))
+                .thenReturn(ALL_REFRESHED);
 
         scheduler.refreshEquitiesAndEtfs();
 
@@ -45,6 +57,8 @@ class IntradayRefreshSchedulerTest {
     void refreshesCryptosOnAFreshInstanceThenPingsTheHeartbeat() {
         RefreshQuotesUseCase refreshQuotes = mock(RefreshQuotesUseCase.class);
         when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
+        when(refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(ALL_REFRESHED);
 
         scheduler.refreshCryptos();
 
@@ -57,6 +71,10 @@ class IntradayRefreshSchedulerTest {
         RefreshQuotesUseCase first = mock(RefreshQuotesUseCase.class);
         RefreshQuotesUseCase second = mock(RefreshQuotesUseCase.class);
         when(refreshQuotesProvider.getObject()).thenReturn(first, second);
+        when(first.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(ALL_REFRESHED);
+        when(second.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(ALL_REFRESHED);
 
         scheduler.refreshCryptos();
         scheduler.refreshCryptos();
@@ -79,8 +97,32 @@ class IntradayRefreshSchedulerTest {
     }
 
     @Test
+    void pingsTheHeartbeatWhenThereWasNothingToRefresh() {
+        RefreshQuotesUseCase refreshQuotes = mock(RefreshQuotesUseCase.class);
+        when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
+        when(refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(NOTHING_TO_REFRESH);
+
+        scheduler.refreshCryptos();
+
+        verify(heartbeat).ping();
+    }
+
+    @Test
+    void neverPingsTheHeartbeatWhenEveryInstrumentFailed() {
+        RefreshQuotesUseCase refreshQuotes = mock(RefreshQuotesUseCase.class);
+        when(refreshQuotesProvider.getObject()).thenReturn(refreshQuotes);
+        when(refreshQuotes.refreshAll(Set.of(AssetClass.CRYPTO), RefreshTrigger.SCHEDULER))
+                .thenReturn(ALL_FAILED);
+
+        scheduler.refreshCryptos();
+
+        verify(heartbeat, never()).ping();
+    }
+
+    @Test
     void equityAndEtfCronFiresEveryFifteenMinutesDuringEuronextHoursOnly() {
-        CronExpression cron = CronExpression.parse("0 0/15 9-17 * * MON-FRI");
+        CronExpression cron = CronExpression.parse(IntradayRefreshScheduler.EQUITY_ETF_CRON);
         ZonedDateTime mondayEightFortyFive = ZonedDateTime.of(LocalDate.of(2026, 9, 21), LocalTime.of(8, 45), PARIS);
 
         ZonedDateTime next = cron.next(mondayEightFortyFive);
@@ -91,7 +133,7 @@ class IntradayRefreshSchedulerTest {
 
     @Test
     void equityAndEtfCronReaches1745ButNever1800() {
-        CronExpression cron = CronExpression.parse("0 0/15 9-17 * * MON-FRI");
+        CronExpression cron = CronExpression.parse(IntradayRefreshScheduler.EQUITY_ETF_CRON);
         ZonedDateTime mondayFivePM = ZonedDateTime.of(LocalDate.of(2026, 9, 21), LocalTime.of(17, 30), PARIS);
 
         ZonedDateTime next = cron.next(mondayFivePM);
@@ -104,7 +146,7 @@ class IntradayRefreshSchedulerTest {
 
     @Test
     void equityAndEtfCronNeverFiresOnASaturday() {
-        CronExpression cron = CronExpression.parse("0 0/15 9-17 * * MON-FRI");
+        CronExpression cron = CronExpression.parse(IntradayRefreshScheduler.EQUITY_ETF_CRON);
         ZonedDateTime fridayFivePM = ZonedDateTime.of(LocalDate.of(2026, 9, 25), LocalTime.of(17, 45), PARIS);
 
         ZonedDateTime next = cron.next(fridayFivePM);
@@ -114,7 +156,7 @@ class IntradayRefreshSchedulerTest {
 
     @Test
     void cryptoCronFiresEveryFifteenMinutesAroundTheClock() {
-        CronExpression cron = CronExpression.parse("0 0/15 * * * *");
+        CronExpression cron = CronExpression.parse(IntradayRefreshScheduler.CRYPTO_CRON);
         ZonedDateTime saturdayMidnight = ZonedDateTime.of(LocalDate.of(2026, 9, 26), LocalTime.of(0, 0), PARIS);
 
         ZonedDateTime next = cron.next(saturdayMidnight);
