@@ -5,6 +5,7 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.event.DomainEvent;
 import com.roucoux.cairn.domain.model.event.PriceUpdated;
 import com.roucoux.cairn.domain.model.event.RefreshCompleted;
+import com.roucoux.cairn.domain.model.event.ValuationRecorded;
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import java.time.Instant;
 import java.util.UUID;
@@ -61,7 +62,15 @@ public class KafkaEventPublisher implements PublishEventPort {
                         envelopeOf("price.updated", dataOf(priceUpdated.quote())));
             case RefreshCompleted refreshCompleted ->
                 new Publication(properties.portfolioTopic(), null, envelopeOf("refresh.completed", refreshCompleted));
+            case ValuationRecorded valuationRecorded ->
+                new Publication(
+                        properties.portfolioTopic(), null, envelopeOf("valuation.recorded", dataOf(valuationRecorded)));
         };
+    }
+
+    private static ValuationRecordedData dataOf(ValuationRecorded valuationRecorded) {
+        return new ValuationRecordedData(
+                valuationRecorded.at(), valuationRecorded.totalEur(), valuationRecorded.dayChangeEur());
     }
 
     private static PriceUpdatedData dataOf(Quote quote) {

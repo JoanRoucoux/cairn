@@ -26,7 +26,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - `cairn-api` — Spring Boot main, `application/` (`controller/` = controllers implementing the **generated** interfaces, `mapper/` = domain↔DTO mapping — **one class per resource, never a shared mapper**, `exception/` = the `@RestControllerAdvice`), `infrastructure/config/` (security, and **one `XxxDomainConfig` per slice**). Depends on `cairn-adapter` at **runtime scope only** — adapters are wired into the context but invisible at compile time. The advice maps `BusinessException` → 422 and `TechnicalException` → 502; 401/403 are left to Spring Security. The OpenAPI contract lives in this module, not at the repository root.
 - `cairn-schema` — Liquibase changelogs only, no Java code. Owns the schema and is applied out-of-band, by ops or a pipeline (`./mvnw liquibase:update -pl cairn-schema`) — **no running application ever migrates the database**. The application modules depend on it at **test scope only** (never widen, never add it to `cairn-adapter`), purely so their integration tests can migrate their own throwaway Testcontainers database against the real changelog before `ddl-auto: validate` checks it.
 - `cairn-batch` — second Spring Boot application over the same `cairn-domain`/`cairn-adapter`: `BatchApplication` (in the base package, so the component scan reaches the adapters), `batch/job/` (the chunk-oriented step, wired to ports only) and `batch/config/` (its composition root). Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`. Its metadata tables come from a `cairn-schema` changeset, with `spring.batch.jdbc.initialize-schema: never`.
-- `cairn-kafka` — third entry point over the same hexagon: `KafkaWorkerApplication` (base package, same reason as `cairn-batch`), `kafka/config/` (`TopicsConfig` declares the `cairn.prices` and `cairn.portfolio` topics as `NewTopic` beans, `WorkerDomainConfig` is its composition root). It has no web server (`spring.main.web-application-type: none`) and stays up (`keep-alive: true`) purely to host the `KafkaAdmin` that creates the topics on startup; it consumes nothing yet. Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`/`cairn-batch`. The `adapter/messaging/` package (`cairn-adapter`) is where the actual publishing lives: `adapter/` (`KafkaEventPublisher`, `EventEnvelope`, `PriceUpdatedData`), `config/` (`KafkaMessagingConfig`), `properties/` (`KafkaMessagingProperties`).
+- `cairn-kafka` — third entry point over the same hexagon: `KafkaWorkerApplication` (base package, same reason as `cairn-batch`), `kafka/config/` (`TopicsConfig` declares the `cairn.prices` and `cairn.portfolio` topics as `NewTopic` beans, `WorkerDomainConfig` is its composition root). It has no web server (`spring.main.web-application-type: none`) and stays up (`keep-alive: true`) to host the `KafkaAdmin` that creates the topics on startup, the intraday refresh scheduler (EQUITY+ETF every 15 min Mon-Fri 9:00-17:45, CRYPTO every 15 min, Europe/Paris) and the `ValuationConsumer` (`kafka/consumer/`) that turns each `refresh.completed` event on `cairn.portfolio` into a recorded valuation point, consumer group `cairn-valuation`. In the worker, the CoinGecko adapter is wired as a plain prototype rather than a scoped proxy: a scoped proxy over a prototype target makes a new adapter per method call, which would lose the one grouped call per refresh. Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`/`cairn-batch`. The `adapter/messaging/` package (`cairn-adapter`) is where the actual publishing lives: `adapter/` (`KafkaEventPublisher`, `EventEnvelope`, `PriceUpdatedData`, `ValuationRecordedData`), `config/` (`KafkaMessagingConfig`), `properties/` (`KafkaMessagingProperties`).
 - `com.roucoux.cairn.generated.*` is build output of openapi-generator: never edit it, edit the spec and rebuild. Contract-first: the spec changes before the code.
 - The hexagonal rules are law, enforced by the ArchUnit tests in the application modules. The demo features are reference implementations of a full slice — model new features on them.
 
@@ -48,7 +48,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Bean-wiring code (`@Bean` methods) is unit-tested by calling those methods directly, so the coverage gate does not depend on Docker being available.
 - External clients: WireMockServer without any Spring context.
 - ArchUnit rules are plain JUnit `@Test` methods over a static `ClassFileImporter` on purpose — do not migrate them to `@AnalyzeClasses`/`@ArchTest`. A rule whose subject matches nothing fails, so keep rules next to the code they constrain.
-- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, and the API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` exercise the real Kafka wiring, both through a Testcontainers broker.
+- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, and the API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` and `ValuationRoundTripIT` exercise the real Kafka wiring, both through a Testcontainers broker.
 - Coverage gate: 70% lines per module (JaCoCo, merged unit+IT data).
 
 ## Deviations from the starter
@@ -140,7 +140,8 @@ this compose project needs to reach either.
 
 **`kafka`/`worker`.** `kafka` is a single-node KRaft broker (`apache/kafka`, no ZooKeeper),
 `worker` is `cairn-kafka`'s image: it declares the `cairn.prices`/`cairn.portfolio` topics on
-startup and otherwise idles (`spring.main.web-application-type: none`). `deploy.sh`'s `up`
+startup, runs the intraday refresh scheduler and consumes `refresh.completed` events; it has no web
+server (`spring.main.web-application-type: none`). `deploy.sh`'s `up`
 argument order (`postgres kafka worker api`) is not a start order and `api` does not depend on
 `worker`: the worker creates the topics on its first start, and an event published before that is
 dropped and logged. `deploy.sh` pulls/prunes the `cairn-kafka` image alongside the other three.
@@ -182,7 +183,11 @@ does not span repositories.
 `/srv/*/*.cron`, so never install a fragment alone. Each line goes through `deploy/run-batch.sh`,
 which adds a unique `run.at` job parameter (the jobs have no incrementer, and Spring Batch refuses
 to rerun a completed instance with identical parameters) and pings the Uptime Kuma push monitor
-named in `/srv/cairn/.env` only when the run succeeds.
+named in `/srv/cairn/.env` only when the run succeeds. Intraday refreshes are not cron jobs: they
+live in the worker itself, as a `@Scheduled` method (zone Europe/Paris, EQUITY+ETF every 15 min
+Mon-Fri 9:00-17:45, CRYPTO every 15 min), which is why `CRYPTO` has left `deploy/cairn.cron`. Its
+heartbeat is the `KUMA_PUSH_INTRADAY` push monitor, pinged only when a run refreshed something or
+had no failure.
 
 **Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image
 prune` only removes untagged images, and each deploy leaves three tagged ones behind.

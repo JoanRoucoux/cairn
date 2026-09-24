@@ -105,7 +105,8 @@ the schema is migrated explicitly, out-of-band, and the batch job is meant to be
 ### Kafka
 
 `kafka` (a single-node KRaft broker) and `worker` (`cairn-kafka`, which declares the
-`cairn.prices`/`cairn.portfolio` topics and then idles) come up with the rest of `docker compose
+`cairn.prices`/`cairn.portfolio` topics, runs the intraday refresh scheduler and consumes
+`refresh.completed` events to record valuation points) come up with the rest of `docker compose
 up`. Both `api` and `batch` publish to them through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`. Watch a
 topic from the host with the broker's own console consumer:
 

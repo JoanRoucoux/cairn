@@ -1,3 +1,23 @@
+app:
+  kuma:
+    intraday-push-url: ${KUMA_PUSH_INTRADAY:}
+  client:
+    yahoo:
+      base-url: https://query1.finance.yahoo.com
+      connect-timeout: 3s
+      read-timeout: 10s
+      user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      pause-between-calls: 300ms
+    coingecko:
+      base-url: https://api.coingecko.com
+      connect-timeout: 3s
+      read-timeout: 10s
+    sg-sirius:
+      base-url: https://investmentsolutions.societegenerale.fr
+      connect-timeout: 5s
+      read-timeout: 30s
+      user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
 spring:
   application:
     name: cairn-kafka
@@ -14,10 +34,16 @@ spring:
         delivery.timeout.ms: 10000
         request.timeout.ms: 5000
         linger.ms: 0
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
   datasource:
     url: jdbc:postgresql://localhost:5432/app
     username: app
     password: app
+    hikari:
+      maximum-pool-size: 3
   jpa:
     hibernate:
       ddl-auto: validate

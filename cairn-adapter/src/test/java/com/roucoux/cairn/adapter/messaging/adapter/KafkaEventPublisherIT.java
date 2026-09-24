@@ -10,6 +10,7 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.event.PriceUpdated;
 import com.roucoux.cairn.domain.model.event.RefreshCompleted;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.domain.model.event.ValuationRecorded;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -172,6 +173,24 @@ class KafkaEventPublisherIT {
         assertThat(data.get("refreshed").asInt()).isEqualTo(7);
         assertThat(data.get("failed").asInt()).isEqualTo(1);
         assertThat(data.get("trigger").asText()).isEqualTo("MANUAL");
+    }
+
+    @Test
+    void publishesARecordedValuationOnThePortfolioTopicWithNoKey() {
+        publisher.publish(new ValuationRecorded(
+                Instant.parse("2026-09-24T13:47:00Z"), new BigDecimal("25950.0000"), new BigDecimal("125.5000")));
+
+        ConsumerRecord<String, String> record =
+                pollMatching(PROPERTIES.portfolioTopic(), value -> value.contains("25950"));
+        JsonNode envelope = json.readTree(record.value());
+        JsonNode data = envelope.get("data");
+
+        assertThat(record.key()).isNull();
+        assertThat(envelope.get("type").asText()).isEqualTo("valuation.recorded");
+        assertThat(envelope.get("version").asInt()).isEqualTo(1);
+        assertThat(data.get("at").asText()).isEqualTo("2026-09-24T13:47:00Z");
+        assertThat(data.get("totalEur").decimalValue()).isEqualByComparingTo("25950.0000");
+        assertThat(data.get("dayChangeEur").decimalValue()).isEqualByComparingTo("125.5000");
     }
 
     @Test

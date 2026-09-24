@@ -2,6 +2,7 @@ package com.roucoux.cairn;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Third entry point over the same hexagon: a long-running worker, unlike {@code BatchApplication},
@@ -9,6 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * the adapters exactly as the other applications' do.
  */
 @SpringBootApplication
+@EnableScheduling
 public class KafkaWorkerApplication {
 
     public static void main(String[] args) {

@@ -419,6 +419,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
+  /history/intraday:
+    get:
+      tags: [History]
+      operationId: getIntradayHistory
+      summary: Get the requested day's valuation points
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: The requested day's valuation points
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntradayHistoryResponse'
   /session:
     get:
       tags: [Session]
@@ -893,6 +912,23 @@ components:
         date:
           type: string
           format: date
+        totalEur:
+          type: number
+    IntradayHistoryResponse:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntradayHistoryPoint'
+    IntradayHistoryPoint:
+      type: object
+      required: [at, totalEur]
+      properties:
+        at:
+          type: string
+          format: date-time
         totalEur:
           type: number
     SessionResponse:

@@ -2,20 +2,30 @@ package com.roucoux.cairn.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roucoux.cairn.domain.model.Allocation;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.HistoryMode;
 import com.roucoux.cairn.domain.model.HistoryPoint;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.IntradayPoint;
+import com.roucoux.cairn.domain.model.IntradayValuation;
+import com.roucoux.cairn.domain.model.Money;
+import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.GetHistoryUseCase;
+import com.roucoux.cairn.domain.port.in.GetIntradayHistoryUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.LoadSnapshotsPort;
+import com.roucoux.cairn.domain.port.out.LoadValuationsPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -106,5 +116,30 @@ class HistoryDomainConfigTest {
                 .extracting(HistoryPoint::totalEur)
                 .usingElementComparator(BigDecimal::compareTo)
                 .containsExactly(new BigDecimal("1000"), new BigDecimal("1000"));
+    }
+
+    @Test
+    void wiresTheIntradayHistoryServiceSoAPastDayReturnsItsRecordedPoints() {
+        ZoneId paris = ZoneId.of("Europe/Paris");
+        LocalDate pastDay = LocalDate.of(2026, 9, 20);
+        Instant recordedAt = pastDay.atStartOfDay(paris).plusHours(10).toInstant();
+        Portfolio portfolio = new Portfolio(
+                Money.eur(new BigDecimal("110000")),
+                Money.eur(new BigDecimal("2000")),
+                Optional.empty(),
+                List.<Allocation>of(),
+                List.<Allocation>of(),
+                List.of(),
+                0,
+                0);
+        Clock clock = Clock.fixed(pastDay.plusDays(4).atStartOfDay(paris).toInstant(), paris);
+        LoadValuationsPort loadValuations =
+                (from, to) -> List.of(new IntradayValuation(recordedAt, new BigDecimal("108500")));
+
+        GetIntradayHistoryUseCase useCase =
+                new HistoryDomainConfig().intradayHistoryService(() -> portfolio, loadValuations, clock);
+        List<IntradayPoint> points = useCase.intraday(pastDay, paris);
+
+        assertThat(points).containsExactly(new IntradayPoint(recordedAt, new BigDecimal("108500")));
     }
 }
