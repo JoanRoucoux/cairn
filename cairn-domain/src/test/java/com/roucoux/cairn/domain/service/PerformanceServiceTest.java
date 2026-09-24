@@ -13,6 +13,7 @@ import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -39,6 +40,7 @@ class PerformanceServiceTest {
             Clock.fixed(LocalDate.of(2026, 9, 24).atTime(20, 0).atZone(ZONE).toInstant(), ZONE);
     private static final Account ACCOUNT_1 = new Account(UUID.randomUUID(), "Broker One", AccountType.CTO, "Broker");
     private static final Account ACCOUNT_2 = new Account(UUID.randomUUID(), "Broker Two", AccountType.PEA, "Broker");
+    private static final UUID PLACEHOLDER_INSTRUMENT_ID = UUID.randomUUID();
 
     @Test
     void oneDayChangeSumsEveryLinesDayChangeAndEnvelopesSumToTheTotal() {
@@ -64,9 +66,10 @@ class PerformanceServiceTest {
     }
 
     @Test
-    void oneMonthChangeIsCurrentValueMinusValueAtConstantCompositionAtFrom() {
+    void oneMonthChangeIsCurrentValueMinusValueAtTheEffectiveStart() {
         LocalDate from = LocalDate.now(CLOCK).minusDays(31);
-        Line pricedAtFrom = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(from, "50.00")));
+        Line pricedAtFrom = equityLine(
+                ACCOUNT_1, "55.00", "10", List.of(quoteOn(from.minusYears(1), "40.00"), quoteOn(from, "50.00")));
 
         Fixture fixture = new Fixture(List.of(pricedAtFrom));
         Performance performance = fixture.service().performance(PerformanceRange.M1);
@@ -77,14 +80,15 @@ class PerformanceServiceTest {
     }
 
     @Test
-    void aLineWithNoQuoteAtFromCountsInTheValueNotTheChange() {
-        Line noHistory = equityLine(ACCOUNT_1, "55.00", "10", List.of());
+    void oneMonthEffectiveStartIsPushedBackToAYoungLinesFirstQuote() {
+        LocalDate firstQuote = LocalDate.now(CLOCK).minusDays(10);
+        Line young = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(firstQuote, "50.00")));
 
-        Fixture fixture = new Fixture(List.of(noHistory));
+        Fixture fixture = new Fixture(List.of(young));
         Performance performance = fixture.service().performance(PerformanceRange.M1);
 
-        assertThat(performance.total().amount()).isEqualByComparingTo("550");
-        assertThat(performance.change().amount()).isEqualByComparingTo("0");
+        assertThat(performance.from()).isEqualTo(firstQuote);
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
     }
 
     @Test
@@ -99,9 +103,21 @@ class PerformanceServiceTest {
     }
 
     @Test
-    void leavesTheChangeRatioEmptyWhenTheBaseValueIsZero() {
-        Line line = equityLine(
-                ACCOUNT_1, "55.00", "10", List.of(quoteOn(LocalDate.now(CLOCK).minusDays(31), "0")));
+    void fromIsTodayAndTheChangeIsZeroWithAnAbsentRatioWhenNothingIsQuoted() {
+        Line cash = cashLine(ACCOUNT_1, "1000");
+
+        Fixture fixture = new Fixture(List.of(cash));
+        Performance performance = fixture.service().performance(PerformanceRange.MAX);
+
+        assertThat(performance.from()).isEqualTo(LocalDate.now(CLOCK));
+        assertThat(performance.change().amount()).isEqualByComparingTo("0");
+        assertThat(performance.changeRatio()).isEmpty();
+    }
+
+    @Test
+    void leavesTheChangeRatioEmptyWhenTheStartValueIsZero() {
+        LocalDate from = LocalDate.now(CLOCK).minusDays(31);
+        Line line = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(from, "0")));
 
         Fixture fixture = new Fixture(List.of(line));
         Performance performance = fixture.service().performance(PerformanceRange.M1);
@@ -115,6 +131,8 @@ class PerformanceServiceTest {
 
         assertThat(fixture.service().performance(PerformanceRange.D1).reconstructed())
                 .isFalse();
+        assertThat(fixture.service().performance(PerformanceRange.D7).reconstructed())
+                .isFalse();
         assertThat(fixture.service().performance(PerformanceRange.M1).reconstructed())
                 .isFalse();
         assertThat(fixture.service().performance(PerformanceRange.Y1).reconstructed())
@@ -125,20 +143,25 @@ class PerformanceServiceTest {
                 .isTrue();
     }
 
+    /**
+     * The reviewer's example: A is quoted well before B, but max's start is pinned to the later of
+     * the two first-quote dates (B's), exactly where {@code HistoryService}'s constant-mix curve
+     * would start too.
+     */
     @Test
-    void maxRebuildsEachLineFromItsFirstKnownQuote() {
-        LocalDate firstQuote = LocalDate.of(2020, 1, 15);
-        Line line = equityLine(
+    void maxStartsAtTheLatestFirstQuoteDateAmongTheLinesLikeTheHistoryCurveDoes() {
+        Line a = equityLine(
                 ACCOUNT_1,
                 "55.00",
                 "10",
-                List.of(quoteOn(firstQuote, "40.00"), quoteOn(LocalDate.of(2023, 6, 1), "45.00")));
+                List.of(quoteOn(LocalDate.of(2020, 1, 15), "40.00"), quoteOn(LocalDate.of(2024, 1, 2), "48.00")));
+        Line b = equityLine(ACCOUNT_2, "110.00", "1", List.of(quoteOn(LocalDate.of(2024, 1, 2), "100.00")));
 
-        Fixture fixture = new Fixture(List.of(line));
+        Fixture fixture = new Fixture(List.of(a, b));
         Performance performance = fixture.service().performance(PerformanceRange.MAX);
 
-        assertThat(performance.from()).isEqualTo(firstQuote);
-        assertThat(performance.change().amount()).isEqualByComparingTo("150");
+        assertThat(performance.from()).isEqualTo(LocalDate.of(2024, 1, 2));
+        assertThat(performance.change().amount()).isEqualByComparingTo("80");
     }
 
     @Test
@@ -153,7 +176,32 @@ class PerformanceServiceTest {
         assertThat(performance.lastPriceAt()).contains(fetchedAt);
     }
 
-    private static final UUID PLACEHOLDER_INSTRUMENT_ID = UUID.randomUUID();
+    @Test
+    void anchorsTodayInTheConfiguredZoneEvenWhenUtcIsStillOnThePreviousDay() {
+        // 00:30 in Europe/Paris (CEST, +2) is 22:30 UTC the day before.
+        ZoneId paris = ZoneId.of("Europe/Paris");
+        Instant justAfterMidnightInParis =
+                LocalDate.of(2026, 6, 16).atTime(0, 30).atZone(paris).toInstant();
+        Clock clock = Clock.fixed(justAfterMidnightInParis, ZoneId.of("UTC"));
+        Fixture fixture = new Fixture(List.of(equityLine(ACCOUNT_1, "55.00", "10", List.of())), clock, paris);
+
+        Performance performance = fixture.service().performance(PerformanceRange.D1);
+
+        assertThat(performance.to()).isEqualTo(LocalDate.of(2026, 6, 16));
+    }
+
+    @Test
+    void sortsEnvelopesByValueDescending() {
+        Line small = equityLine(ACCOUNT_2, "20.00", "5", List.of());
+        Line large = equityLine(ACCOUNT_1, "55.00", "10", List.of());
+
+        Fixture fixture = new Fixture(List.of(small, large));
+        Performance performance = fixture.service().performance(PerformanceRange.D1);
+
+        assertThat(performance.byEnvelope())
+                .extracting(EnvelopePerformance::accountType)
+                .containsExactly(AccountType.CTO, AccountType.PEA);
+    }
 
     private static Quote quoteOn(LocalDate asOf, String price) {
         return new Quote(
@@ -190,9 +238,17 @@ class PerformanceServiceTest {
 
     private static final class Fixture {
         private final List<Line> lines;
+        private final Clock clock;
+        private final ZoneId zone;
 
         private Fixture(List<Line> lines) {
+            this(lines, CLOCK, ZONE);
+        }
+
+        private Fixture(List<Line> lines, Clock clock, ZoneId zone) {
             this.lines = lines;
+            this.clock = clock;
+            this.zone = zone;
         }
 
         private PerformanceService service() {
@@ -301,11 +357,23 @@ class PerformanceServiceTest {
                     }
                     return result;
                 }
+
+                @Override
+                public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
+                    Map<UUID, LocalDate> result = new LinkedHashMap<>();
+                    for (UUID id : instrumentIds) {
+                        history.getOrDefault(id, List.of()).stream()
+                                .min(Comparator.comparing(Quote::asOf))
+                                .ifPresent(q -> result.put(id, q.asOf()));
+                    }
+                    return result;
+                }
             };
 
             HoldingValuationService valueHolding =
-                    new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, CLOCK);
-            return new PerformanceService(loadHoldings, valueHolding, loadQuotes, CLOCK, ZONE);
+                    new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, clock);
+            GetPortfolioUseCase getPortfolio = new PortfolioService(loadHoldings, valueHolding, clock);
+            return new PerformanceService(getPortfolio, loadQuotes, clock, zone);
         }
     }
 }

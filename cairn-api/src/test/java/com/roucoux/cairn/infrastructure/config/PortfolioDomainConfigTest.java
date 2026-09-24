@@ -12,6 +12,7 @@ import com.roucoux.cairn.domain.model.PerformanceRange;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
+import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
@@ -92,6 +93,11 @@ class PortfolioDomainConfigTest {
             public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
                 return Map.of();
             }
+
+            @Override
+            public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
+                return Map.of();
+            }
         };
         Holding cash = new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new BigDecimal("20000"), null);
         LoadHoldingsPort loadHoldings = new LoadHoldingsPort() {
@@ -117,9 +123,11 @@ class PortfolioDomainConfigTest {
         };
         ValueHoldingUseCase valueHolding =
                 new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, CLOCK);
+        GetPortfolioUseCase getPortfolio =
+                new PortfolioDomainConfig().portfolioService(loadHoldings, valueHolding, CLOCK);
 
         GetPerformanceUseCase useCase =
-                new PortfolioDomainConfig().getPerformanceUseCase(loadHoldings, valueHolding, loadQuotes, CLOCK, ZONE);
+                new PortfolioDomainConfig().getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, ZONE);
         Performance performance = useCase.performance(PerformanceRange.D1);
 
         assertThat(performance.to()).isEqualTo(LocalDate.now(CLOCK.withZone(ZONE)));

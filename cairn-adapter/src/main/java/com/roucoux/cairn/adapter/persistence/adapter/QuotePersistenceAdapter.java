@@ -63,6 +63,15 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
     }
 
     @Override
+    public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
+        if (instrumentIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findFirstQuoteDates(instrumentIds).stream()
+                .collect(Collectors.toMap(QuoteJpaRepository.FirstQuoteDate::getInstrumentId, row -> row.getAsOf()));
+    }
+
+    @Override
     public void upsert(Quote quote) {
         repository.save(QuoteEntity.fromDomain(quote));
     }

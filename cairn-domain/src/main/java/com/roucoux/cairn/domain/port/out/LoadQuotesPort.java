@@ -22,4 +22,7 @@ public interface LoadQuotesPort {
 
     /** For each instrument, its most recent quote dated on or before {@code day}; absent when it has none. */
     Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day);
+
+    /** For each instrument, the date of its earliest known quote; absent when it has none. */
+    Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds);
 }

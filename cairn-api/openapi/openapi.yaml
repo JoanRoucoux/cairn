@@ -6,6 +6,8 @@ info:
 tags:
   - name: Portfolio
     description: The aggregated, valued portfolio
+  - name: Performance
+    description: The portfolio's value and change over a range, in total and per envelope
   - name: Holding
     description: Manage the holdings that make up the portfolio
   - name: Account

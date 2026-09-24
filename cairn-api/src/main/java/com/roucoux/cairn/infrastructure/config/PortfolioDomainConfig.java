@@ -1,6 +1,7 @@
 package com.roucoux.cairn.infrastructure.config;
 
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
+import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ImportPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
@@ -58,12 +59,8 @@ class PortfolioDomainConfig {
 
     @Bean
     GetPerformanceUseCase getPerformanceUseCase(
-            LoadHoldingsPort loadHoldings,
-            ValueHoldingUseCase valueHolding,
-            LoadQuotesPort loadQuotes,
-            Clock clock,
-            ZoneId zone) {
-        return new PerformanceService(loadHoldings, valueHolding, loadQuotes, clock, zone);
+            GetPortfolioUseCase getPortfolio, LoadQuotesPort loadQuotes, Clock clock, ZoneId zone) {
+        return new PerformanceService(getPortfolio, loadQuotes, clock, zone);
     }
 
     @Bean
@@ -71,7 +68,6 @@ class PortfolioDomainConfig {
         return Clock.systemUTC();
     }
 
-    /** The zone the dashboard's ranges (from {@code app.zone}) are computed in, aligned with the front. */
     @Bean
     ZoneId zone(@Value("${app.zone}") String zone) {
         return ZoneId.of(zone);

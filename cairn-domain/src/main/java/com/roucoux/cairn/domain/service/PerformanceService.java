@@ -1,16 +1,15 @@
 package com.roucoux.cairn.domain.service;
 
-import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
+import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
-import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
-import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
+import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,24 +28,13 @@ import java.util.stream.Collectors;
 
 public class PerformanceService implements GetPerformanceUseCase {
 
-    private static final int SHARE_SCALE = 10;
-    /** Stands for "no lower bound" when reading quote history for {@link PerformanceRange#MAX}. */
-    private static final LocalDate EPOCH = LocalDate.of(1970, 1, 1);
-
-    private final LoadHoldingsPort loadHoldings;
-    private final ValueHoldingUseCase valueHolding;
+    private final GetPortfolioUseCase getPortfolio;
     private final LoadQuotesPort loadQuotes;
     private final Clock clock;
     private final ZoneId zone;
 
-    public PerformanceService(
-            LoadHoldingsPort loadHoldings,
-            ValueHoldingUseCase valueHolding,
-            LoadQuotesPort loadQuotes,
-            Clock clock,
-            ZoneId zone) {
-        this.loadHoldings = loadHoldings;
-        this.valueHolding = valueHolding;
+    public PerformanceService(GetPortfolioUseCase getPortfolio, LoadQuotesPort loadQuotes, Clock clock, ZoneId zone) {
+        this.getPortfolio = getPortfolio;
         this.loadQuotes = loadQuotes;
         this.clock = clock;
         this.zone = zone;
@@ -54,23 +42,24 @@ public class PerformanceService implements GetPerformanceUseCase {
 
     @Override
     public Performance performance(PerformanceRange range) {
-        List<ValuedHolding> lines = loadHoldings.findAll().stream()
-                .flatMap(holding -> valueHolding.value(holding).stream())
+        Portfolio portfolio = getPortfolio.get();
+        List<ValuedHolding> valuedLines = portfolio.holdings().stream()
+                .filter(line -> line.marketValue().isPresent())
                 .toList();
-        List<ValuedHolding> valuedLines =
-                lines.stream().filter(line -> line.marketValue().isPresent()).toList();
-        valuedLines.forEach(PerformanceService::requireEur);
-
-        Money total = valuedLines.stream()
-                .map(line -> line.marketValue().orElseThrow())
-                .reduce(Money.zeroEur(), Money::plus);
 
         LocalDate to = range.to(clock, zone);
-        Map<ValuedHolding, Optional<Money>> changes = changesByLine(range, valuedLines, to);
+        LocalDate from;
+        List<LineMove> moves;
+        if (range == PerformanceRange.D1) {
+            from = to.minusDays(1);
+            moves = dayMoves(valuedLines);
+        } else {
+            RangeStart start = rangeStart(range, valuedLines, to);
+            from = start.from();
+            moves = rangeMoves(valuedLines, start);
+        }
 
-        LocalDate from = range.from(clock, zone).orElseGet(() -> earliestBaseline(valuedLines, to));
-
-        Money totalChange = changes.values().stream().flatMap(Optional::stream).reduce(Money.zeroEur(), Money::plus);
+        Money totalChange = sumChange(moves);
 
         Optional<Instant> lastPriceAt = valuedLines.stream()
                 .filter(line -> !line.instrument().isPricedAtPar())
@@ -84,89 +73,88 @@ public class PerformanceService implements GetPerformanceUseCase {
                 to,
                 range.isReconstructed(),
                 lastPriceAt,
-                total,
+                portfolio.total(),
                 totalChange,
-                ratio(totalChange, total),
-                byEnvelope(valuedLines, changes, total));
+                ratio(totalChange, sumStart(moves)),
+                byEnvelope(moves, portfolio.total()));
     }
 
-    private Map<ValuedHolding, Optional<Money>> changesByLine(
-            PerformanceRange range, List<ValuedHolding> valuedLines, LocalDate to) {
-        if (range == PerformanceRange.D1) {
-            Map<ValuedHolding, Optional<Money>> changes = new LinkedHashMap<>();
-            valuedLines.forEach(line -> changes.put(line, line.dayChange()));
-            return changes;
-        }
-
-        LocalDate from = range.from(clock, zone).orElse(null);
-        Set<UUID> quotedInstruments = valuedLines.stream()
-                .filter(line -> !line.instrument().isPricedAtPar())
-                .map(line -> line.instrument().id())
-                .collect(Collectors.toSet());
-        Map<UUID, Quote> baseQuotes = range == PerformanceRange.MAX
-                ? earliestQuotes(quotedInstruments, to)
-                : loadQuotes.findLatestOnOrBefore(quotedInstruments, from);
-
-        Map<ValuedHolding, Optional<Money>> changes = new LinkedHashMap<>();
-        for (ValuedHolding line : valuedLines) {
-            changes.put(line, changeFor(line, baseQuotes));
-        }
-        return changes;
+    private static List<LineMove> dayMoves(List<ValuedHolding> valuedLines) {
+        return valuedLines.stream()
+                .map(line -> new LineMove(line, dayStart(line)))
+                .toList();
     }
 
-    private Map<UUID, Quote> earliestQuotes(Set<UUID> instrumentIds, LocalDate to) {
-        Map<UUID, List<Quote>> history = loadQuotes.findBetweenForAll(instrumentIds, EPOCH, to);
-        Map<UUID, Quote> earliest = new LinkedHashMap<>();
-        history.forEach((id, quotes) ->
-                quotes.stream().min(Comparator.comparing(Quote::asOf)).ifPresent(quote -> earliest.put(id, quote)));
-        return earliest;
-    }
-
-    private static Optional<Money> changeFor(ValuedHolding line, Map<UUID, Quote> baseQuotes) {
-        if (line.instrument().isPricedAtPar()) {
-            return Optional.of(
-                    new Money(BigDecimal.ZERO, line.quote().orElseThrow().currency()));
-        }
-        Quote base = baseQuotes.get(line.instrument().id());
-        if (base == null) {
-            return Optional.empty();
-        }
-        Money current = line.marketValue().orElseThrow();
-        Money baseValue = new Money(line.holding().quantity().multiply(base.price()), base.currency());
-        return Optional.of(current.minus(baseValue));
+    private static Optional<Money> dayStart(ValuedHolding line) {
+        return line.dayChange().map(change -> line.marketValue().orElseThrow().minus(change));
     }
 
     /**
-     * The earliest date any line's baseline is known, for {@link PerformanceRange#MAX}'s {@code
-     * from}. Falls back to {@code to} when nothing is quoted yet (an all-cash or empty portfolio).
+     * The effective start date, aligned with the date {@link HistoryService}'s constant-mix curve
+     * starts at: the later of the range's own start and the latest first-quote date among the
+     * valued, non-par lines (a younger line can't be priced any earlier than it was first quoted).
+     * For {@link PerformanceRange#MAX} there is no range start, so this latest first-quote date is
+     * the start outright. When no valued line carries a real quote at all (an all-cash or empty
+     * portfolio), the start is simply today.
      */
-    private LocalDate earliestBaseline(List<ValuedHolding> valuedLines, LocalDate to) {
+    private RangeStart rangeStart(PerformanceRange range, List<ValuedHolding> valuedLines, LocalDate to) {
         Set<UUID> quotedInstruments = valuedLines.stream()
                 .filter(line -> !line.instrument().isPricedAtPar())
                 .map(line -> line.instrument().id())
                 .collect(Collectors.toSet());
-        return earliestQuotes(quotedInstruments, to).values().stream()
-                .map(Quote::asOf)
-                .min(Comparator.naturalOrder())
-                .orElse(to);
+        Map<UUID, LocalDate> firstQuoteDates = loadQuotes.findFirstQuoteDates(quotedInstruments);
+        Optional<LocalDate> latestFirstQuote = firstQuoteDates.values().stream().max(Comparator.naturalOrder());
+        if (latestFirstQuote.isEmpty()) {
+            return new RangeStart(to, Map.of(), false);
+        }
+
+        LocalDate rangeFrom = range.from(clock, zone).orElse(null);
+        LocalDate from =
+                rangeFrom == null || rangeFrom.isBefore(latestFirstQuote.get()) ? latestFirstQuote.get() : rangeFrom;
+        Map<UUID, Quote> baseQuotes = loadQuotes.findLatestOnOrBefore(quotedInstruments, from);
+        return new RangeStart(from, baseQuotes, true);
     }
 
-    private static List<EnvelopePerformance> byEnvelope(
-            List<ValuedHolding> valuedLines, Map<ValuedHolding, Optional<Money>> changes, Money total) {
-        Map<AccountType, List<ValuedHolding>> grouped = valuedLines.stream()
-                .collect(Collectors.groupingBy(line -> line.account().type(), LinkedHashMap::new, Collectors.toList()));
+    private static List<LineMove> rangeMoves(List<ValuedHolding> valuedLines, RangeStart start) {
+        return valuedLines.stream()
+                .map(line -> new LineMove(line, rangeStartValue(line, start)))
+                .toList();
+    }
+
+    private static Optional<Money> rangeStartValue(ValuedHolding line, RangeStart start) {
+        if (!start.anyQuoted()) {
+            return Optional.empty();
+        }
+        if (line.instrument().isPricedAtPar()) {
+            return Optional.of(line.marketValue().orElseThrow());
+        }
+        Quote base = start.baseQuotes().get(line.instrument().id());
+        return Optional.ofNullable(base)
+                .map(quote -> new Money(line.holding().quantity().multiply(quote.price()), quote.currency()));
+    }
+
+    private static Money sumChange(List<LineMove> moves) {
+        return moves.stream().flatMap(move -> move.change().stream()).reduce(Money.zeroEur(), Money::plus);
+    }
+
+    private static Money sumStart(List<LineMove> moves) {
+        return moves.stream().flatMap(move -> move.start().stream()).reduce(Money.zeroEur(), Money::plus);
+    }
+
+    private static List<EnvelopePerformance> byEnvelope(List<LineMove> moves, Money total) {
+        Map<AccountType, List<LineMove>> grouped = moves.stream()
+                .collect(Collectors.groupingBy(
+                        move -> move.line().account().type(), LinkedHashMap::new, Collectors.toList()));
 
         return grouped.entrySet().stream()
                 .map(entry -> {
                     AccountType type = entry.getKey();
-                    List<ValuedHolding> group = entry.getValue();
-                    Money value = group.stream()
-                            .map(line -> line.marketValue().orElseThrow())
-                            .reduce(Money.zeroEur(), Money::plus);
-                    Money change = group.stream()
-                            .flatMap(line -> changes.get(line).stream())
-                            .reduce(Money.zeroEur(), Money::plus);
-                    return new EnvelopePerformance(type, value, share(value, total), change, ratio(change, value));
+                    List<LineMove> group = entry.getValue();
+                    Money value = group.stream().map(LineMove::current).reduce(Money.zeroEur(), Money::plus);
+                    Money change = sumChange(group);
+                    Money start = sumStart(group);
+                    return new EnvelopePerformance(
+                            type, value, Shares.share(value, total), change, ratio(change, start));
                 })
                 .sorted(Comparator.comparing((EnvelopePerformance envelope) ->
                                 envelope.value().amount())
@@ -174,23 +162,22 @@ public class PerformanceService implements GetPerformanceUseCase {
                 .toList();
     }
 
-    private static void requireEur(ValuedHolding line) {
-        String currency = line.marketValue().orElseThrow().currency();
-        if (!Money.EUR.equals(currency)) {
-            throw new NonEurHoldingException(line.instrument().isin(), currency);
+    private static Optional<BigDecimal> ratio(Money change, Money start) {
+        return start.amount().signum() == 0
+                ? Optional.empty()
+                : Optional.of(change.amount().divide(start.amount(), Shares.SCALE, RoundingMode.HALF_UP));
+    }
+
+    /** A line's current value against its value at the start of the range; absent without a start. */
+    private record LineMove(ValuedHolding line, Optional<Money> start) {
+        Money current() {
+            return line.marketValue().orElseThrow();
+        }
+
+        Optional<Money> change() {
+            return start.map(current()::minus);
         }
     }
 
-    private static BigDecimal share(Money part, Money total) {
-        return total.amount().signum() == 0
-                ? BigDecimal.ZERO
-                : part.amount().divide(total.amount(), SHARE_SCALE, RoundingMode.HALF_UP);
-    }
-
-    private static Optional<BigDecimal> ratio(Money change, Money value) {
-        BigDecimal base = value.amount().subtract(change.amount());
-        return base.signum() == 0
-                ? Optional.empty()
-                : Optional.of(change.amount().divide(base, SHARE_SCALE, RoundingMode.HALF_UP));
-    }
+    private record RangeStart(LocalDate from, Map<UUID, Quote> baseQuotes, boolean anyQuoted) {}
 }

@@ -254,6 +254,11 @@ class HistoryServiceTest {
             }
 
             @Override
+            public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
+                return Map.of();
+            }
+
+            @Override
             public Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day) {
                 Map<UUID, Quote> result = new HashMap<>();
                 for (UUID instrumentId : instrumentIds) {
@@ -327,6 +332,11 @@ class HistoryServiceTest {
 
             @Override
             public Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to) {
+                return Map.of();
+            }
+
+            @Override
+            public Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds) {
                 return Map.of();
             }
 

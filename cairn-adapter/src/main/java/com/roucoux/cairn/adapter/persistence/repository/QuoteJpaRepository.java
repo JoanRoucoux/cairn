@@ -33,6 +33,18 @@ public interface QuoteJpaRepository extends JpaRepository<QuoteEntity, QuoteId> 
             nativeQuery = true)
     List<QuoteEntity> findLatestOnOrBefore(@Param("ids") Set<UUID> ids, @Param("day") LocalDate day);
 
+    @Query(
+            value = "select instrument_id, min(as_of) as as_of from quotes "
+                    + "where instrument_id in (:ids) group by instrument_id",
+            nativeQuery = true)
+    List<FirstQuoteDate> findFirstQuoteDates(@Param("ids") Set<UUID> ids);
+
+    interface FirstQuoteDate {
+        UUID getInstrumentId();
+
+        LocalDate getAsOf();
+    }
+
     default long countAll() {
         return count();
     }

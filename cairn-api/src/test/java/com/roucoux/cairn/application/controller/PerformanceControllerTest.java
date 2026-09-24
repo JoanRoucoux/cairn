@@ -17,14 +17,11 @@ import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
@@ -33,7 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(PerformanceController.class)
-@Import({WebAuthnConfig.class, PerformanceRestMapper.class, PerformanceControllerTest.ZoneConfig.class})
+@Import({WebAuthnConfig.class, PerformanceRestMapper.class})
 class PerformanceControllerTest {
 
     @Autowired
@@ -44,14 +41,6 @@ class PerformanceControllerTest {
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
-
-    @TestConfiguration
-    static class ZoneConfig {
-        @Bean
-        ZoneId zone() {
-            return ZoneId.of("Europe/Paris");
-        }
-    }
 
     @Test
     void returnsThePerformanceForTheRequestedRange() throws Exception {
