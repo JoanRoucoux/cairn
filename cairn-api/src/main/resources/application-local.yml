@@ -7,3 +7,11 @@ server:
 app:
   security:
     permit-all: true
+
+springdoc:
+  packages-to-scan: com.roucoux.cairn.generated.none
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    url: /openapi.yaml

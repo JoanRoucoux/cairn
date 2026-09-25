@@ -2,6 +2,7 @@ package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
+import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.QuoteResponse;
 import com.roucoux.cairn.generated.model.RefreshFailureResponse;
 import com.roucoux.cairn.generated.model.RefreshReportResponse;
@@ -20,7 +21,7 @@ public class QuoteRestMapper {
         response.setAsOf(quote.asOf());
         response.setPrice(scaledPrice(quote.price()));
         response.setCurrency(quote.currency());
-        response.setSource(QuoteResponse.SourceEnum.valueOf(quote.source().name()));
+        response.setSource(PriceSource.valueOf(quote.source().name()));
         return response;
     }
 
@@ -37,8 +38,7 @@ public class QuoteRestMapper {
         RefreshFailureResponse response = new RefreshFailureResponse();
         response.setInstrumentId(failure.instrumentId());
         response.setInstrumentName(failure.instrumentName());
-        response.setSource(
-                RefreshFailureResponse.SourceEnum.valueOf(failure.source().name()));
+        response.setSource(PriceSource.valueOf(failure.source().name()));
         response.setMessage(failure.message());
         return response;
     }

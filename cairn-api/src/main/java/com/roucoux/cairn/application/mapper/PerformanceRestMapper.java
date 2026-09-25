@@ -4,6 +4,7 @@ import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
+import com.roucoux.cairn.generated.model.AccountType;
 import com.roucoux.cairn.generated.model.EnvelopePerformanceResponse;
 import com.roucoux.cairn.generated.model.PerformanceResponse;
 import com.roucoux.cairn.generated.model.PerformanceTotalResponse;
@@ -20,7 +21,8 @@ public class PerformanceRestMapper {
 
     public PerformanceResponse toResponse(Performance performance) {
         PerformanceResponse response = new PerformanceResponse();
-        response.setRange(PerformanceResponse.RangeEnum.fromValue(toWireValue(performance.range())));
+        response.setRange(
+                com.roucoux.cairn.generated.model.PerformanceRange.fromValue(toWireValue(performance.range())));
         response.setFrom(performance.from());
         response.setTo(performance.to());
         response.setReconstructed(performance.reconstructed());
@@ -53,8 +55,7 @@ public class PerformanceRestMapper {
 
     private EnvelopePerformanceResponse toEnvelope(EnvelopePerformance envelope) {
         EnvelopePerformanceResponse response = new EnvelopePerformanceResponse();
-        response.setAccountType(EnvelopePerformanceResponse.AccountTypeEnum.valueOf(
-                envelope.accountType().name()));
+        response.setAccountType(AccountType.valueOf(envelope.accountType().name()));
         response.setValueEur(amount(envelope.value()));
         response.setShare(envelope.share().setScale(RATIO_SCALE, RoundingMode.HALF_UP));
         response.setChangeEur(amount(envelope.change()));

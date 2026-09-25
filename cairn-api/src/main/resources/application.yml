@@ -37,6 +37,12 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 app:
   zone: Europe/Paris
   webauthn:

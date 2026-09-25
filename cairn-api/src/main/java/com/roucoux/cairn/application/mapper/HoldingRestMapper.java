@@ -5,7 +5,10 @@ import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.ValuedHolding;
+import com.roucoux.cairn.generated.model.AccountType;
+import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.HoldingResponse;
+import com.roucoux.cairn.generated.model.PriceSource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -42,13 +45,11 @@ public class HoldingRestMapper {
         response.setId(holding.id());
         response.setAccountId(account.id());
         response.setAccountName(account.name());
-        response.setAccountType(
-                HoldingResponse.AccountTypeEnum.valueOf(account.type().name()));
+        response.setAccountType(AccountType.valueOf(account.type().name()));
         response.setInstrumentId(instrument.id());
         response.setInstrumentName(instrument.name());
         response.setIsin(instrument.isin());
-        response.setAssetClass(
-                HoldingResponse.AssetClassEnum.valueOf(instrument.assetClass().name()));
+        response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
         response.setQuantity(holding.quantity());
         holding.costBasis().ifPresent(cost -> response.setAverageCost(scaledAmount(cost)));
         line.quote().ifPresent(quote -> {
@@ -56,8 +57,7 @@ public class HoldingRestMapper {
             response.setPriceCurrency(quote.currency());
             response.setPriceAsOf(quote.asOf());
         });
-        response.setPriceSource(
-                HoldingResponse.PriceSourceEnum.valueOf(instrument.priceSource().name()));
+        response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
         response.setStale(line.isStale(clock));
         line.marketValue().ifPresent(marketValue -> response.setMarketValueEur(amount(marketValue)));
         line.unrealizedGain().ifPresent(gain -> response.setUnrealizedGainEur(amount(gain)));
