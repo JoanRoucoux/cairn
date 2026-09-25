@@ -83,46 +83,80 @@ class TelegramNotificationAdapterTest {
                 LocalDate.of(2026, 9, 23),
                 false,
                 Optional.empty(),
-                Money.eur(new BigDecimal("298889")),
-                Money.eur(new BigDecimal("2431")),
-                Optional.of(new BigDecimal("0.0082")),
+                Money.eur(new BigDecimal("352889")),
+                Money.eur(new BigDecimal("297")),
+                Optional.of(new BigDecimal("0.0010")),
                 List.of(
-                        envelope(AccountType.PEA, "1204", "0.0061"),
-                        envelope(AccountType.PEE, "160", "0.0014"),
-                        envelope(AccountType.CRYPTO, "1067", "0.0192")));
+                        envelope(AccountType.PEA, "185430", "1204", "0.0061"),
+                        envelope(AccountType.PEE, "112380", "160", "0.0014"),
+                        envelope(AccountType.CRYPTO, "55079", "-1067", "-0.0192")));
         return new DailySummary(LocalDate.of(2026, 9, 23), performance);
     }
 
-    private static EnvelopePerformance envelope(AccountType type, String change, String ratio) {
+    private static EnvelopePerformance envelope(AccountType type, String value, String change, String ratio) {
         return new EnvelopePerformance(
                 type,
-                Money.eur(BigDecimal.ONE),
+                Money.eur(new BigDecimal(value)),
                 new BigDecimal("0.1"),
                 Money.eur(new BigDecimal(change)),
-                Optional.of(new BigDecimal(ratio)));
+                Optional.ofNullable(ratio).map(BigDecimal::new));
     }
 
     private static final String EXPECTED_TEXT = """
-            Cairn, resume du mercredi 23 septembre
+            📊 <b>Cairn · Mercredi 23 septembre</b>
 
-            Patrimoine : 298 889 EUR
-            Jour : +2 431 EUR (+0,82 %)
+            💰 Patrimoine  <b>352 889 €</b>
+            📈 Jour  <b>+297 €</b>  (+0,10 %)
 
-            PEA : +1 204 EUR (+0,61 %)
-            PEE : +160 EUR (+0,14 %)
-            Crypto : +1 067 EUR (+1,92 %)""";
+            <pre>🟢 PEA     185 430  +1 204  +0,61%
+            🟢 PEE     112 380    +160  +0,14%
+            🔴 Crypto   55 079  -1 067  -1,92%</pre>""";
 
     @Test
-    void sendsTheFormattedMessageToTheConfiguredChat() {
+    void sendsTheFormattedMessageAsHtmlToTheConfiguredChat() {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID).send(exampleSummary());
 
         wireMock.verify(postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage"))
                 .withRequestBody(equalToJson(
-                        "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":" + toJsonString(EXPECTED_TEXT) + "}",
+                        "{\"chat_id\":\"" + CHAT_ID + "\",\"parse_mode\":\"HTML\",\"text\":"
+                                + toJsonString(EXPECTED_TEXT) + "}",
                         true,
                         false)));
+    }
+
+    @Test
+    void aLosingDayShowsAFallingChartAGreyDotForAFlatEnvelopeAndNoRatioWhenThereIsNone() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+        Performance performance = new Performance(
+                PerformanceRange.D1,
+                LocalDate.of(2026, 8, 13),
+                LocalDate.of(2026, 8, 14),
+                false,
+                Optional.empty(),
+                Money.eur(new BigDecimal("100000")),
+                Money.eur(new BigDecimal("-1500")),
+                Optional.of(new BigDecimal("-0.0148")),
+                List.of(
+                        envelope(AccountType.LIFE_INSURANCE, "60000", "0.30", "0.000005"),
+                        envelope(AccountType.SAVINGS, "40000", "-1500.30", null)));
+
+        adapter(TOKEN, CHAT_ID).send(new DailySummary(LocalDate.of(2026, 8, 14), performance));
+
+        assertThat(sentText()).isEqualTo("""
+                📊 <b>Cairn · Vendredi 14 août</b>
+
+                💰 Patrimoine  <b>100 000 €</b>
+                📉 Jour  <b>-1 500 €</b>  (-1,48 %)
+
+                <pre>⚪ Assu. vie  60 000       0  0,00%
+                🔴 Livrets    40 000  -1 500</pre>""");
+    }
+
+    private String sentText() {
+        String body = wireMock.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+        return new ObjectMapper().readTree(body).path("text").asString();
     }
 
     private static String toJsonString(String text) {

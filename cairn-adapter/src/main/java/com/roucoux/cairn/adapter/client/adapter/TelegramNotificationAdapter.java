@@ -7,6 +7,7 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.DailySummary;
 import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
+import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,7 +19,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -30,8 +31,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Outbound adapter: posts the daily summary to Telegram, formatted in French. The message is plain
- * text (no {@code parse_mode}), so there is no Markdown/HTML escaping to do.
+ * Outbound adapter: posts the daily summary to Telegram, formatted in French as HTML. Only fixed
+ * labels, numbers and a French date go into it, so nothing is escaped: anything free-form added
+ * later (an instrument name) needs {@code <}, {@code >} and {@code &} escaped, or Telegram rejects
+ * the whole message with a 400.
  */
 @Component
 public class TelegramNotificationAdapter implements SendNotificationPort {
@@ -91,7 +94,7 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
         try {
             client.post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
-                    .body(new SendMessageRequest(properties.chatId(), text))
+                    .body(new SendMessageRequest(properties.chatId(), "HTML", text))
                     .retrieve()
                     .toBodilessEntity();
         } catch (HttpClientErrorException.TooManyRequests tooManyRequests) {
@@ -111,63 +114,107 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
     }
 
     private static String format(DailySummary summary) {
-        StringBuilder message = new StringBuilder();
-        message.append("Cairn, resume du ")
-                .append(DATE_FORMAT.format(summary.date()))
-                .append("\n\n");
-        message.append("Patrimoine : ")
-                .append(formatUnsignedAmount(summary.performance().total()))
-                .append(" EUR\n");
-        message.append("Jour : ")
-                .append(formatSignedAmount(summary.performance().change()))
-                .append(" EUR (")
-                .append(formatRatio(summary.performance().changeRatio()))
-                .append(")");
-        List<EnvelopePerformance> envelopes = summary.performance().byEnvelope();
-        for (int i = 0; i < envelopes.size(); i++) {
-            message.append(i == 0 ? "\n\n" : "\n").append(formatEnvelope(envelopes.get(i)));
+        Performance performance = summary.performance();
+        BigDecimal change = roundedEuros(performance.change());
+        StringBuilder message = new StringBuilder()
+                .append("📊 <b>Cairn · ")
+                .append(capitalize(DATE_FORMAT.format(summary.date())))
+                .append("</b>\n\n💰 Patrimoine  <b>")
+                .append(grouped(roundedEuros(performance.total()), "#,##0"))
+                .append(" €</b>\n")
+                .append(change.signum() < 0 ? "📉" : "📈")
+                .append(" Jour  <b>")
+                .append(signed(change, "#,##0"))
+                .append(" €</b>");
+        performance
+                .changeRatio()
+                .ifPresent(ratio -> message.append("  (")
+                        .append(signed(percent(ratio), "#,##0.00"))
+                        .append(" %)"));
+        if (!performance.byEnvelope().isEmpty()) {
+            message.append("\n\n<pre>")
+                    .append(envelopeTable(performance.byEnvelope()))
+                    .append("</pre>");
         }
         return message.toString();
     }
 
-    private static String formatEnvelope(EnvelopePerformance envelope) {
-        String label = ENVELOPE_LABELS.get(envelope.accountType());
-        String amount = formatSignedAmount(envelope.change()) + " EUR";
-        return envelope.changeRatio().isEmpty()
-                ? label + " : " + amount
-                : label + " : " + amount + " (" + formatRatio(envelope.changeRatio()) + ")";
+    private static String envelopeTable(List<EnvelopePerformance> envelopes) {
+        List<List<String>> rows = envelopes.stream()
+                .map(envelope -> {
+                    BigDecimal change = roundedEuros(envelope.change());
+                    return List.of(
+                            dot(change),
+                            ENVELOPE_LABELS.get(envelope.accountType()),
+                            grouped(roundedEuros(envelope.value()), "#,##0"),
+                            signed(change, "#,##0"),
+                            envelope.changeRatio()
+                                    .map(ratio -> signed(percent(ratio), "#,##0.00") + "%")
+                                    .orElse(""));
+                })
+                .toList();
+        int labelWidth = width(rows, 1);
+        int valueWidth = width(rows, 2);
+        int changeWidth = width(rows, 3);
+        int ratioWidth = width(rows, 4);
+        return rows.stream()
+                .map(row -> (row.get(0) + " " + padRight(row.get(1), labelWidth) + "  "
+                                + padLeft(row.get(2), valueWidth) + "  " + padLeft(row.get(3), changeWidth) + "  "
+                                + padLeft(row.get(4), ratioWidth))
+                        .stripTrailing())
+                .collect(Collectors.joining("\n"));
     }
 
-    private static String formatSignedAmount(Money money) {
-        return signedDecimalFormat("#,##0").format(money.amount().setScale(0, RoundingMode.HALF_UP));
+    private static String dot(BigDecimal roundedChange) {
+        return switch (roundedChange.signum()) {
+            case 1 -> "🟢";
+            case -1 -> "🔴";
+            default -> "⚪";
+        };
     }
 
-    private static String formatUnsignedAmount(Money money) {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRANCE);
-        symbols.setGroupingSeparator(' ');
-        return new DecimalFormat("#,##0", symbols).format(money.amount().setScale(0, RoundingMode.HALF_UP));
+    private static int width(List<List<String>> rows, int column) {
+        return rows.stream().mapToInt(row -> row.get(column).length()).max().orElse(0);
     }
 
-    private static String formatRatio(Optional<BigDecimal> ratio) {
-        BigDecimal percent =
-                ratio.orElseThrow().multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
-        return signedDecimalFormat("#,##0.00").format(percent) + " %";
+    private static String padRight(String text, int width) {
+        return text + " ".repeat(width - text.length());
+    }
+
+    private static String padLeft(String text, int width) {
+        return " ".repeat(width - text.length()) + text;
+    }
+
+    private static String capitalize(String text) {
+        return text.substring(0, 1).toUpperCase(Locale.FRANCE) + text.substring(1);
+    }
+
+    private static BigDecimal roundedEuros(Money money) {
+        return money.amount().setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal percent(BigDecimal ratio) {
+        return ratio.multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static String signed(BigDecimal rounded, String pattern) {
+        String digits = grouped(rounded.abs(), pattern);
+        return switch (rounded.signum()) {
+            case 1 -> "+" + digits;
+            case -1 -> "-" + digits;
+            default -> digits;
+        };
     }
 
     /**
-     * The euro symbol never appears in the message: {@code Money}'s currency is always EUR here and
-     * "EUR" is spelled out. Grouping uses a plain space rather than the narrow no-break space the
-     * French locale defaults to, so the message renders identically whether or not a client font
-     * supports {@code  }.
+     * Grouping uses a plain space rather than the narrow no-break space the French locale defaults
+     * to: inside the {@code <pre>} table, a glyph a client font draws at another width would break
+     * the column alignment.
      */
-    private static DecimalFormat signedDecimalFormat(String pattern) {
+    private static String grouped(BigDecimal amount, String pattern) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRANCE);
         symbols.setGroupingSeparator(' ');
-        symbols.setMinusSign('-');
-        DecimalFormat format = new DecimalFormat(pattern, symbols);
-        format.setPositivePrefix("+");
-        format.setNegativePrefix("-");
-        return format;
+        return new DecimalFormat(pattern, symbols).format(amount);
     }
 
     private static Map<AccountType, String> envelopeLabels() {
@@ -177,14 +224,16 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
         labels.put(AccountType.CTO, "CTO");
         labels.put(AccountType.PER, "PER");
         labels.put(AccountType.PEE, "PEE");
-        labels.put(AccountType.LIFE_INSURANCE, "Assurance vie");
+        labels.put(AccountType.LIFE_INSURANCE, "Assu. vie");
         labels.put(AccountType.SAVINGS, "Livrets");
         labels.put(AccountType.CRYPTO, "Crypto");
         return labels;
     }
 
     private record SendMessageRequest(
-            @JsonProperty("chat_id") String chatId, String text) {}
+            @JsonProperty("chat_id") String chatId,
+            @JsonProperty("parse_mode") String parseMode,
+            String text) {}
 
     /** Carries the delay to wait before the single retry a 429 gets; never logged, never a cause. */
     private static final class TooManyRequests extends RuntimeException {
