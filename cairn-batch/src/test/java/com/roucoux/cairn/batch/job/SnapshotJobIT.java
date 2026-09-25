@@ -38,10 +38,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Runs the real job against a real PostgreSQL migrated with the schema module's changelog: seeds
- * one account and one valued holding, then checks the total and both ventilations it writes.
- */
 @SpringBootTest
 @TestPropertySource(
         properties = {
@@ -79,10 +75,6 @@ class SnapshotJobIT {
     @Autowired
     private SendNotificationPort sendNotification;
 
-    /**
-     * No {@code TELEGRAM_*} variable is set for this test: the batch never sends a summary, so its
-     * {@code TelegramNotificationAdapter} bean must wire without them, validating lazily instead.
-     */
     @Test
     void startsUpAndWiresTheTelegramAdapterWithoutAnyTelegramVariableSet() {
         assertThat(System.getenv("TELEGRAM_BOT_TOKEN")).isNull();

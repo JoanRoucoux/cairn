@@ -45,7 +45,6 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
 
-/** Bean-wiring test, no Spring context: calls the {@code @Bean} methods directly. */
 class WorkerDomainConfigTest {
 
     private static final Instant NOW = Instant.parse("2026-09-24T09:31:42Z");

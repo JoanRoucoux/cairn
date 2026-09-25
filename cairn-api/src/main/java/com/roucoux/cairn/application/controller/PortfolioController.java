@@ -23,7 +23,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Inbound adapter: implements the generated contract and delegates to the domain's use case. */
 @RestController
 class PortfolioController implements PortfolioApi {
 

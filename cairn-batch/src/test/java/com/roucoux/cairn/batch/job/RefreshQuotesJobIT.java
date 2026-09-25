@@ -47,19 +47,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Runs the real job against a real PostgreSQL migrated with the schema module's changelog. Yahoo
- * and CoinGecko are mocked at the adapter: one Yahoo instrument fails so the fault-tolerant step
- * proves it does not stop the run, and a CoinGecko-sourced instrument exercises the second real
- * source end to end. {@code @MockitoBean} replaces the adapter bean outright, so this does not
- * exercise {@code BatchDomainConfig}'s request-to-step rescoping itself — that is covered by
- * {@code BatchDomainConfigTest}, against the real target bean definition.
- */
 @SpringBootTest
 @TestPropertySource(
         properties = {
             "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml",
-            // The job is launched explicitly below, not by Spring Boot's startup runner.
             "spring.batch.job.enabled=false"
         })
 @Testcontainers

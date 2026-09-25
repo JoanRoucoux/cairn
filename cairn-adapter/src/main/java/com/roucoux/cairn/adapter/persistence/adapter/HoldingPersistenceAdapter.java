@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read, write and delete ports for holdings with Spring Data JPA. */
 @Component
 public class HoldingPersistenceAdapter implements LoadHoldingsPort, SaveHoldingPort, DeleteHoldingPort {
 

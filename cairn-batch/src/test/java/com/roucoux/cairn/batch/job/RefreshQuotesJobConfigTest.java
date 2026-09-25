@@ -25,7 +25,6 @@ import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemWriter;
 
-/** The step's glue, without a Spring context: each piece talks to a port or a use case only. */
 class RefreshQuotesJobConfigTest {
 
     private static final Instrument ETF = new Instrument(

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 class DailySummaryServiceTest {
 
-    // 23:30 UTC on the 22nd is already the 23rd in Europe/Paris (UTC+2 in September).
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-22T23:30:00Z"), ZoneOffset.UTC);
     private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
 

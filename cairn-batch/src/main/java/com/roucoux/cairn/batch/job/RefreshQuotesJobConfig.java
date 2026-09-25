@@ -29,12 +29,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
-/**
- * Reads the refreshable instruments of the requested asset classes, refreshes each one through the
- * domain's inbound port, writes the resulting quotes back through an outbound port. One failing
- * source is skipped rather than stopping the run: the last known price stays in place and the
- * failure is recorded, instead of the whole line disappearing the way it would in a spreadsheet.
- */
 @Configuration(proxyBeanMethods = false)
 class RefreshQuotesJobConfig {
 
@@ -62,9 +56,6 @@ class RefreshQuotesJobConfig {
                 .processor(refreshQuoteProcessor)
                 .writer(quoteWriter)
                 .faultTolerant()
-                // Every runtime failure and no limit, like the refresh the API runs: an instrument
-                // deleted mid-run or a provider answering something unforeseen, even on every
-                // line during an outage, must not leave the remaining instruments unpriced.
                 .skipPolicy((failure, skipCount) -> failure instanceof RuntimeException)
                 .listener(skipListener)
                 .listener((ItemWriteListener<Quote>) announcementListener)

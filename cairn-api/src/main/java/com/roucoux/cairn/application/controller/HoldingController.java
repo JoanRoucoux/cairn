@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Inbound adapter: implements the generated contract and delegates to the domain's use case. */
 @RestController
 class HoldingController implements HoldingApi {
 
@@ -67,11 +66,6 @@ class HoldingController implements HoldingApi {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Best-effort full valuation: falls back to the bare-holding shape only when the instrument
-     * has no quote yet (e.g. just added, not refreshed), so market-data fields stay genuinely
-     * absent rather than fabricated.
-     */
     private HoldingResponse toResponse(Holding holding) {
         return valueHolding.value(holding).map(mapper::toResponse).orElseGet(() -> mapper.toResponse(holding));
     }

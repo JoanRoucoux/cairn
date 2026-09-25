@@ -12,11 +12,6 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Composition root of the instrument slice: the domain services are plain Java classes, wired
- * here against every port the adapters expose. One configuration per slice, so a slice can be
- * removed by deleting files rather than editing them.
- */
 @Configuration(proxyBeanMethods = false)
 class InstrumentDomainConfig {
 

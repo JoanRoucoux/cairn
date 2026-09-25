@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
-/** Records tonight's measured portfolio snapshot through the domain's inbound port, one tasklet step. */
 @Configuration(proxyBeanMethods = false)
 class SnapshotJobConfig {
 

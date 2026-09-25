@@ -12,12 +12,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * Refreshes quotes every 15 minutes: equities and ETFs during Euronext hours, cryptos around the
- * clock. Each run asks the {@link ObjectProvider} for a fresh {@link RefreshQuotesUseCase}, whose
- * prototype-scoped chain reaches down to a fresh {@code CoinGeckoQuoteAdapter} instance, see
- * {@code WorkerDomainConfig}.
- */
 @Component
 class IntradayRefreshScheduler {
 

@@ -89,7 +89,6 @@ public class YahooQuoteAdapter implements FetchQuotePort {
         return price;
     }
 
-    /** A fund answers with meta alone: no timestamp key and no close array, but a price and its date. */
     private static Quote metaQuote(Instrument instrument, Chart chart) {
         return new Quote(
                 instrument.id(),

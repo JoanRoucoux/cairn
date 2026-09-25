@@ -30,12 +30,7 @@ import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Outbound adapter: posts the daily summary to Telegram, formatted in French as HTML. Only fixed
- * labels, numbers and a French date go into it, so nothing is escaped: anything free-form added
- * later (an instrument name) needs {@code <}, {@code >} and {@code &} escaped, or Telegram rejects
- * the whole message with a 400.
- */
+/** Nothing is escaped: free text (an instrument name) needs <, > and & escaped or Telegram answers 400. */
 @Component
 public class TelegramNotificationAdapter implements SendNotificationPort {
 
@@ -206,11 +201,6 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
         };
     }
 
-    /**
-     * Grouping uses a plain space rather than the narrow no-break space the French locale defaults
-     * to: inside the {@code <pre>} table, a glyph a client font draws at another width would break
-     * the column alignment.
-     */
     private static String grouped(BigDecimal amount, String pattern) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRANCE);
         symbols.setGroupingSeparator(' ');
@@ -235,7 +225,6 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
             @JsonProperty("parse_mode") String parseMode,
             String text) {}
 
-    /** Carries the delay to wait before the single retry a 429 gets; never logged, never a cause. */
     private static final class TooManyRequests extends RuntimeException {
         private final Duration retryAfter;
 

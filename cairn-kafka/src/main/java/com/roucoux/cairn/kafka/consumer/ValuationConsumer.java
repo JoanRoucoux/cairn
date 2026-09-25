@@ -9,11 +9,6 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Inbound adapter: turns every {@code refresh.completed} envelope on {@code cairn.portfolio} into
- * one recorded point of the portfolio's value. Every other envelope on the topic, including the
- * {@code valuation.recorded} ones this same use case publishes, is ignored on purpose.
- */
 @Component
 public class ValuationConsumer {
 

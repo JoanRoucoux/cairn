@@ -6,7 +6,6 @@ import com.roucoux.cairn.domain.model.Quote;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Outbound port: fetch quotes from one external price source. */
 public interface FetchQuotePort {
 
     boolean supports(PriceSource source);

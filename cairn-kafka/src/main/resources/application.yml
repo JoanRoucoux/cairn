@@ -57,7 +57,4 @@ spring:
       ddl-auto: validate
     open-in-view: false
   liquibase:
-    # Only used by the *IT test, which migrates a throwaway Testcontainers database with the real
-    # changelog before ddl-auto: validate checks it. The demo changeset (012-seed-demo) is
-    # opt-in via context="demo" and must stay excluded here, exactly as in the batch and API.
     contexts: '!demo'

@@ -16,11 +16,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * The status codes below are decided by the filter chain and nowhere else, so this boots the real
- * one. MockMvc rather than TestRestTemplate, for the csrf() post-processor: obtaining a token over
- * real HTTP would test the cookie filter instead of the sign-in it is meant to exercise.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(

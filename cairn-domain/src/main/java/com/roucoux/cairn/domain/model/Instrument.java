@@ -23,8 +23,6 @@ public record Instrument(
         Objects.requireNonNull(currency, "currency");
         Objects.requireNonNull(assetClass, "assetClass");
         Objects.requireNonNull(priceSource, "priceSource");
-        // The unique indexes on isin and source_ref only let duplicates through when the column is null,
-        // so a blank one read as a value would collide with the next instrument that has none either.
         isin = blankToNull(isin);
         sourceRef = blankToNull(sourceRef);
         description = blankToNull(description);

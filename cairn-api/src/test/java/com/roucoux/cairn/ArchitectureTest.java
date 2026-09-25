@@ -12,10 +12,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
-/**
- * The hexagonal rules, enforced at build time. This lives in the application module because it is
- * the only one that sees every class of the hexagon on its (test) classpath.
- */
 class ArchitectureTest {
 
     private static final JavaClasses CLASSES = new ClassFileImporter()

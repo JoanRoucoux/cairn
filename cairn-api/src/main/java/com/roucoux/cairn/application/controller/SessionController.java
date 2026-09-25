@@ -17,11 +17,6 @@ import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Talks directly to Spring Security's WebAuthn repositories instead of a domain port:
- * authentication is not portfolio data, so ArchUnit's domain-access rules do not apply to this
- * slice.
- */
 @RestController
 class SessionController implements SessionApi {
 
@@ -48,9 +43,6 @@ class SessionController implements SessionApi {
     public ResponseEntity<SessionResponse> getSession() {
         String username = signedInUsername();
         PublicKeyCredentialUserEntity owner = userEntities.findByUsername(username);
-        // Right after the first form-login, before the first passkey registration ceremony
-        // completes, Spring Security has not created a PublicKeyCredentialUserEntity for this
-        // username yet: the caller is authenticated but owns no passkey, not an error state.
         String displayName = owner == null ? username : owner.getDisplayName();
         return ResponseEntity.ok(mapper.toResponse(displayName, passkeysOf(owner)));
     }
@@ -76,16 +68,9 @@ class SessionController implements SessionApi {
     }
 
     private String signedInUsername() {
-        // The generated interface fixes the method signature, so the authentication cannot arrive
-        // as a parameter: it is read from the context the security filter chain already populated.
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
-    /**
-     * A revoked passkey's device could otherwise keep an already-open session working for up to
-     * the full 30 sliding days Spring Session JDBC now grants, deploy or not: revoking must reach
-     * every session, not just stop new sign-ins.
-     */
     private void signOutEveryOtherSessionOf(String username) {
         String currentSessionId = request.getSession().getId();
         sessions.findByPrincipalName(username).keySet().stream()

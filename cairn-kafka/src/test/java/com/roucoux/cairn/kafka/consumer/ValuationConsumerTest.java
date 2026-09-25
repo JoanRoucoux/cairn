@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** No Spring context: the listener wiring itself is left to {@code ValuationRoundTripIT}. */
 class ValuationConsumerTest {
 
     private static final Instant NOW = Instant.parse("2026-09-24T09:31:00Z");

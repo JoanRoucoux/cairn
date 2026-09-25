@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** Outbound port: read access to stored instruments. */
 public interface LoadInstrumentsPort {
 
     List<Instrument> findAll();

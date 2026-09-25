@@ -24,7 +24,6 @@ import org.springframework.batch.core.scope.context.StepContext;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
 
-/** No Spring context: the listener talks to a use case only, driven straight through its callbacks. */
 class QuoteAnnouncementListenerTest {
 
     private static final Quote QUOTE_1 = quote("456.78");
@@ -50,8 +49,6 @@ class QuoteAnnouncementListenerTest {
 
         listener.afterWrite(Chunk.of(QUOTE_1));
         listener.afterChunkError(chunkContext());
-        // TaskletStep never calls afterChunk once afterChunkError has fired for the same chunk;
-        // calling it here proves the buffer was actually cleared, not merely never flushed.
         listener.afterChunk(chunkContext());
 
         assertThat(announce.savedQuotes()).isEmpty();

@@ -16,11 +16,6 @@ import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Composition root of the holding slice: the domain service is a plain Java class, wired here
- * against the ports implemented by the adapters. One configuration per slice, so a slice can be
- * removed by deleting files rather than editing them.
- */
 @Configuration(proxyBeanMethods = false)
 class HoldingDomainConfig {
 
@@ -46,10 +41,6 @@ class HoldingDomainConfig {
                 loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding);
     }
 
-    /**
-     * Also consumed by the portfolio slice (via {@link ValueHoldingUseCase}) so both slices share
-     * the exact same holding-to-{@code ValuedHolding} enrichment logic.
-     */
     @Bean
     ValueHoldingUseCase valueHoldingUseCase(
             LoadInstrumentsPort loadInstruments,

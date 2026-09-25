@@ -10,14 +10,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
-/**
- * Maps the domain model to the generated DTOs. One mapper per resource — never a shared one. The
- * domain never rounds; this is the only place where a monetary amount is rounded for the wire.
- *
- * <p>The domain's {@code HistoryPoint} and the generated {@code HistoryPoint} DTO share a name by
- * design — the wire schema mirrors the domain model — so both are referenced by their fully
- * qualified name here instead of importing either.
- */
 @Component
 public class HistoryRestMapper {
 

@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
-/** Declares the two Kafka topics Spring Boot's {@code KafkaAdmin} creates on startup. */
 @Configuration(proxyBeanMethods = false)
 class TopicsConfig {
 

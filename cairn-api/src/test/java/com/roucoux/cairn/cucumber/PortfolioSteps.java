@@ -20,10 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.jdbc.core.JdbcOperations;
 
-/**
- * Step definitions for {@code portfolio.feature}. Every scenario calls the real HTTP API of the
- * running application; nothing here talks to a repository or service directly.
- */
 public class PortfolioSteps {
 
     @Autowired
@@ -36,7 +32,6 @@ public class PortfolioSteps {
     private UUID instrumentId;
     private PortfolioResponse portfolio;
 
-    /** Each scenario starts from an empty portfolio, though they share one database. */
     @Before
     public void resetPortfolio() {
         jdbc.update("delete from quotes");

@@ -41,12 +41,6 @@ class TelegramClientConfigTest {
         assertThat(client.get().uri("/health").retrieve().body(String.class)).isEqualTo("reached");
     }
 
-    /**
-     * Regression test: the JDK HttpClient's default HTTP/2 attempts an h2c upgrade on a POST with a
-     * body, which WireMock's Jetty answers with a connection close rather than a clean HTTP/1.1
-     * fallback, surfacing as {@code ResourceAccessException: EOF reached while reading}. Forcing
-     * HTTP/1.1 in {@code telegramRestClient} is what makes this pass.
-     */
     @Test
     void postsARecordBodyOverHttp11WithoutAnH2cUpgradeFailure() {
         server.stubFor(post(urlEqualTo("/postBody")).willReturn(ok()));

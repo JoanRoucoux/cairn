@@ -2,8 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <!-- Standalone project: the repository root aggregates it but is NOT its parent.
-       <relativePath/> is required — without it Maven would look for the parent at ../pom.xml. -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -21,8 +19,6 @@
   <properties>
     <java.version>25</java.version>
 
-    <!-- Sibling modules are consumed by coordinates, never through ${project.version}: this
-         module must still resolve them correctly once extracted into its own repository. -->
     <cairn-domain.version>0.1.0-SNAPSHOT</cairn-domain.version>
     <cairn-adapter.version>0.1.0-SNAPSHOT</cairn-adapter.version>
     <cairn-schema.version>0.1.0-SNAPSHOT</cairn-schema.version>
@@ -30,11 +26,6 @@
     <archunit.version>1.5.0</archunit.version>
     <wiremock.version>3.13.2</wiremock.version>
     <testcontainers.version>1.21.4</testcontainers.version>
-    <!-- Pinned to a Cucumber release built against the JUnit Platform line spring-boot-dependencies
-         manages via its junit-bom import — this project's dependencyManagement always wins the
-         resolved version, never Cucumber's own, so a newer Cucumber needing a newer JUnit Platform
-         than that BOM provides fails at test discovery with NoClassDefFoundError. Re-check this
-         pairing before bumping either Spring Boot or Cucumber. -->
     <cucumber.version>7.34.8</cucumber.version>
 
     <openapi-generator-maven-plugin.version>7.25.0</openapi-generator-maven-plugin.version>
@@ -49,8 +40,6 @@
       <artifactId>cairn-domain</artifactId>
       <version>${cairn-domain.version}</version>
     </dependency>
-    <!-- Runtime only: adapters are wired into the context but invisible at compile time, so
-         the REST side can never reach into adapter internals, even by accident. -->
     <dependency>
       <groupId>com.roucoux.cairn</groupId>
       <artifactId>cairn-adapter</artifactId>
@@ -82,14 +71,10 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-session-jdbc</artifactId>
     </dependency>
-    <!-- JobExplorer only: read-only access to the BATCH_JOB_* tables that cairn-batch's jobs
-         (refreshQuotesJob, backfillQuotesJob) write to. Same cross-context reuse already applied
-         to RefreshQuotesUseCase — infrastructure with no dependency on the domain, not a port. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-batch</artifactId>
     </dependency>
-    <!-- Starts compose.yaml (PostgreSQL) on spring-boot:run; inactive in tests and packaged apps. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-docker-compose</artifactId>
@@ -123,8 +108,6 @@
       <version>${archunit.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Business-scenario acceptance tests, over real HTTP through the full Spring context —
-         see CucumberIT. Runs as a *IT (Failsafe), next to the technical ApplicationIT. -->
     <dependency>
       <groupId>org.wiremock</groupId>
       <artifactId>wiremock-standalone</artifactId>
@@ -149,16 +132,11 @@
       <version>${cucumber.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Version managed transitively: spring-boot-dependencies imports org.junit:junit-bom. -->
     <dependency>
       <groupId>org.junit.platform</groupId>
       <artifactId>junit-platform-suite</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Test-only: the schema is owned by the schema module and applied out-of-band by
-         ops/pipeline in real environments, never by this app. ApplicationIT depends on it (and
-         on liquibase-core) purely to migrate its own throwaway Testcontainers database, so the
-         full boot has a schema to validate against. Never widen this past test scope. -->
     <dependency>
       <groupId>com.roucoux.cairn</groupId>
       <artifactId>cairn-schema</artifactId>
@@ -170,8 +148,6 @@
       <artifactId>liquibase-core</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- LiquibaseAutoConfiguration: without it, liquibase-core alone never migrates the database
-         ApplicationIT needs to validate against. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-liquibase</artifactId>
@@ -207,8 +183,6 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Contract-first: interfaces and DTOs are generated from this module's openapi/openapi.yaml;
-           the controllers implement them. Never edit target/generated-sources. -->
       <plugin>
         <groupId>org.openapitools</groupId>
         <artifactId>openapi-generator-maven-plugin</artifactId>
@@ -244,9 +218,6 @@
         </executions>
       </plugin>
 
-      <!-- The quality block below is intentionally identical in every module: without a shared
-           parent, self-containedness is what lets a module move to its own repository. Keep the
-           copies in sync — see AGENTS.md. -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
@@ -339,8 +310,6 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <!-- Intentionally lower than the starter's actual coverage, so apps
-                           generated from it are not blocked from day one. -->
                       <minimum>0.70</minimum>
                     </limit>
                   </limits>

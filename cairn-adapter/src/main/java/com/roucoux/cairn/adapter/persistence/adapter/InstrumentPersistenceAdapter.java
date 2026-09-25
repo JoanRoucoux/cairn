@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read, write and delete ports for instruments with Spring Data JPA. */
 @Component
 public class InstrumentPersistenceAdapter implements LoadInstrumentsPort, SaveInstrumentPort, DeleteInstrumentPort {
 

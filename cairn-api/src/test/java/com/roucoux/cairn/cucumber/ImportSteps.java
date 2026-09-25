@@ -12,7 +12,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
-/** Step definitions for {@code import.feature}, over the same real HTTP API as the other scenarios. */
 public class ImportSteps {
 
     @Autowired
@@ -35,7 +34,6 @@ public class ImportSteps {
         assertThat(response.getBody().getHoldingsUpdated()).isEqualTo(updated);
     }
 
-    /** By code, not by constant: Spring renamed 422 from UNPROCESSABLE_ENTITY to UNPROCESSABLE_CONTENT. */
     @Then("the import is refused")
     public void theImportIsRefused() {
         assertThat(response.getStatusCode().value()).isEqualTo(422);

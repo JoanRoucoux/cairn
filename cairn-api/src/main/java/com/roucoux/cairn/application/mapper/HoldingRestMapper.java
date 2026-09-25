@@ -11,11 +11,6 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import org.springframework.stereotype.Component;
 
-/**
- * Maps a {@link Holding} (bare, or joined into a {@link ValuedHolding}) to the generated DTO. The
- * domain never rounds; this is the only place where a monetary amount or a ratio is rounded for
- * the wire.
- */
 @Component
 public class HoldingRestMapper {
 
@@ -28,11 +23,6 @@ public class HoldingRestMapper {
         this.clock = clock;
     }
 
-    /**
-     * Bare-holding fallback, used only when no {@link ValuedHolding} could be resolved (e.g. a
-     * brand-new instrument with no quote fetched yet). The market-data fields are then genuinely
-     * unpriceable and stay absent from the JSON — never coerced to 0.
-     */
     public HoldingResponse toResponse(Holding holding) {
         HoldingResponse response = new HoldingResponse();
         response.setId(holding.id());

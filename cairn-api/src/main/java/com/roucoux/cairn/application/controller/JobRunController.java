@@ -10,10 +10,6 @@ import org.springframework.batch.core.repository.explore.JobExplorer;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Inbound adapter over {@link JobExplorer}: read-only access to the Spring Batch metadata tables
- * written by {@code refreshQuotesJob} and {@code backfillQuotesJob}, not a domain port.
- */
 @RestController
 class JobRunController implements JobsApi {
 

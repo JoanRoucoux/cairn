@@ -8,7 +8,6 @@ target
 */target
 *.md
 cairn-schema/src/main/resources/db/changelog/local/
-# Same reasoning as .gitignore: a stray .env must never reach a published image layer.
 .env
 .env.*
 proxy

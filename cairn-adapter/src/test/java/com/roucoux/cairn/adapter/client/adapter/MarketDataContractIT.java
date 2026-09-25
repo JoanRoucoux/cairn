@@ -21,18 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.web.client.RestClient;
 
-/**
- * Hits the real providers, no WireMock. Excluded from the default Failsafe run (see
- * cairn-adapter/pom.xml), only re-enabled by the {@code external} profile: a provider outage or
- * rate limit must never fail a normal build. Asserts only the response *shape*, never a value: a
- * price changes every day, a format doesn't.
- *
- * <p>The instruments below are deliberately public and deliberately not anyone's holdings. This
- * repository is public, and a list of real positions committed here would disclose a portfolio's
- * composition as surely as its amounts would. Shape is what these tests read, so any liquid
- * instrument on each provider proves exactly as much: one venue per Yahoo listing suffix the
- * adapters have to parse, one fund per Sirius payload, one coin per CoinGecko response.
- */
+/** Public instruments only, never real holdings: this repository is public. */
 @Tag("external")
 class MarketDataContractIT {
 
@@ -40,7 +29,6 @@ class MarketDataContractIT {
 
     @Test
     void yahooStillQuotesEveryEuropeanVenueTheAdapterParses() {
-        // Paris, Amsterdam, Xetra, Milan: the four suffixes whose payloads the adapter reads.
         List.of("MC.PA", "ASML.AS", "EUNL.DE", "SGLD.MI").forEach(symbol -> {
             Quote quote = realYahoo().fetch(etf(symbol));
             assertThat(quote.price()).isPositive();

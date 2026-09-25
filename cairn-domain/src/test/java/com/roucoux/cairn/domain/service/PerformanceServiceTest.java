@@ -162,11 +162,6 @@ class PerformanceServiceTest {
                 .isTrue();
     }
 
-    /**
-     * The reviewer's example: A is quoted well before B, but max's start is pinned to the later of
-     * the two first-quote dates (B's), exactly where {@code HistoryService}'s constant-mix curve
-     * would start too.
-     */
     @Test
     void maxStartsAtTheLatestFirstQuoteDateAmongTheLinesLikeTheHistoryCurveDoes() {
         Line a = equityLine(
@@ -197,7 +192,6 @@ class PerformanceServiceTest {
 
     @Test
     void anchorsTodayInTheConfiguredZoneEvenWhenUtcIsStillOnThePreviousDay() {
-        // 00:30 in Europe/Paris (CEST, +2) is 22:30 UTC the day before.
         ZoneId paris = ZoneId.of("Europe/Paris");
         Instant justAfterMidnightInParis =
                 LocalDate.of(2026, 6, 16).atTime(0, 30).atZone(paris).toInstant();

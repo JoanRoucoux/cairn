@@ -8,14 +8,6 @@ import java.io.IOException;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Forces the CSRF token into its cookie on every request.
- *
- * <p>The token is deferred: CookieCsrfTokenRepository writes nothing until something reads the
- * value. Spring's own sign-in page used to be that reader, and this application no longer serves
- * one, so a browser that only ever calls the API would hold no token and every write it attempted
- * would be refused.
- */
 final class CsrfCookieFilter extends OncePerRequestFilter {
 
     @Override

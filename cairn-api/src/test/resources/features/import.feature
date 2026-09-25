@@ -1,9 +1,5 @@
 Feature: Portfolio import
 
-  # Both scenarios name an instrument that already exists, so the import matches it by source
-  # reference and never calls a price source. Resolution against the real providers belongs to
-  # the @external tests, not here.
-
   Background:
     Given an account "Sample Broker" of type PEA
     And an instrument "Global Growth Tracker" quoted by YAHOO as "GGT.PA"

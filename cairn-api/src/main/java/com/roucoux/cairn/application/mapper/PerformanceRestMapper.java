@@ -12,11 +12,6 @@ import java.math.RoundingMode;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Component;
 
-/**
- * Maps the domain model to the generated DTOs, and the {@code range} query parameter back into
- * its domain enum. One mapper per resource — never a shared one. The domain never rounds; this is
- * the only place where a monetary amount or a ratio is rounded for the wire.
- */
 @Component
 public class PerformanceRestMapper {
 

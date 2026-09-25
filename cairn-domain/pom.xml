@@ -2,8 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <!-- Standalone project: the repository root aggregates it but is NOT its parent.
-       <relativePath/> is required — without it Maven would look for the parent at ../pom.xml. -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -25,10 +23,6 @@
     <palantir-java-format.version>2.96.0</palantir-java-format.version>
   </properties>
 
-  <!-- ZERO compile-scope dependencies: pure Java, no Spring, no JPA. This is the strongest
-       guarantee in the hexagon — nothing on this module's classpath to accidentally depend on —
-       and the application module's ArchUnit tests check the same rule again once everything is
-       assembled. -->
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -52,9 +46,6 @@
     </dependency>
   </dependencies>
 
-  <!-- The quality block below is intentionally identical in every module: without a shared
-       parent, self-containedness is what lets a module move to its own repository. Keep the
-       copies in sync — see AGENTS.md. No Failsafe here: the domain has no *IT tests. -->
   <build>
     <plugins>
       <plugin>
@@ -101,8 +92,6 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <!-- Intentionally lower than the starter's actual coverage, so apps
-                           generated from it are not blocked from day one. -->
                       <minimum>0.70</minimum>
                     </limit>
                   </limits>

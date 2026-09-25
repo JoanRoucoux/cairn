@@ -10,9 +10,6 @@
   <description>Builds every module in one reactor. Deliberately NOT a parent: no module inherits
     from it, so any module can be extracted into its own repository as-is.</description>
 
-  <!-- Modules are independent Maven projects, each parented by spring-boot-starter-parent.
-       This list only decides what a build from the repository root covers; a module never
-       references this file. Optional modules are framed by generator markers. -->
   <modules>
     <module>cairn-domain</module>
     <module>cairn-adapter</module>
@@ -30,7 +27,6 @@
 
   <build>
     <plugins>
-      <!-- The build environment is checked once, here, for the whole reactor. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -54,9 +50,6 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Declared here as well as in every module: `spotless:check` from the repository root
-           resolves the plugin prefix per project, and a project without the plugin fails the
-           command. It formats nothing here (no src/**/*.java) — see AGENTS.md. -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>

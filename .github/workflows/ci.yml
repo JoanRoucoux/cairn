@@ -2,7 +2,6 @@ name: CI
 
 on:
   pull_request:
-  # deploy.yml calls this workflow on every push to main, which is why push is not listed.
   workflow_call:
 
 permissions:

@@ -23,30 +23,10 @@ import org.springframework.security.web.webauthn.management.JdbcUserCredentialRe
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 
-/**
- * Session-based WebAuthn (passkey) authentication: every request needs an authenticated session,
- * except the health probe. CSRF stays enabled, the credential travels in a session cookie. The
- * {@code local} profile sets {@code app.security.permit-all=true} to develop without registering a
- * passkey — WebAuthn requires a real {@code rpId} and an https origin.
- *
- * <p>Cairn is a single-user application: registering the first passkey needs an already
- * authenticated session to attach the credential to, so a single in-memory account backs the
- * form-login fallback that bootstraps that first registration.
- *
- * <p>The client is a single-page app talking to a JSON API, never a browser following a
- * server-driven redirect: an unauthenticated request gets a plain 401, not a redirect to
- * {@code /login} (Spring Security's form-login default).
- */
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 public class WebAuthnConfig {
 
-    /**
-     * A passkey is meant to be Cairn's only authentication factor (see Task 30): this password only
-     * bootstraps the very first passkey registration. Leaving it at its default outside the
-     * {@code local} profile would leave a permanent, guessable {@code joan}/{@code changeme}
-     * credential standing next to WebAuthn.
-     */
     static final String DEFAULT_PASSWORD = "changeme";
 
     static final String LOCAL_PROFILE = "local";
@@ -66,18 +46,14 @@ public class WebAuthnConfig {
         return http.webAuthn(webAuthn -> webAuthn.rpName("Cairn").rpId(rpId).allowedOrigins(allowedOrigins))
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
-                // defaultAuthenticationEntryPointFor, not authenticationEntryPoint: the latter
-                // disables Spring Security's own detection of whether to serve the default
-                // registration page, so GET /webauthn/register would 404 instead of rendering it.
+                // Not authenticationEntryPoint: that one makes GET /webauthn/register answer 404.
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), request -> true))
                 .authorizeHttpRequests(requests -> requests.requestMatchers("/actuator/health/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                // Naming a loginPage this application does not serve is what switches off
-                // DefaultLoginPageGeneratingFilter, and the sign-out confirmation page with it.
-                // cairn-web owns /login; the proxy stops forwarding it in the next task.
+                // A login page this application does not serve switches off Spring's generated one.
                 .formLogin(form -> form.loginPage("/login")
                         .loginProcessingUrl("/authenticate")
                         .successHandler((request, response, authentication) ->

@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read and write ports for measured snapshots with Spring Data JPA. */
 @Component
 public class SnapshotPersistenceAdapter implements LoadSnapshotsPort, SaveSnapshotPort {
 

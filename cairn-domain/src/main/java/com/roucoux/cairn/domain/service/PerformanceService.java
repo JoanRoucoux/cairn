@@ -89,14 +89,6 @@ public class PerformanceService implements GetPerformanceUseCase {
         return line.dayChange().map(change -> line.marketValue().orElseThrow().minus(change));
     }
 
-    /**
-     * The effective start date, aligned with the date {@link HistoryService}'s constant-mix curve
-     * starts at: the later of the range's own start and the latest first-quote date among the
-     * valued, non-par lines (a younger line can't be priced any earlier than it was first quoted).
-     * For {@link PerformanceRange#MAX} there is no range start, so this latest first-quote date is
-     * the start outright. When no valued line carries a real quote at all (an all-cash or empty
-     * portfolio), the start is simply today.
-     */
     private RangeStart rangeStart(PerformanceRange range, List<ValuedHolding> valuedLines, LocalDate to) {
         Set<UUID> quotedInstruments = valuedLines.stream()
                 .filter(line -> !line.instrument().isPricedAtPar())
@@ -168,7 +160,6 @@ public class PerformanceService implements GetPerformanceUseCase {
                 : Optional.of(change.amount().divide(start.amount(), Shares.SCALE, RoundingMode.HALF_UP));
     }
 
-    /** A line's current value against its value at the start of the range; absent without a start. */
     private record LineMove(ValuedHolding line, Optional<Money> start) {
         Money current() {
             return line.marketValue().orElseThrow();

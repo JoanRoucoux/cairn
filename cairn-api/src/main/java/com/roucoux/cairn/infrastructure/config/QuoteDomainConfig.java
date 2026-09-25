@@ -14,11 +14,6 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Composition root of the quote slice: the domain services are plain Java classes, wired here
- * against the ports they need — the same wiring the batch module does, for the same hexagon. One
- * configuration per slice, so a slice can be removed by deleting files rather than editing them.
- */
 @Configuration(proxyBeanMethods = false)
 class QuoteDomainConfig {
 

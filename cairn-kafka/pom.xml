@@ -2,8 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <!-- Standalone project: the repository root aggregates it but is NOT its parent.
-       <relativePath/> is required — without it Maven would look for the parent at ../pom.xml. -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -22,8 +20,6 @@
   <properties>
     <java.version>25</java.version>
 
-    <!-- Sibling modules are consumed by coordinates, never through ${project.version}: this
-         module must still resolve them correctly once extracted into its own repository. -->
     <cairn-domain.version>0.1.0-SNAPSHOT</cairn-domain.version>
     <cairn-adapter.version>0.1.0-SNAPSHOT</cairn-adapter.version>
     <cairn-schema.version>0.1.0-SNAPSHOT</cairn-schema.version>
@@ -43,8 +39,6 @@
       <artifactId>cairn-domain</artifactId>
       <version>${cairn-domain.version}</version>
     </dependency>
-    <!-- Runtime only, exactly as in the API and batch modules: the worker depends on the
-         domain's ports only, never on the adapters that implement them. -->
     <dependency>
       <groupId>com.roucoux.cairn</groupId>
       <artifactId>cairn-adapter</artifactId>
@@ -72,7 +66,6 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-restclient</artifactId>
     </dependency>
-    <!-- Starts compose.yaml (PostgreSQL) on spring-boot:run; inactive in tests and packaged apps. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-docker-compose</artifactId>
@@ -91,8 +84,6 @@
       <version>${archunit.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Test-only, exactly as in the API and batch modules: the worker never migrates the
-         database either, it only needs the real changelog to build its own throwaway test schema. -->
     <dependency>
       <groupId>com.roucoux.cairn</groupId>
       <artifactId>cairn-schema</artifactId>
@@ -104,8 +95,6 @@
       <artifactId>liquibase-core</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- LiquibaseAutoConfiguration: without it, liquibase-core alone never migrates the database
-         KafkaWorkerApplicationIT needs to validate against. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-liquibase</artifactId>
@@ -153,9 +142,6 @@
         </executions>
       </plugin>
 
-      <!-- The quality block below is intentionally identical in every module: without a shared
-           parent, self-containedness is what lets a module move to its own repository. Keep the
-           copies in sync — see AGENTS.md. -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
@@ -248,8 +234,6 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <!-- Intentionally lower than the starter's actual coverage, so apps
-                           generated from it are not blocked from day one. -->
                       <minimum>0.70</minimum>
                     </limit>
                   </limits>

@@ -13,12 +13,6 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Maps domain errors to RFC 9457 problem details by exception family: a missing resource becomes
- * 404, other business-rule violations become 422, technical failures of an outbound dependency
- * become 502. (Authentication and authorization failures — 401/403 — are handled by Spring
- * Security's filter chain, not here.)
- */
 @RestControllerAdvice
 class ApiExceptionHandler {
 
@@ -29,11 +23,6 @@ class ApiExceptionHandler {
         return problem;
     }
 
-    /**
-     * A rejected import carries more than a message: RFC 9457 lets the reasons ride along as an
-     * extension member, so the caller can fix every line in one pass instead of rediscovering them one
-     * deploy at a time.
-     */
     @ExceptionHandler(ImportFileRejectedException.class)
     ProblemDetail handleImportRejected(ImportFileRejectedException exception) {
         ProblemDetail problem =
@@ -45,10 +34,6 @@ class ApiExceptionHandler {
         return problem;
     }
 
-    /**
-     * A code and the offending token, never a sentence: the caller owns the wording and can
-     * translate it. {@code value} is omitted rather than sent null when the failure has no token.
-     */
     private static Map<String, Object> asMember(LineError error) {
         Map<String, Object> member = new LinkedHashMap<>();
         member.put("line", error.line());
@@ -59,7 +44,6 @@ class ApiExceptionHandler {
         return member;
     }
 
-    /** A unique index turning a row down means the same instrument, account or quote is already there. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleConflict(DataIntegrityViolationException exception) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);

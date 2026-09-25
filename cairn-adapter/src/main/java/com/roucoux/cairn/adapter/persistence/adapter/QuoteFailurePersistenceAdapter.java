@@ -7,7 +7,6 @@ import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's port to record a failed quote refresh with Spring Data JPA. */
 @Component
 public class QuoteFailurePersistenceAdapter implements RecordQuoteFailurePort {
 

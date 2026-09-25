@@ -151,9 +151,6 @@ class KafkaEventPublisherIT {
         ConsumerRecord<String, String> record =
                 pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("0.000000120000"));
 
-        // A literal match on the plain-decimal form already rules out scientific notation:
-        // checking the absence of "e-7" instead would be a false positive against a random
-        // UUID elsewhere in the envelope that happens to contain that substring.
         assertThat(record.value()).contains("0.000000120000");
     }
 
@@ -195,8 +192,7 @@ class KafkaEventPublisherIT {
 
     @Test
     void neverThrowsWhenTheBrokerIsUnreachableEvenAcrossSeveralEvents() {
-        // Left open, the producer's background thread keeps retrying forever and the JVM never
-        // exits, so Surefire has to kill the whole fork after its 30s grace period.
+        // Left open, its background thread retries forever and Surefire kills the fork after 30 s.
         DefaultKafkaProducerFactory<String, String> unreachableFactory = new DefaultKafkaProducerFactory<>(Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 "127.0.0.1:1",
@@ -224,9 +220,7 @@ class KafkaEventPublisherIT {
         }
     }
 
-    // auto.offset.reset=earliest means every test's fresh consumer group re-reads every record
-    // any earlier test in this class already published to the same topic, so matching by topic
-    // alone would return a stale record instead of the one this test just published.
+    // Every test's fresh group re-reads the whole topic from the start, so match on the value too.
     private ConsumerRecord<String, String> pollMatching(String topic, Predicate<String> valueMatches) {
         long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
         while (System.nanoTime() < deadline) {

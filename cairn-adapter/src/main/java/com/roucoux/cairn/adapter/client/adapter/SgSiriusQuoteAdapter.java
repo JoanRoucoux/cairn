@@ -20,12 +20,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-/**
- * Outbound adapter: fetches FCPE net asset values from SG Sirius. The API returns the whole
- * history regardless of the request, so {@link #fetch(Instrument)} and {@link
- * #fetchHistory(Instrument, LocalDate)} share the same call, and {@code fetch} keeps only the
- * latest point.
- */
 @Component
 public class SgSiriusQuoteAdapter implements FetchQuotePort {
 

@@ -14,7 +14,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read and write ports for quotes with Spring Data JPA. */
 @Component
 public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
 
@@ -78,8 +77,6 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
 
     @Override
     public void upsertAll(List<Quote> quotes) {
-        // Flushed here, not at the caller's commit: a batch writer can only skip the one offending
-        // quote, such as one whose instrument was deleted mid-run, if the violation surfaces inside it.
         repository.saveAllAndFlush(quotes.stream().map(QuoteEntity::fromDomain).toList());
     }
 }

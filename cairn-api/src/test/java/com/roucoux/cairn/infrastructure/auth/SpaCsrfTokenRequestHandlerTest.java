@@ -9,12 +9,6 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 
-/**
- * The two clients of this application send the CSRF token in two different shapes, and the server
- * has to accept both. Spring renders an XOR-masked token into its own sign-in form; the single-page
- * application reads the raw token from the XSRF-TOKEN cookie and echoes it in a header, because
- * that is what Angular's HttpClient does and it cannot mask what it never received unmasked.
- */
 class SpaCsrfTokenRequestHandlerTest {
 
     private static final String HEADER = "X-XSRF-TOKEN";
@@ -40,7 +34,6 @@ class SpaCsrfTokenRequestHandlerTest {
         assertThat(handler.resolveCsrfTokenValue(request, token)).isEqualTo(RAW_TOKEN);
     }
 
-    /** The value Spring writes into the hidden {@code _csrf} field, obtained the way it produces it. */
     private String maskedToken() {
         MockHttpServletRequest rendering = new MockHttpServletRequest();
         new XorCsrfTokenRequestAttributeHandler().handle(rendering, new MockHttpServletResponse(), () -> token);

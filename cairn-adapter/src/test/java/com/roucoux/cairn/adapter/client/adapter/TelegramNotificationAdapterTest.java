@@ -57,13 +57,6 @@ class TelegramNotificationAdapterTest {
         wireMock.stop();
     }
 
-    /**
-     * Same request factory as {@code TelegramClientConfig.telegramRestClient}, cannot reuse the
-     * bean method directly (different package): the JDK HttpClient's default HTTP/2 attempts an h2c
-     * upgrade on a POST with a body that WireMock's Jetty answers with a connection close, surfacing
-     * as {@code ResourceAccessException: EOF reached while reading} rather than a clean HTTP/1.1
-     * fallback.
-     */
     private TelegramNotificationAdapter adapter(String token, String chatId) {
         TelegramClientProperties properties = new TelegramClientProperties(
                 wireMock.baseUrl(), token, chatId, Duration.ofSeconds(2), Duration.ofSeconds(5));
