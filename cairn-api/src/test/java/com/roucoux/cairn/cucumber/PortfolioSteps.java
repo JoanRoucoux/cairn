@@ -3,11 +3,14 @@ package com.roucoux.cairn.cucumber;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.generated.model.AccountResponse;
+import com.roucoux.cairn.generated.model.AccountType;
+import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
+import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.RecordQuoteRequest;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
@@ -44,7 +47,7 @@ public class PortfolioSteps {
     public void anAccountOfType(String name, String type) {
         CreateAccountRequest request = new CreateAccountRequest();
         request.setName(name);
-        request.setType(CreateAccountRequest.TypeEnum.valueOf(type));
+        request.setType(AccountType.valueOf(type));
         request.setInstitution(name);
         accountId = restTemplate
                 .postForEntity("/accounts", request, AccountResponse.class)
@@ -57,8 +60,8 @@ public class PortfolioSteps {
         CreateInstrumentRequest request = new CreateInstrumentRequest();
         request.setName(name);
         request.setCurrency("EUR");
-        request.setAssetClass(CreateInstrumentRequest.AssetClassEnum.ETF);
-        request.setPriceSource(CreateInstrumentRequest.PriceSourceEnum.valueOf(priceSource));
+        request.setAssetClass(AssetClass.ETF);
+        request.setPriceSource(PriceSource.valueOf(priceSource));
         request.setSourceRef(sourceRef);
         instrumentId = restTemplate
                 .postForEntity("/instruments", request, InstrumentResponse.class)

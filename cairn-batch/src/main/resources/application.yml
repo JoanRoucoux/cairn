@@ -1,6 +1,12 @@
 spring:
   application:
     name: cairn-batch
+  docker:
+    compose:
+      file: ../compose.local.yaml
+      lifecycle-management: start-only
+      start:
+        skip: never
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:

@@ -9,6 +9,12 @@ server:
 spring:
   application:
     name: cairn-api
+  docker:
+    compose:
+      file: ../compose.local.yaml
+      lifecycle-management: start-only
+      start:
+        skip: never
   session:
     timeout: 30d
     jdbc:
@@ -36,6 +42,12 @@ spring:
     contexts: '!demo'
   jackson:
     default-property-inclusion: non_null
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 app:
   zone: Europe/Paris

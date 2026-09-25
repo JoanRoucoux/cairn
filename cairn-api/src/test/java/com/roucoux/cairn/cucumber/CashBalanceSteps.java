@@ -3,6 +3,7 @@ package com.roucoux.cairn.cucumber;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.generated.model.AccountResponse;
+import com.roucoux.cairn.generated.model.AccountType;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.SetCashBalanceRequest;
@@ -43,7 +44,7 @@ public class CashBalanceSteps {
     public void anAccount(String name) {
         CreateAccountRequest request = new CreateAccountRequest();
         request.setName(name);
-        request.setType(CreateAccountRequest.TypeEnum.SAVINGS);
+        request.setType(AccountType.SAVINGS);
         request.setInstitution(name);
         accountId = restTemplate
                 .postForEntity("/accounts", request, AccountResponse.class)

@@ -2,9 +2,11 @@ package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.InstrumentCandidateResponse;
 import com.roucoux.cairn.generated.model.InstrumentDetailResponse;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
+import com.roucoux.cairn.generated.model.PriceSource;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,10 +18,8 @@ public class InstrumentRestMapper {
         response.setName(instrument.name());
         response.setIsin(instrument.isin());
         response.setCurrency(instrument.currency());
-        response.setAssetClass(InstrumentResponse.AssetClassEnum.valueOf(
-                instrument.assetClass().name()));
-        response.setPriceSource(InstrumentResponse.PriceSourceEnum.valueOf(
-                instrument.priceSource().name()));
+        response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
+        response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
         response.setSourceRef(instrument.sourceRef());
         return response;
     }
@@ -30,10 +30,8 @@ public class InstrumentRestMapper {
         response.setName(instrument.name());
         response.setIsin(instrument.isin());
         response.setCurrency(instrument.currency());
-        response.setAssetClass(InstrumentDetailResponse.AssetClassEnum.valueOf(
-                instrument.assetClass().name()));
-        response.setPriceSource(InstrumentDetailResponse.PriceSourceEnum.valueOf(
-                instrument.priceSource().name()));
+        response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
+        response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
         response.setSourceRef(instrument.sourceRef());
         response.setDescription(instrument.description());
         instrument.externalUrl().ifPresent(response::setExternalUrl);
@@ -44,11 +42,9 @@ public class InstrumentRestMapper {
     public InstrumentCandidateResponse toCandidateResponse(InstrumentCandidate candidate) {
         InstrumentCandidateResponse response = new InstrumentCandidateResponse();
         response.setName(candidate.name());
-        response.setSource(InstrumentCandidateResponse.SourceEnum.valueOf(
-                candidate.source().name()));
+        response.setSource(PriceSource.valueOf(candidate.source().name()));
         response.setSourceRef(candidate.sourceRef());
-        response.setAssetClass(InstrumentCandidateResponse.AssetClassEnum.valueOf(
-                candidate.assetClass().name()));
+        response.setAssetClass(AssetClass.valueOf(candidate.assetClass().name()));
         response.setProbePrice(candidate.probePrice());
         return response;
     }
