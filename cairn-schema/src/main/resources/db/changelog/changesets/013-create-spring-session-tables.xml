@@ -5,9 +5,6 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
-    <!-- Spring Session's own tables, verbatim from spring-session-jdbc, same pattern as
-         002-spring-batch-metadata: a raw SQL script here lets the application run with
-         spring.session.jdbc.initialize-schema=never in every environment. -->
     <changeSet id="013-create-spring-session-tables" author="cairn">
         <sqlFile path="../sql/spring-session-postgresql.sql" relativeToChangelogFile="true" splitStatements="true" endDelimiter=";"/>
         <rollback>

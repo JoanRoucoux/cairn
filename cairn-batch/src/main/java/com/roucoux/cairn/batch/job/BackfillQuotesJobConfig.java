@@ -23,11 +23,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
-/**
- * Fills in historical quote gaps through the domain's inbound port: one instrument, or every
- * refreshable instrument when {@code instrumentId} is omitted, from the {@code from} date forward.
- * The use case itself persists the fetched history, so the writer has nothing left to do.
- */
 @Configuration(proxyBeanMethods = false)
 class BackfillQuotesJobConfig {
 

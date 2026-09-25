@@ -36,8 +36,6 @@ class SessionSerializationTest {
         assertThat(restored.isAuthenticated()).isTrue();
     }
 
-    // HttpSessionPublicKeyCredentialRequestOptionsRepository holds exactly this between the
-    // passkey assertion's options call and its verification (see WebAuthnConfig's Javadoc).
     @Test
     void aRequestOptionsChallengeSurvivesTheTripThroughTheSessionTable() throws Exception {
         PublicKeyCredentialRequestOptions options = PublicKeyCredentialRequestOptions.builder()
@@ -51,8 +49,6 @@ class SessionSerializationTest {
         assertThat(restored.getRpId()).isEqualTo("cairn.example");
     }
 
-    // HttpSessionPublicKeyCredentialCreationOptionsRepository holds exactly this between the
-    // passkey registration's options call and its verification.
     @Test
     void aCreationOptionsChallengeSurvivesTheTripThroughTheSessionTable() throws Exception {
         PublicKeyCredentialCreationOptions options = PublicKeyCredentialCreationOptions.builder()

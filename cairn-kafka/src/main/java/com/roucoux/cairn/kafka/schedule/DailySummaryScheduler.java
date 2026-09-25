@@ -7,10 +7,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * Sends the day's Telegram summary Monday to Friday at 19:45 Paris time. Not on weekends: a
- * stock's day change would simply replay Friday's.
- */
 @Component
 class DailySummaryScheduler {
 

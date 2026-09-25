@@ -21,10 +21,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcOperations;
 
-/**
- * Step definitions for {@code instrument-deletion.feature}. Every scenario calls the real HTTP
- * API of the running application, the only level that exercises the real Liquibase cascades.
- */
 public class InstrumentDeletionSteps {
 
     @Autowired
@@ -36,7 +32,6 @@ public class InstrumentDeletionSteps {
     private UUID instrumentId;
     private ResponseEntity<Void> deleteResponse;
 
-    /** Each scenario starts from an empty portfolio, though they share one database. */
     @Before
     public void resetPortfolio() {
         jdbc.update("delete from quotes");

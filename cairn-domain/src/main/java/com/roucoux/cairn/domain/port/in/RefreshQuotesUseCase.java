@@ -7,7 +7,6 @@ import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import java.util.Set;
 
-/** Inbound port: refresh quotes, dispatching each instrument to the source it declares. */
 public interface RefreshQuotesUseCase {
 
     Quote refresh(Instrument instrument);

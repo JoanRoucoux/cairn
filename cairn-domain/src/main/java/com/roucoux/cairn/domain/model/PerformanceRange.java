@@ -5,11 +5,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
 
-/**
- * Aligned with the front's {@code rangeStart} (chart-range.ts): the number of days back from
- * today, in the given zone. {@code MAX} has no lower bound; each line is valued from its own
- * first known quote instead.
- */
+/** Must match cairn-web's rangeStart in chart-range.ts. */
 public enum PerformanceRange {
     D1(1),
     D7(7),

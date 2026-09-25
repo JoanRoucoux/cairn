@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Outbound port: read every holding, for portfolio aggregation. */
 public interface LoadHoldingsPort {
 
     List<Holding> findAll();

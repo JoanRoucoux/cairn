@@ -60,11 +60,7 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                 refreshed++;
                 announce.quotesSaved(List.of(quote));
             } catch (RuntimeException failure) {
-                // Deliberately every runtime failure, not only the expected one: a single provider
-                // answering something nobody foresaw must not leave the other instruments unpriced.
                 if (loadInstruments.findById(instrument.id()).isEmpty()) {
-                    // Deleted since it was read: a failure recorded against it would break the
-                    // same foreign key as the quote did, and escape this catch.
                     continue;
                 }
                 String reason = reasonOf(failure);
@@ -77,7 +73,6 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
         return new RefreshReport(refreshed, skipped, List.copyOf(failures));
     }
 
-    /** A NullPointerException carries no message, and "null" as a reason tells the reader nothing. */
     private static String reasonOf(RuntimeException failure) {
         String message = failure.getMessage();
 

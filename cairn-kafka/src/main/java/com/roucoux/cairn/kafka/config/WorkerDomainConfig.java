@@ -38,23 +38,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
-/**
- * Composition root of the worker: the same portfolio-valuation slice as the API's
- * {@code PortfolioDomainConfig}/{@code HoldingDomainConfig}, wired here against the ports
- * implemented by the adapters, plus the valuation slice the worker alone runs and the quote-refresh
- * slice the intraday scheduler drives.
- */
 @Configuration(proxyBeanMethods = false)
 class WorkerDomainConfig {
 
     private static final String COIN_GECKO_BEAN_NAME = "coinGeckoQuoteAdapter";
 
-    /**
-     * A scoped proxy left over a prototype target re-resolves that target through {@code getBean}
-     * on every method call, so keeping the proxy while only rescoping its target would still hand
-     * out a new instance on every {@code supports()}/{@code fetch()} call, losing the one grouped
-     * CoinGecko call a refresh run is meant to make. This drops the proxy entirely instead.
-     */
     @Bean
     static BeanFactoryPostProcessor coinGeckoQuoteAdapterPrototypeScoped() {
         return WorkerDomainConfig::rescopeCoinGeckoQuoteAdapterToPrototype;

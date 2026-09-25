@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 
 public class PortfolioImportService implements ImportPortfolioUseCase {
 
-    /** Two letters then ten alphanumerics: enough to tell an ISIN from a ticker or a provider id. */
     private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
 
     private static final String EUR = "EUR";
@@ -101,11 +100,6 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return new ImportReport(accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated);
     }
 
-    /**
-     * Every row is checked before any is written, and every reason is collected rather than the
-     * first: a caller fixing a file wants the whole list in one pass. Resolution happens here too,
-     * so an instrument is looked up once and the external call is not repeated while writing.
-     */
     private Map<String, InstrumentCandidate> validate(List<ImportRow> rows, Map<String, Instrument> known) {
         List<ImportError> errors = new ArrayList<>();
         Map<String, InstrumentCandidate> candidates = new HashMap<>();
@@ -151,7 +145,6 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return ISIN.matcher(isinOrTicker).matches() ? isinOrTicker : null;
     }
 
-    /** Reachable by whichever identifier the file used, so a second row naming it differently still matches. */
     private static void index(Map<String, Instrument> instrumentsByRef, Instrument instrument) {
         if (instrument.isin() != null) {
             instrumentsByRef.put(instrument.isin(), instrument);

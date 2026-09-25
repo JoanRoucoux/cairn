@@ -20,7 +20,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcOperations;
 
-/** Step definitions for {@code cash.feature}. */
 public class CashBalanceSteps {
 
     @Autowired
@@ -32,7 +31,6 @@ public class CashBalanceSteps {
     private UUID accountId;
     private ResponseEntity<Void> lastResponse;
 
-    /** Each scenario starts from an empty portfolio, though they share one database. */
     @Before
     public void resetPortfolio() {
         jdbc.update("delete from quotes");

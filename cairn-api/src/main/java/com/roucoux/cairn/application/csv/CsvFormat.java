@@ -1,9 +1,6 @@
 package com.roucoux.cairn.application.csv;
 
-/**
- * What the export, the import template and the reader agree on. The semicolon is what Excel splits
- * on in a French locale, and the byte order mark is what makes it read the accents.
- */
+/** Semicolon and byte order mark: what Excel needs in a French locale to split columns and read accents. */
 final class CsvFormat {
 
     static final String BYTE_ORDER_MARK = "﻿";

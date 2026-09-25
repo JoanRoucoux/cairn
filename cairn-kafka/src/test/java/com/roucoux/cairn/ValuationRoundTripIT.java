@@ -30,12 +30,6 @@ import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Boots the full worker context, exactly like {@code KafkaWorkerApplicationIT}, and exercises
- * {@code ValuationConsumer} end to end: a {@code refresh.completed} envelope sent on
- * {@code cairn.portfolio} must produce a row in {@code intraday_valuations} and a
- * {@code valuation.recorded} envelope back on the same topic.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(properties = "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml")
 @Testcontainers
@@ -103,9 +97,6 @@ class ValuationRoundTripIT {
         assertThat(valuations.findAll()).hasSize(1);
     }
 
-    // The listener container only starts consuming once its partitions are assigned; sending
-    // before that happened would have the broker keep the record but the consumer never see it in
-    // time for the assertions below.
     private void awaitTheCairnValuationContainerToHaveAssignedPartitions() {
         MessageListenerContainer container = registry.getListenerContainer("cairn-valuation");
         long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();

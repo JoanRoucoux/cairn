@@ -6,11 +6,6 @@ import org.junit.platform.suite.api.IncludeEngines;
 import org.junit.platform.suite.api.SelectClasspathResource;
 import org.junit.platform.suite.api.Suite;
 
-/**
- * Runs every {@code .feature} file under {@code src/test/resources/features/} against the glue
- * code in this package. Named {@code *IT} on purpose, exactly like {@link
- * com.roucoux.cairn.ApplicationIT}: Failsafe picks it up, Surefire does not.
- */
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")

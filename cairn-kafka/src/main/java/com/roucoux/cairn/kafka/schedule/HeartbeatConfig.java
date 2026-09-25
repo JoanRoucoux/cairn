@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
-/** One {@link Heartbeat} instance per Uptime Kuma push monitor this worker pings. */
 @Configuration(proxyBeanMethods = false)
 class HeartbeatConfig {
 

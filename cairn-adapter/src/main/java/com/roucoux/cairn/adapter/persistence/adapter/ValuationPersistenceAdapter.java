@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read and write ports for intraday valuations with Spring Data JPA. */
 @Component
 public class ValuationPersistenceAdapter implements LoadValuationsPort, SaveValuationPort {
 

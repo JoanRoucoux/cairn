@@ -4,7 +4,6 @@ import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.generated.model.AccountResponse;
 import org.springframework.stereotype.Component;
 
-/** Maps a plain {@link Account} to the generated DTO. */
 @Component
 public class AccountRestMapper {
 

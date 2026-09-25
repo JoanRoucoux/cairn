@@ -7,7 +7,6 @@ import com.roucoux.cairn.generated.model.InstrumentDetailResponse;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
 import org.springframework.stereotype.Component;
 
-/** Maps a plain {@link Instrument} or {@link InstrumentCandidate} to the generated DTOs. */
 @Component
 public class InstrumentRestMapper {
 

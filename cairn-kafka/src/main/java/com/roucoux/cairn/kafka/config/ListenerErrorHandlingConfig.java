@@ -5,11 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
-/**
- * A listener that keeps failing after 3 retries spaced 2 s is logged and skipped rather than
- * blocking its partition forever: {@code DefaultErrorHandler}'s default recoverer already just
- * logs.
- */
 @Configuration(proxyBeanMethods = false)
 class ListenerErrorHandlingConfig {
 

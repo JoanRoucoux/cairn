@@ -14,12 +14,6 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Component;
 
-/**
- * Maps the domain model to the generated DTOs. One mapper per resource — never a shared one. Each
- * holding line reuses {@link HoldingRestMapper}, the resource mapper that owns the {@code
- * HoldingResponse} shape, rather than a divergent copy. The domain never rounds; this is the only
- * place where a monetary amount or a ratio is rounded for the wire.
- */
 @Component
 public class PortfolioRestMapper {
 
@@ -72,12 +66,6 @@ public class PortfolioRestMapper {
         return response;
     }
 
-    /**
-     * The sum of {@code quantity x previousQuote.price} over the lines that have a previous
-     * quote — not {@code total - dayChange}, which would silently fold in the full current value
-     * of every line without one (a brand-new line, still priced but not yet a full day old) and
-     * dilute the ratio.
-     */
     private static BigDecimal previousTotal(Portfolio portfolio) {
         return portfolio.holdings().stream()
                 .filter(line ->

@@ -117,10 +117,6 @@ public class HistoryService implements GetHistoryUseCase {
         return series;
     }
 
-    /**
-     * Advances the instrument's cursor to the last quote whose date is on or before {@code day},
-     * remembering its price: the carry-forward of the last known quote.
-     */
     private static void advanceTo(
             UUID instrumentId,
             LocalDate day,

@@ -7,10 +7,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
-/**
- * The hexagonal rules as they apply to the worker. The application module has its own
- * {@code ArchitectureTest}: neither module sees the other's classes, so each enforces its side.
- */
 class WorkerArchitectureTest {
 
     private static final JavaClasses CLASSES = new ClassFileImporter()

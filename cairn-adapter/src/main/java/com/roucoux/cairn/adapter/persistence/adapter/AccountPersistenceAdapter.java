@@ -10,7 +10,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Outbound adapter: implements the domain's read and write ports for accounts with Spring Data JPA. */
 @Component
 public class AccountPersistenceAdapter implements LoadAccountsPort, SaveAccountPort {
 

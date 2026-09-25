@@ -4,7 +4,6 @@ import com.roucoux.cairn.domain.model.Money;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** A part's share of a total, shared by every per-class/per-envelope breakdown. */
 final class Shares {
 
     static final int SCALE = 10;

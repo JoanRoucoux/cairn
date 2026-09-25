@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Inbound adapter: implements the generated contract and delegates to the domain's use case. */
 @RestController
 class HistoryController implements HistoryApi {
 

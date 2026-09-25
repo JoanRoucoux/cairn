@@ -32,10 +32,6 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Composition root of the batch: the domain service is a plain Java class, wired here against the
- * ports implemented by the adapters — the same wiring the API module does, for the same hexagon.
- */
 @Configuration(proxyBeanMethods = false)
 class BatchDomainConfig {
 
@@ -65,13 +61,6 @@ class BatchDomainConfig {
         return new SnapshotService(getPortfolio, saveSnapshot, clock);
     }
 
-    /**
-     * The adapter is request-scoped for the API, where request-lifetime caching keeps its single
-     * grouped call fresh across a call. The batch has no request scope, so its target bean
-     * definition is switched to step-scoped instead — by bean name only, since {@code cairn-batch}
-     * depends on {@code cairn-adapter} at runtime scope and may not reference the class at compile
-     * time (see task 14 for the caching reasoning).
-     */
     @Bean
     static BeanFactoryPostProcessor coinGeckoQuoteAdapterStepScoped() {
         return BatchDomainConfig::rescopeCoinGeckoQuoteAdapterToStep;

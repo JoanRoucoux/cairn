@@ -10,7 +10,6 @@ import java.util.Locale;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
-/** Reads the import CSV, the inverse of {@link HoldingCsvWriter} for the columns a caller can fill in. */
 @Component
 public class PortfolioCsvReader {
 
@@ -26,14 +25,8 @@ public class PortfolioCsvReader {
             "quantity",
             "averageCost");
 
-    /** A line starting with it is skipped, which is what keeps the template's examples out of an import. */
     private static final String COMMENT = "#";
 
-    /**
-     * The file handed out by {@code GET /portfolio/import/template}: the header, then one example
-     * identified by an ISIN with its cost basis and one identified by a ticker without, both commented
-     * out so that importing the template untouched changes nothing.
-     */
     public static final String TEMPLATE = CsvFormat.BYTE_ORDER_MARK
             + String.join(
                     CsvFormat.LINE_ENDING,
@@ -47,10 +40,6 @@ public class PortfolioCsvReader {
 
     private static final char QUOTE = '"';
 
-    /**
-     * Structural reading only: shape, types and enums. Whether a row makes business sense is the
-     * domain's call. Both refuse the same way, so a caller sees one list of reasons either way.
-     */
     public ImportFile read(String csv) {
         List<Line> lines = lines(csv);
         if (lines.isEmpty() || !HEADER.equals(lines.getFirst().text().trim())) {
@@ -113,7 +102,6 @@ public class PortfolioCsvReader {
         }
     }
 
-    /** Carries the code out of a field parser without building a sentence the caller cannot translate. */
     private static final class UnreadableFieldException extends RuntimeException {
 
         private final transient ImportErrorCode code;
@@ -139,7 +127,6 @@ public class PortfolioCsvReader {
                 .toList();
     }
 
-    /** The writer quotes any field holding the separator, so a plain split would tear it apart. */
     private static List<String> splitFields(String line) {
         List<String> fields = new ArrayList<>();
         StringBuilder field = new StringBuilder();

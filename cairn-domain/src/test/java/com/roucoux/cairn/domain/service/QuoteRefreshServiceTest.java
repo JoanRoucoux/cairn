@@ -265,7 +265,6 @@ class QuoteRefreshServiceTest {
         @Override
         public Quote fetch(Instrument instrument) {
             if (instrument.id().equals(crashingInstrumentId)) {
-                // No message, like the real NullPointerException this reproduces.
                 throw new NullPointerException();
             }
             return new Quote(
@@ -359,7 +358,6 @@ class QuoteRefreshServiceTest {
         public void refreshCompleted(Set<AssetClass> assetClasses, int refreshed, int failed, RefreshTrigger trigger) {}
     }
 
-    /** Records "saved:REF" per announced quote, then "completed:refreshed:failed:trigger", in order. */
     private static final class RecordingAnnounceUseCase implements AnnounceQuotesUseCase {
         private final Map<UUID, String> refsByInstrumentId;
         private final List<String> events = new ArrayList<>();

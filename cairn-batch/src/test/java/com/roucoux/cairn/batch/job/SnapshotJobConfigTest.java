@@ -14,7 +14,6 @@ import org.springframework.batch.core.step.StepContribution;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
 
-/** The step's glue, without a Spring context: the tasklet talks to the use case only. */
 class SnapshotJobConfigTest {
 
     @Test

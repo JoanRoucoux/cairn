@@ -5,10 +5,6 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
-    <!-- Spring Batch's own metadata tables. They are part of the schema this module owns, so
-         the batch application can run with spring.batch.jdbc.initialize-schema=never — it never
-         creates a table, in any environment. A raw SQL script is the right shape here: it is
-         vendor-specific by nature and comes verbatim from Spring Batch. -->
     <changeSet id="002-spring-batch-metadata" author="starter">
         <sqlFile path="../sql/spring-batch-postgresql.sql" relativeToChangelogFile="true" splitStatements="true" endDelimiter=";"/>
         <rollback>

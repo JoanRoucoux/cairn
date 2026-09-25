@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** Outbound port: read access to stored quotes. */
 public interface LoadQuotesPort {
 
     Optional<Quote> findLatest(UUID instrumentId);
@@ -17,12 +16,9 @@ public interface LoadQuotesPort {
 
     List<Quote> findBetween(UUID instrumentId, LocalDate from, LocalDate to);
 
-    /** One grouped read for the whole interval, rather than one query per instrument per day. */
     Map<UUID, List<Quote>> findBetweenForAll(Set<UUID> instrumentIds, LocalDate from, LocalDate to);
 
-    /** For each instrument, its most recent quote dated on or before {@code day}; absent when it has none. */
     Map<UUID, Quote> findLatestOnOrBefore(Set<UUID> instrumentIds, LocalDate day);
 
-    /** For each instrument, the date of its earliest known quote; absent when it has none. */
     Map<UUID, LocalDate> findFirstQuoteDates(Set<UUID> instrumentIds);
 }

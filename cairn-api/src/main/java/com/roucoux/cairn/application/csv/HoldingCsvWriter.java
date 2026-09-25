@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
-/** Writes the CSV export of the holdings, one row per holding. */
 @Component
 public class HoldingCsvWriter {
 

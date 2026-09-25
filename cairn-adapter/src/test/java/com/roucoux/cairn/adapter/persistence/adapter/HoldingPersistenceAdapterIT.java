@@ -56,8 +56,6 @@ class HoldingPersistenceAdapterIT {
 
     @Test
     void keepsTwelveDecimalsOfQuantity() {
-        // The starter's numeric(19,4) scale would round this quantity to 0.0001,
-        // i.e. 6.23 EUR instead of 3.58 EUR at the 2026-08-21 quote.
         Holding saved = givenAHoldingOf(new BigDecimal("0.000057520000"));
 
         assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00005752");

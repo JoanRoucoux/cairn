@@ -9,10 +9,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.springframework.stereotype.Component;
 
-/**
- * Maps a plain {@link Quote} or {@link RefreshReport} to the generated DTOs. The domain never
- * rounds; this is the only place where a price is rounded for the wire.
- */
 @Component
 public class QuoteRestMapper {
 

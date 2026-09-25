@@ -21,15 +21,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Modeled on SignInIT: the session cookie's attributes are decided by the filter chain and
- * Spring Session's own JDBC repository, so this boots the real ones against a real PostgreSQL
- * container rather than mocking either. RANDOM_PORT, not the default MOCK web environment: Spring
- * Boot's session auto-configuration only reads server.servlet.session.* on a real embedded server
- * (java -jar), and treats a MOCK web environment's ServletContext, which has no embedded server
- * behind it, as a WAR deployment instead — a branch with different defaults for both the cookie
- * attributes and the timeout. RANDOM_PORT is what production actually runs.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @TestPropertySource(

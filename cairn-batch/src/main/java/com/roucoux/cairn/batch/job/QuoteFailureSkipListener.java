@@ -7,7 +7,6 @@ import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.stereotype.Component;
 
-/** Records a skipped instrument through the outbound port, so the interface can flag it as stale. */
 @Component
 class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
 
@@ -24,10 +23,6 @@ class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
         recordFailure.record(instrument.id(), instrument.priceSource(), reasonOf(failure));
     }
 
-    /**
-     * The usual cause is an instrument deleted since it was read, and a failure recorded against it
-     * would break the same foreign key and fail the step this skip just saved.
-     */
     @Override
     public void onSkipInWrite(Quote quote, Throwable failure) {
         loadInstruments.findById(quote.instrumentId()).ifPresent(instrument -> onSkipInProcess(instrument, failure));

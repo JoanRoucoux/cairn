@@ -7,12 +7,6 @@ import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.web.client.RestClient;
 
-/**
- * Pings an Uptime Kuma push monitor after a successful scheduled run, the same convention {@code
- * run-batch.sh} uses for the batch schedule. {@code HeartbeatConfig} wires one instance per
- * monitor (intraday refresh, daily summary). The URL is optional: an application without the
- * corresponding {@code KUMA_PUSH_*} set simply never calls out.
- */
 class Heartbeat {
 
     private static final Logger log = LoggerFactory.getLogger(Heartbeat.class);

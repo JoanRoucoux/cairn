@@ -24,13 +24,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
 
-/**
- * Boots the full worker context against real PostgreSQL and Kafka: the schema is migrated here
- * with the schema module's real changelog (test scope only — see that module's pom for why), JPA
- * mappings are then validated (ddl-auto: validate), and a plain AdminClient checks that
- * {@code TopicsConfig}'s two {@code NewTopic} beans were actually created on the broker by
- * Spring Boot's own {@code KafkaAdmin}, not merely declared.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(properties = "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml")
 @Testcontainers

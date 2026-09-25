@@ -15,14 +15,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import tools.jackson.core.StreamWriteFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Outbound adapter: turns a domain event into the envelope on the wire, never failing the caller. */
 public class KafkaEventPublisher implements PublishEventPort {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaEventPublisher.class);
 
-    /** The envelope's price must never render in scientific notation. Built from scratch rather
-     * than derived from Boot's JsonMapper, so every emitter writes the same envelope regardless of
-     * its own Jackson settings (cairn-api sets non_null inclusion, batch and worker do not). */
     public static JsonMapper eventMapper() {
         return JsonMapper.builder()
                 .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)

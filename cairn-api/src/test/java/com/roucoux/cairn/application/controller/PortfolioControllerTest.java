@@ -134,9 +134,7 @@ class PortfolioControllerTest {
 
     @Test
     void basesTheDayChangeRatioOnTheStartValueOfLinesWithAPreviousQuoteOnly() throws Exception {
-        // 10 shares at 55, previously 50: start 500, current 550, dayChange +50.
         ValuedHolding withPreviousQuote = eurLine(new BigDecimal("10"), new BigDecimal("55.00"), true);
-        // 5 shares at 20, no previous quote: contributes to the total but not to dayChange or its base.
         ValuedHolding withoutPreviousQuote = eurLine(new BigDecimal("5"), new BigDecimal("20.00"), false);
         Portfolio portfolio = new Portfolio(
                 Money.eur(new BigDecimal("650")),
@@ -150,8 +148,6 @@ class PortfolioControllerTest {
         when(getPortfolio.get()).thenReturn(portfolio);
 
         mockMvc.perform(get("/portfolio").with(user("joan")))
-                // 50 / 500, not 50 / (650 - 50) = 50 / 600: a young line with no previous quote must
-                // not dilute the base.
                 .andExpect(jsonPath("$.dayChangeRatio").value(0.1));
     }
 

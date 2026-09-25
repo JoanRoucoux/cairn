@@ -14,12 +14,6 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
 
-/**
- * {@code CoinGeckoQuoteAdapter} lives in {@code cairn-adapter}, reached by {@code cairn-batch}
- * only at runtime scope — this test stands in for it with a bean shaped the same way (request
- * scope, {@code TARGET_CLASS} proxy, same bean name) to prove the rescoping postprocessor genuinely
- * flips the target bean definition's scope, rather than trusting the bean-name string by eye.
- */
 class BatchDomainConfigTest {
 
     @Component("coinGeckoQuoteAdapter")

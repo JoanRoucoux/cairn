@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.stereotype.Component;
 
-/** Maps a Spring Batch {@link JobExecution} to the generated {@link JobRunResponse}. */
 @Component
 public class JobRunRestMapper {
 
