@@ -301,6 +301,7 @@ paths:
       tags: [Holding]
       operationId: deleteHolding
       summary: Delete a holding
+      description: Removes the position without touching the account or the instrument it refers to.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -322,6 +323,7 @@ paths:
       tags: [Account]
       operationId: listAccounts
       summary: List every account
+      description: Every account the owner has created, in no particular order.
       responses:
         '200':
           description: Every account
@@ -337,6 +339,7 @@ paths:
       tags: [Account]
       operationId: createAccount
       summary: Create an account
+      description: The name must be unique across every account.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -423,6 +426,7 @@ paths:
       tags: [Instrument]
       operationId: listInstruments
       summary: List every instrument
+      description: Every instrument known to Cairn, whether or not any account currently holds it.
       responses:
         '200':
           description: Every instrument
@@ -438,6 +442,7 @@ paths:
       tags: [Instrument]
       operationId: createInstrument
       summary: Create an instrument
+      description: The ISIN and source reference, when given, must each be unique across every instrument.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -494,6 +499,7 @@ paths:
       tags: [Instrument]
       operationId: getInstrument
       summary: Get an instrument's detail
+      description: The full record, including the fields not shown in the list view, plus the number of holdings that would be deleted along with it.
       responses:
         '200':
           description: Instrument detail
@@ -736,6 +742,7 @@ paths:
       tags: [Jobs]
       operationId: getJobRuns
       summary: List recent batch job runs, most recent first
+      description: Reads Spring Batch's own execution metadata; there is no Cairn-specific job history.
       parameters:
         - name: limit
           in: query
@@ -840,6 +847,7 @@ paths:
       tags: [Session]
       operationId: getSession
       summary: Get the signed-in owner and their registered passkeys
+      description: Fails with 401 rather than an empty body when no session is open, since Cairn has a single owner.
       responses:
         '200':
           description: The signed-in owner and the passkeys registered for them
@@ -941,18 +949,23 @@ components:
         type:
           type: string
           description: A URI reference identifying the problem type. `about:blank` when none is more specific.
+          example: about:blank
         title:
           type: string
           description: A short, human-readable summary of the problem type.
+          example: Unprocessable Entity
         status:
           type: integer
           description: The HTTP status code, repeated from the response.
+          example: 422
         detail:
           type: string
           description: A human-readable explanation specific to this occurrence of the problem.
+          example: A holding is priced in a currency other than EUR.
         instance:
           type: string
           description: A URI reference identifying this specific occurrence of the problem.
+          example: /portfolio
     AccountType:
       type: string
       description: >-
@@ -981,6 +994,9 @@ components:
         constant composition rather than measured day over day (see `reconstructed`).
       enum: [1d, 7d, 1m, 1y, 5y, max]
     PortfolioResponse:
+      description: >-
+        The whole portfolio, aggregated to one valued total plus a breakdown by asset class, by
+        account and the full list of holdings. Returned by `GET /portfolio`.
       type: object
       required:
         [totalEur, dayChangeEur, staleCount, unvaluedCount, generatedAt, byAssetClass, byAccount, holdings]
@@ -992,30 +1008,37 @@ components:
         dayChangeEur:
           type: number
           description: The portfolio's value change since the previous close.
+          example: 1250.30
         dayChangeRatio:
           type: number
           nullable: true
           description: Absent when the previous total is zero.
+          example: 0.0068
         unrealizedGainEur:
           type: number
           nullable: true
           description: Absent when no holding's cost basis is known enough to sum. Never 0.
+          example: 12500.00
         unrealizedGainRatio:
           type: number
           nullable: true
           description: Absent when the cost basis total is zero.
+          example: 0.0725
         staleCount:
           type: integer
           description: The number of holdings whose latest quote is older than expected for their asset class.
+          example: 1
         unvaluedCount:
           type: integer
           description: >-
             The number of holdings with no quote yet. Excluded from totalEur, the allocations and
             the unrealized gain until a quote is fetched.
+          example: 0
         generatedAt:
           type: string
           format: date-time
           description: When this response was computed.
+          example: 2026-09-25T18:00:00Z
         byAssetClass:
           type: array
           description: Sorted by valueEur, descending.
@@ -1028,27 +1051,36 @@ components:
             $ref: '#/components/schemas/AllocationResponse'
         holdings:
           type: array
+          description: Every valued holding making up the portfolio.
           items:
             $ref: '#/components/schemas/HoldingResponse'
     PerformanceResponse:
+      description: >-
+        The portfolio's value and its change over a requested range, in total and broken down by
+        envelope (account type). Returned by `GET /portfolio/performance`.
       type: object
       required: [range, from, to, reconstructed, total, byEnvelope]
       properties:
         range:
-          $ref: '#/components/schemas/PerformanceRange'
+          description: The window this performance was computed over, echoed back from the request.
+          allOf:
+            - $ref: '#/components/schemas/PerformanceRange'
         from:
           type: string
           format: date
           description: Start of the range, inclusive.
+          example: 2026-08-25
         to:
           type: string
           format: date
           description: End of the range, inclusive.
+          example: 2026-09-25
         reconstructed:
           type: boolean
           description: >
             True when the change is rebuilt at constant composition (5y and max) rather than
             measured day over day.
+          example: false
         lastPriceAt:
           type: string
           format: date-time
@@ -1056,46 +1088,62 @@ components:
           description: >
             The most recent fetchedAt among the quotes of the valued lines, excluding manual cash
             at par. Absent when nothing is quoted yet.
+          example: 2026-09-25T16:30:00Z
         total:
-          $ref: '#/components/schemas/PerformanceTotalResponse'
+          description: The portfolio's value and change over the range, across every envelope.
+          allOf:
+            - $ref: '#/components/schemas/PerformanceTotalResponse'
         byEnvelope:
           type: array
           description: Sorted by valueEur, descending.
           items:
             $ref: '#/components/schemas/EnvelopePerformanceResponse'
     PerformanceTotalResponse:
+      description: The portfolio's total value and its change over a performance range.
       type: object
       required: [valueEur, changeEur]
       properties:
         valueEur:
           type: number
           description: The portfolio's total value at the end of the range.
+          example: 184320.75
         changeEur:
           type: number
           description: The portfolio's value change over the range.
+          example: 5230.10
         changeRatio:
           type: number
           nullable: true
           description: Absent when the base value is zero.
+          example: 0.0292
     EnvelopePerformanceResponse:
+      description: >-
+        One account type's (envelope's) value and change over a performance range, one entry of
+        `PerformanceResponse.byEnvelope`.
       type: object
       required: [accountType, valueEur, share, changeEur]
       properties:
         accountType:
-          $ref: '#/components/schemas/AccountType'
+          description: The account type this entry aggregates every account of.
+          allOf:
+            - $ref: '#/components/schemas/AccountType'
         valueEur:
           type: number
           description: The total value of every account of this type, at the end of the range.
+          example: 92000.00
         share:
           type: number
           description: This envelope's fraction of the portfolio's total value.
+          example: 0.4991
         changeEur:
           type: number
           description: This envelope's value change over the range.
+          example: 2100.00
         changeRatio:
           type: number
           nullable: true
           description: Absent when the base value is zero.
+          example: 0.0233
     ImportRejectionResponse:
       description: >-
         RFC 9457 problem detail for a refused import. Nothing was written: every row that could
@@ -1105,14 +1153,23 @@ components:
       properties:
         type:
           type: string
+          description: A URI reference identifying the problem type. `about:blank` when none is more specific.
+          example: about:blank
         title:
           type: string
+          description: A short, human-readable summary of the problem type.
+          example: Unprocessable Entity
         status:
           type: integer
+          description: The HTTP status code, repeated from the response.
+          example: 422
         detail:
           type: string
+          description: A human-readable explanation specific to this occurrence of the problem.
+          example: The file was rejected; see errors for every offending row.
         errors:
           type: array
+          description: Every refused row, so the whole file can be fixed in one pass.
           items:
             $ref: '#/components/schemas/ImportErrorResponse'
     ImportErrorResponse:
@@ -1125,8 +1182,11 @@ components:
         line:
           type: integer
           description: 1-based line in the submitted file; 1 when the header itself is wrong
+          example: 3
         code:
           type: string
+          description: What went wrong on this line, as a stable code the client translates itself.
+          example: UNRESOLVED_INSTRUMENT
           enum:
             - BAD_HEADER
             - WRONG_COLUMN_COUNT
@@ -1137,59 +1197,92 @@ components:
         value:
           type: string
           description: The offending token, absent when the failure has none
+          example: FR0000000000
     ImportReportResponse:
+      description: >-
+        What a successful `POST /portfolio/import` created or updated, one counter per kind of
+        write.
       type: object
       required: [accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated]
       properties:
         accountsCreated:
           type: integer
+          description: The number of accounts the import created because no matching name existed yet.
+          example: 1
         instrumentsCreated:
           type: integer
+          description: The number of instruments the import created because none matched by ISIN or source reference.
+          example: 2
         holdingsCreated:
           type: integer
+          description: The number of holdings the import created because the account did not already hold that instrument.
+          example: 2
         holdingsUpdated:
           type: integer
+          description: The number of existing holdings whose quantity and cost basis the import replaced.
+          example: 0
     AllocationResponse:
+      description: >-
+        One slice of a portfolio breakdown, by asset class or by account, one entry of
+        `PortfolioResponse.byAssetClass` or `PortfolioResponse.byAccount`.
       type: object
       required: [label, valueEur, share]
       properties:
         label:
           type: string
           description: The asset class or account name this allocation groups holdings under.
+          example: ETF
         valueEur:
           type: number
+          description: The total value of every holding in this slice.
+          example: 92000.00
         share:
           type: number
           description: This allocation's fraction of the portfolio's total value.
+          example: 0.4991
     CreateHoldingRequest:
+      description: The body of `POST /holdings`, a new position of an instrument in an account.
       type: object
       required: [accountId, instrumentId, quantity]
       properties:
         accountId:
           type: string
           format: uuid
+          description: The account the holding is created in.
+          example: 8f14e45f-ceea-467e-adc4-0a2c1fe23c5f
         instrumentId:
           type: string
           format: uuid
+          description: The instrument the holding is a position of.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         quantity:
           type: number
           description: Must not be zero.
+          example: 12
         averageCost:
           type: number
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
+          example: 26.65
     UpdateHoldingRequest:
+      description: The body of `PATCH /holdings/{id}`, replacing a holding's quantity and cost basis.
       type: object
       required: [quantity]
       properties:
         quantity:
           type: number
           description: Must not be zero.
+          example: 31
         averageCost:
           type: number
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
+          example: 27.10
     HoldingResponse:
+      description: >-
+        A single position, valued: an instrument held in an account, with its current price,
+        market value and gain when they can be computed. Appears in `PortfolioResponse.holdings`
+        and is returned directly by `GET /holdings` and the holding write endpoints.
       type: object
       required:
         - id
@@ -1206,228 +1299,367 @@ components:
         id:
           type: string
           format: uuid
+          description: The holding's own id.
+          example: 5b1f1a2e-8c3d-4e6a-9f0b-1234567890ab
         accountId:
           type: string
           format: uuid
+          description: The account this holding belongs to.
+          example: 8f14e45f-ceea-467e-adc4-0a2c1fe23c5f
         accountName:
           type: string
+          description: The account's name, as of when this response was computed.
+          example: Sample Broker PEA
         accountType:
-          $ref: '#/components/schemas/AccountType'
+          description: The account's type.
+          allOf:
+            - $ref: '#/components/schemas/AccountType'
         instrumentId:
           type: string
           format: uuid
+          description: The instrument this holding is a position of.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         instrumentName:
           type: string
+          description: The instrument's name, as of when this response was computed.
+          example: Sample S&P 500 ETF
         isin:
           type: string
           nullable: true
+          description: The instrument's ISIN. Absent when the instrument has none.
+          example: FR0011550185
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The instrument's asset class.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         quantity:
           type: number
+          description: The number of units held, never zero.
+          example: 12
         averageCost:
           type: number
           nullable: true
           description: Absent when the cost basis is unknown. Never 0.
+          example: 26.65
         price:
           type: number
           nullable: true
           description: Absent when the instrument has no quote yet. Never 0.
+          example: 28.10
         priceCurrency:
           type: string
           nullable: true
+          description: The currency the price is expressed in, as an ISO 4217 code. Absent along with price.
+          example: EUR
         priceAsOf:
           type: string
           format: date
           nullable: true
+          description: The date the latest quote was observed on. Absent along with price.
+          example: 2026-09-25
         priceSource:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         stale:
           type: boolean
-          description: True when the latest quote is older than expected for the instrument's asset class.
+          description: >-
+            True when the latest quote is older than its asset class allows: an equity or ETF quote dated
+            before the previous business day, a crypto quote fetched more than 6 hours ago, a fund quote
+            fetched more than 4 days ago or dated more than 10 days ago. Never true for cash or an
+            instrument with no quote yet.
+          example: false
         marketValueEur:
           type: number
           nullable: true
           description: Absent when the instrument has no quote yet. Never 0.
+          example: 337.20
         unrealizedGainEur:
           type: number
           nullable: true
+          description: Market value minus cost basis. Absent when either is unknown.
+          example: 17.40
         unrealizedGainRatio:
           type: number
           nullable: true
+          description: Unrealized gain as a fraction of the cost basis. Absent when the cost basis is zero or unknown.
+          example: 0.0653
         dayChangeEur:
           type: number
           nullable: true
+          description: Value change since the previous close. Absent when there is no previous quote to compare with.
+          example: 4.20
         dayChangeRatio:
           type: number
           nullable: true
+          description: Day change as a fraction of the previous close's value. Absent when the previous value is zero.
+          example: 0.0125
     AccountResponse:
+      description: An account (envelope) holdings live in, as returned by the account endpoints.
       type: object
       required: [id, name, type, institution]
       properties:
         id:
           type: string
           format: uuid
+          description: The account's id.
+          example: 8f14e45f-ceea-467e-adc4-0a2c1fe23c5f
         name:
           type: string
           description: Unique across every account.
+          example: Sample Broker PEA
         type:
-          $ref: '#/components/schemas/AccountType'
+          description: The kind of envelope this account is.
+          allOf:
+            - $ref: '#/components/schemas/AccountType'
         institution:
           type: string
+          description: The bank or broker the account is held at.
+          example: Sample Bank
     CreateAccountRequest:
+      description: The body of `POST /accounts`.
       type: object
       required: [name, type, institution]
       properties:
         name:
           type: string
           description: Must be unique across every account.
+          example: Sample Broker PEA
         type:
-          $ref: '#/components/schemas/AccountType'
+          description: The kind of envelope this account is.
+          allOf:
+            - $ref: '#/components/schemas/AccountType'
         institution:
           type: string
+          description: The bank or broker the account is held at.
+          example: Sample Bank
     SetCashBalanceRequest:
+      description: The body of `PUT /accounts/{id}/cash`.
       type: object
       required: [amount]
       properties:
         amount:
           type: number
           description: The desired EUR cash balance. Must not be negative; zero removes the cash holding.
+          example: 1500.00
     InstrumentResponse:
+      description: >-
+        A tradable or holdable instrument as it appears in a list, priced from a market data
+        source or entered manually. Returned by `GET /instruments` and the instrument write
+        endpoints.
       type: object
       required: [id, name, currency, assetClass, priceSource]
       properties:
         id:
           type: string
           format: uuid
+          description: The instrument's id.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         name:
           type: string
+          description: The instrument's display name.
+          example: Sample S&P 500 ETF
         isin:
           type: string
           nullable: true
+          description: The instrument's ISIN. Absent when the instrument has none.
+          example: FR0011550185
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code.
+          example: EUR
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The kind of instrument.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         priceSource:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         sourceRef:
           type: string
           nullable: true
           description: The ticker, contract identifier or ISIN the price source is queried with. Absent for MANUAL.
+          example: SXR8.DE
     InstrumentDetailResponse:
+      description: >-
+        The full detail of one instrument, including fields not shown in the list view and the
+        number of holdings that would be deleted with it. Returned by `GET /instruments/{id}` and
+        the instrument write endpoints.
       type: object
       required: [id, name, currency, assetClass, priceSource, holdingCount]
       properties:
         id:
           type: string
           format: uuid
+          description: The instrument's id.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         name:
           type: string
+          description: The instrument's display name.
+          example: Sample S&P 500 ETF
         isin:
           type: string
           nullable: true
+          description: The instrument's ISIN. Absent when the instrument has none.
+          example: FR0011550185
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code. Not editable.
+          example: EUR
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The kind of instrument.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         priceSource:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         sourceRef:
           type: string
           nullable: true
           description: The ticker, contract identifier or ISIN the price source is queried with. Absent for MANUAL.
+          example: SXR8.DE
         description:
           type: string
           nullable: true
           description: Free text, up to 280 characters.
+          example: Core equity ETF tracking the S&P 500.
         externalUrl:
           type: string
           nullable: true
           description: Absent for a manually priced instrument. Never a broken link.
+          example: https://finance.yahoo.com/quote/SXR8.DE
         holdingCount:
           type: integer
           description: The number of holdings that will be deleted with the instrument.
+          example: 2
     CreateInstrumentRequest:
+      description: The body of `POST /instruments`.
       type: object
       required: [name, currency, assetClass, priceSource]
       properties:
         name:
           type: string
+          description: The instrument's display name.
+          example: Sample S&P 500 ETF
         isin:
           type: string
           nullable: true
+          description: The instrument's ISIN. Must be unique across every instrument when given.
+          example: FR0011550185
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code.
+          example: EUR
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The kind of instrument.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         priceSource:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         sourceRef:
           type: string
           nullable: true
           description: Required unless priceSource is MANUAL.
+          example: SXR8.DE
         description:
           type: string
           nullable: true
           description: Free text, up to 280 characters.
+          example: Core equity ETF tracking the S&P 500.
     UpdateInstrumentRequest:
+      description: The body of `PUT /instruments/{id}`. The currency cannot be changed this way.
       type: object
       required: [name, assetClass, priceSource]
       properties:
         name:
           type: string
+          description: The instrument's display name.
+          example: Sample S&P 500 ETF
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The kind of instrument.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         priceSource:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         isin:
           type: string
           nullable: true
+          description: The instrument's ISIN. Must be unique across every instrument when given.
+          example: FR0011550185
         sourceRef:
           type: string
           nullable: true
           description: Required unless priceSource is MANUAL.
+          example: SXR8.DE
         description:
           type: string
           nullable: true
           description: Free text, up to 280 characters.
+          example: Core equity ETF tracking the S&P 500.
     InstrumentCandidateResponse:
+      description: >-
+        One price source's answer while resolving a query, with a live price fetched as a sanity
+        check. Returned by `POST /instruments/resolve`.
       type: object
       required: [name, source, sourceRef, assetClass, probePrice]
       properties:
         name:
           type: string
+          description: The instrument's name as reported by this source.
+          example: iShares Core S&P 500 UCITS ETF
         source:
-          $ref: '#/components/schemas/PriceSource'
+          description: The price source this candidate was resolved from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         sourceRef:
           type: string
           description: The ticker, contract identifier or ISIN this candidate would be resolved with.
+          example: SXR8.DE
         assetClass:
-          $ref: '#/components/schemas/AssetClass'
+          description: The kind of instrument this source reports it as.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
         probePrice:
           type: number
           description: The live price fetched from this source while resolving, as a sanity check.
+          example: 28.10
     QuoteResponse:
+      description: >-
+        One recorded price point for an instrument. Returned by `GET /instruments/{id}/quotes` and
+        `POST /instruments/{id}/quotes`.
       type: object
       required: [instrumentId, asOf, price, currency, source]
       properties:
         instrumentId:
           type: string
           format: uuid
+          description: The instrument this quote prices.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         asOf:
           type: string
           format: date
+          description: The date this price was observed on.
+          example: 2026-09-25
         price:
           type: number
+          description: The price, in the instrument's native currency.
+          example: 28.10
         currency:
           type: string
+          description: The currency the price is expressed in, as an ISO 4217 code.
+          example: EUR
         source:
-          $ref: '#/components/schemas/PriceSource'
+          description: Where this quote came from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
     RecordQuoteRequest:
+      description: The body of `POST /instruments/{id}/quotes`, a manually entered price point.
       type: object
       required: [asOf, price]
       properties:
@@ -1435,46 +1667,66 @@ components:
           type: string
           format: date
           description: The date this price was observed on. Replaces any quote already recorded for that date.
+          example: 2026-09-25
         price:
           type: number
+          description: The price, in the instrument's native currency.
+          example: 28.10
     RefreshReportResponse:
+      description: >-
+        The outcome of a synchronous refresh of every refreshable instrument. Returned by
+        `POST /quotes/refresh`.
       type: object
       required: [refreshed, skipped, failures]
       properties:
         refreshed:
           type: integer
           description: The number of instruments successfully repriced.
+          example: 14
         skipped:
           type: integer
           description: The number of MANUAL instruments, not attempted.
+          example: 2
         failures:
           type: array
           description: One entry per instrument whose price source could not be reached or resolved.
           items:
             $ref: '#/components/schemas/RefreshFailureResponse'
     RefreshFailureResponse:
+      description: One instrument a refresh could not reprice, one entry of `RefreshReportResponse.failures`.
       type: object
       required: [instrumentId, instrumentName, source, message]
       properties:
         instrumentId:
           type: string
           format: uuid
+          description: The instrument that could not be repriced.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
         instrumentName:
           type: string
+          description: The instrument's name, for display without a further lookup.
+          example: Sample Bank Share
         source:
-          $ref: '#/components/schemas/PriceSource'
+          description: The price source that failed to answer.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
         message:
           type: string
           description: A short, technical explanation of why this instrument could not be refreshed.
+          example: Yahoo Finance returned no quote for ticker GLE.PA
     JobRunResponse:
+      description: One recorded execution of a Spring Batch job. Returned by `GET /jobs/runs`.
       type: object
       required: [id, jobName, status, startedAt]
       properties:
         id:
           type: integer
           format: int64
+          description: Spring Batch's own execution id.
+          example: 42
         jobName:
           type: string
+          description: The Spring Batch job's registered name.
           example: refreshQuotesJob
         status:
           type: string
@@ -1483,16 +1735,23 @@ components:
             `COMPLETED` is a success, `FAILED` and `ABANDONED` mark a run that did not complete,
             `STOPPED` was stopped on request, and `UNKNOWN` is a status Spring Batch could not
             determine.
+          example: COMPLETED
           enum: [STARTING, STARTED, STOPPING, STOPPED, FAILED, COMPLETED, ABANDONED, UNKNOWN]
         startedAt:
           type: string
           format: date-time
+          description: When this run started.
+          example: 2026-09-25T05:00:00Z
         endedAt:
           type: string
           format: date-time
           nullable: true
           description: Absent while the run is still in progress.
+          example: 2026-09-25T05:02:14Z
     HistoryResponse:
+      description: >-
+        The portfolio's value over a date range, either measured or reconstructed. Returned by
+        `GET /history`.
       type: object
       required: [mode, reconstructed, points]
       properties:
@@ -1501,34 +1760,45 @@ components:
           description: >-
             `snapshot` returns the measured nightly value for each day; `constant-mix` reprices
             today's holdings over past quotes, holding the composition constant.
+          example: snapshot
           enum: [snapshot, constant-mix]
         reconstructed:
           type: boolean
           description: >
             True when the series is rebuilt at today's composition rather than measured.
             The client warns the user when the requested range makes this material.
+          example: false
         points:
           type: array
+          description: One point per day in the requested range.
           items:
             $ref: '#/components/schemas/HistoryPoint'
     HistoryPoint:
+      description: The portfolio's total value on one day, one entry of `HistoryResponse.points`.
       type: object
       required: [date, totalEur]
       properties:
         date:
           type: string
           format: date
+          description: The day this value applies to.
+          example: 2026-09-20
         totalEur:
           type: number
+          description: The portfolio's total value on that day.
+          example: 181500.00
     IntradayHistoryResponse:
+      description: A day's intraday valuation points. Returned by `GET /history/intraday`.
       type: object
       required: [points]
       properties:
         points:
           type: array
+          description: One point per intraday refresh recorded that day, in chronological order.
           items:
             $ref: '#/components/schemas/IntradayHistoryPoint'
     IntradayHistoryPoint:
+      description: One intraday valuation, one entry of `IntradayHistoryResponse.points`.
       type: object
       required: [at, totalEur]
       properties:
@@ -1536,37 +1806,51 @@ components:
           type: string
           format: date-time
           description: The instant this valuation was recorded, one of the worker's 15-minute refreshes.
+          example: 2026-09-25T13:15:00Z
         totalEur:
           type: number
+          description: The portfolio's total value at that instant.
+          example: 183900.50
     SessionResponse:
+      description: The signed-in owner's display name and registered passkeys. Returned by `GET /session`.
       type: object
       required: [displayName, initials, passkeys]
       properties:
         displayName:
           type: string
+          description: The owner's display name, as entered when the first passkey was registered.
           example: Joan Roucoux
         initials:
           type: string
           maxLength: 2
+          description: Up to two letters derived from displayName, for a compact avatar.
           example: JR
         passkeys:
           type: array
+          description: Every passkey currently registered for the owner.
           items:
             $ref: '#/components/schemas/PasskeyResponse'
     PasskeyResponse:
+      description: One registered passkey, one entry of `SessionResponse.passkeys`.
       type: object
       required: [credentialId, label, createdAt]
       properties:
         credentialId:
           type: string
           description: Base64url, as stored by Spring Security
+          example: AbCdEf1234567890
         label:
           type: string
+          description: The name the owner gave this passkey when registering it.
           example: iPhone de Joan
         createdAt:
           type: string
           format: date-time
+          description: When this passkey was registered.
+          example: 2026-01-15T09:30:00Z
         lastUsedAt:
           type: string
           format: date-time
           nullable: true
+          description: When this passkey last opened a session. Absent when it has never been used to sign in.
+          example: 2026-09-25T07:45:00Z
