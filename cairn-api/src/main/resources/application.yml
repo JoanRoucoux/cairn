@@ -9,6 +9,12 @@ server:
 spring:
   application:
     name: cairn-api
+  docker:
+    compose:
+      file: ../compose.local.yaml
+      lifecycle-management: start-only
+      start:
+        skip: never
   session:
     timeout: 30d
     jdbc:

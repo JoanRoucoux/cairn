@@ -15,7 +15,7 @@ Cairn — Spring Boot 4.1 / Java 25 backend in hexagonal architecture, generated
 | `./mvnw verify`                                | Build, unit + integration tests, ArchUnit, coverage check |
 | `./mvnw verify -DskipITs`                      | Everything except the Testcontainers tests (no Docker)    |
 | `./mvnw spotless:check` / `spotless:apply`     | Formatting check / fix (palantir-java-format)             |
-| `./mvnw spring-boot:run -pl cairn-api`   | Run the API locally                                       |
+| `./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local` | Run the API locally over `compose.local.yaml` (PostgreSQL + migration), Swagger UI on `/swagger-ui.html` |
 
 Before considering a change done, run the same pipeline as CI: `spotless:check` then `verify` (needs Docker for the `*IT` tests).
 
@@ -160,6 +160,15 @@ first passkey registration breaks every existing credential — `rp-id` is bound
 Never run `compose.yaml` and `compose.prod.yaml` on the same host: both declare
 `postgres`/`api`/`web`/`schema`/`batch`/`kafka`/`worker` against the same `cairn-data` and
 `kafka-data` volume names.
+
+**`compose.local.yaml`** is what `spring-boot:run` starts through Spring Boot's Docker Compose
+support (`spring.docker.compose.file`), its own `cairn-local` project and volume. `docker compose up
+--wait` returns as soon as a one-shot container is running, not when it has finished, so
+`schema-applied` exists only to hold `--wait` until the `schema` migration has completed; without it
+the application starts against an empty schema and `ddl-auto: validate` fails. `start.skip: never`
+makes every application run `up`, because Spring skips it when any service of the project is already
+running, which would leave the worker without Kafka whenever the API started first. `start-only`
+keeps one application's exit from stopping the database another one is still using.
 
 **Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml`,
 builds `api`, `schema`, `batch` and `kafka`, pushes them to GHCR as `sha-` followed by the commit's

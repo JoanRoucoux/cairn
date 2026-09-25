@@ -23,25 +23,29 @@ There is no parent pom: the root `pom.xml` only aggregates, and every module is 
 Prerequisites: **JDK 25** and **Docker**. Maven comes with the wrapper (`./mvnw`, `mvnw.cmd` on Windows cmd).
 
 ```bash
-./mvnw verify                                        # build + unit/integration tests + architecture + coverage
-./mvnw spring-boot:run -pl cairn-api           # starts the API on :8080
+./mvnw verify                                                          # build + unit/integration tests + architecture + coverage
+./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local  # starts the API on :8080, authentication off
 ```
 
-The database schema is applied separately, and only when it changes:
+`spring-boot:run` starts what it needs from `compose.local.yaml` on its own: PostgreSQL on
+`localhost:5432` (`app`/`app`), then a one-shot `schema` container that applies the Liquibase
+changelog, and only then the application. The data lives in the
+`cairn-local-data` volume. `compose.yaml` is the whole stack and is not involved.
+
+With the `local` profile, Swagger UI serves the contract at `http://localhost:8080/swagger-ui.html`.
+Without it, authentication is real and `CAIRN_PASSWORD` must be set.
+
+The batch runs one job, named as `deploy/cairn.cron` names it, and exits. `run.at` makes each run a
+new job instance. The worker also starts Kafka on `localhost:9092`. Each application can run
+alongside the others:
 
 ```bash
-./mvnw liquibase:update -pl cairn-schema       # migrates a local PostgreSQL reachable at localhost:5432
+./mvnw spring-boot:run -pl cairn-batch "-Dspring-boot.run.arguments=--spring.batch.job.name=snapshotJob run.at=$(date +%s)"
+./mvnw spring-boot:run -pl cairn-kafka
 ```
 
-`liquibase:update` only needs to run once, and again after adding a changeset — starting or restarting an application never touches the schema.
-
-The demo job runs on demand and exits when it is done:
-
-```bash
-./mvnw spring-boot:run -pl cairn-batch
-```
-
-Without an identity provider, activate the `local` profile to disable authentication: `./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local`.
+The containers keep running after the applications stop. `docker compose -f compose.local.yaml stop`
+stops them, `down -v` also resets the database.
 
 ## Running with Docker Compose
 

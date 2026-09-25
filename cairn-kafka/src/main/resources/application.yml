@@ -29,6 +29,14 @@ app:
 spring:
   application:
     name: cairn-kafka
+  docker:
+    compose:
+      file: ../compose.local.yaml
+      lifecycle-management: start-only
+      start:
+        skip: never
+      profiles:
+        active: kafka
   main:
     web-application-type: none
     keep-alive: true
