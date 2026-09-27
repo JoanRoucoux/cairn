@@ -16,6 +16,7 @@ import com.github.tomakehurst.wiremock.http.Fault;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
+import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.DailySummary;
 import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
@@ -76,14 +77,20 @@ class TelegramNotificationAdapterTest {
                 LocalDate.of(2026, 9, 23),
                 false,
                 Optional.empty(),
-                Money.eur(new BigDecimal("352889")),
+                Money.eur(new BigDecimal("372899")),
                 Money.eur(new BigDecimal("297")),
                 Optional.of(new BigDecimal("0.0010")),
                 List.of(
                         envelope(AccountType.PEA, "185430", "1204", "0.0061"),
                         envelope(AccountType.PEE, "112380", "160", "0.0014"),
-                        envelope(AccountType.CRYPTO, "55079", "-1067", "-0.0192")));
-        return new DailySummary(LocalDate.of(2026, 9, 23), performance);
+                        envelope(AccountType.CRYPTO, "55079", "-1067", "-0.0192"),
+                        envelope(AccountType.SAVINGS, "20010", "0", "0")));
+        return new DailySummary(
+                LocalDate.of(2026, 9, 23),
+                performance,
+                List.of(
+                        new CashOnlyAccount("Livret A", AccountType.SAVINGS, Money.eur(new BigDecimal("20000"))),
+                        new CashOnlyAccount("LDDS", AccountType.SAVINGS, Money.eur(new BigDecimal("10")))));
     }
 
     private static EnvelopePerformance envelope(AccountType type, String value, String change, String ratio) {
@@ -98,12 +105,15 @@ class TelegramNotificationAdapterTest {
     private static final String EXPECTED_TEXT = """
             📊 <b>Cairn · Mercredi 23 septembre</b>
 
-            💰 Patrimoine  <b>352 889 €</b>
+            💰 Patrimoine  <b>372 899 €</b>
             📈 Jour  <b>+297 €</b>  (+0,10 %)
 
-            <pre>🟢 PEA     185 430  +1 204  +0,61%
-            🟢 PEE     112 380    +160  +0,14%
-            🔴 Crypto   55 079  -1 067  -1,92%</pre>""";
+            <pre>🟢 PEA      185 430 €  +1 204 €  +0,61%
+            🟢 PEE      112 380 €    +160 €  +0,14%
+            🔴 Crypto    55 079 €  -1 067 €  -1,92%
+            ───────────────────────────────────────
+            🏦 Livret A  20 000 €
+            🏦 LDDS          10 €</pre>""";
 
     @Test
     void sendsTheFormattedMessageAsHtmlToTheConfiguredChat() {
@@ -135,7 +145,7 @@ class TelegramNotificationAdapterTest {
                         envelope(AccountType.LIFE_INSURANCE, "60000", "0.30", "0.000005"),
                         envelope(AccountType.SAVINGS, "40000", "-1500.30", null)));
 
-        adapter(TOKEN, CHAT_ID).send(new DailySummary(LocalDate.of(2026, 8, 14), performance));
+        adapter(TOKEN, CHAT_ID).send(new DailySummary(LocalDate.of(2026, 8, 14), performance, List.of()));
 
         assertThat(sentText()).isEqualTo("""
                 📊 <b>Cairn · Vendredi 14 août</b>
@@ -143,8 +153,32 @@ class TelegramNotificationAdapterTest {
                 💰 Patrimoine  <b>100 000 €</b>
                 📉 Jour  <b>-1 500 €</b>  (-1,48 %)
 
-                <pre>⚪ Assu. vie  60 000       0  0,00%
-                🔴 Livrets    40 000  -1 500</pre>""");
+                <pre>⚪ Assu. vie 60 000 €       0 €  0,00%
+                🔴 Livrets   40 000 €  -1 500 €</pre>""");
+    }
+
+    @Test
+    void escapesAnAccountNameSoTelegramStillParsesTheHtml() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+        Performance performance = new Performance(
+                PerformanceRange.D1,
+                LocalDate.of(2026, 8, 13),
+                LocalDate.of(2026, 8, 14),
+                false,
+                Optional.empty(),
+                Money.eur(new BigDecimal("500")),
+                Money.eur(BigDecimal.ZERO),
+                Optional.of(BigDecimal.ZERO),
+                List.of(envelope(AccountType.SAVINGS, "500", "0", "0")));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(new DailySummary(
+                        LocalDate.of(2026, 8, 14),
+                        performance,
+                        List.of(new CashOnlyAccount(
+                                "Livret <A&B>", AccountType.SAVINGS, Money.eur(new BigDecimal("500"))))));
+
+        assertThat(sentText()).endsWith("<pre>🏦 Livret &lt;A&amp;B&gt; 500 €</pre>");
     }
 
     private String sentText() {

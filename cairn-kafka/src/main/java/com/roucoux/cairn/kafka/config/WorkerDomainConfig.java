@@ -108,8 +108,12 @@ class WorkerDomainConfig {
 
     @Bean
     SendDailySummaryUseCase sendDailySummaryUseCase(
-            GetPerformanceUseCase getPerformance, SendNotificationPort sendNotification, Clock clock, ZoneId zone) {
-        return new DailySummaryService(getPerformance, sendNotification, clock, zone);
+            GetPerformanceUseCase getPerformance,
+            GetPortfolioUseCase getPortfolio,
+            SendNotificationPort sendNotification,
+            Clock clock,
+            ZoneId zone) {
+        return new DailySummaryService(getPerformance, getPortfolio, sendNotification, clock, zone);
     }
 
     @Bean
