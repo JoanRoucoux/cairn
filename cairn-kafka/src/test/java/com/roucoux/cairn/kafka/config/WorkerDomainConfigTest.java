@@ -205,7 +205,7 @@ class WorkerDomainConfigTest {
         com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification = sent::add;
 
         com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase sendDailySummary = config.sendDailySummaryUseCase(
-                getPerformance, sendNotification, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+                getPerformance, getPortfolio, sendNotification, CLOCK, java.time.ZoneId.of("Europe/Paris"));
         sendDailySummary.send();
 
         assertThat(sent).hasSize(1);

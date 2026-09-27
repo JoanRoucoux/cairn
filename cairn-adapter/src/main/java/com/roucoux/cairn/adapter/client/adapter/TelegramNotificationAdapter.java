@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
+import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.DailySummary;
-import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
@@ -15,10 +15,12 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,7 +32,7 @@ import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/** Nothing is escaped: free text (an instrument name) needs <, > and & escaped or Telegram answers 400. */
+/** Only account names are escaped: any other free text added later needs escaped() or Telegram answers 400. */
 @Component
 public class TelegramNotificationAdapter implements SendNotificationPort {
 
@@ -126,38 +128,61 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
                 .ifPresent(ratio -> message.append("  (")
                         .append(signed(percent(ratio), "#,##0.00"))
                         .append(" %)"));
-        if (!performance.byEnvelope().isEmpty()) {
-            message.append("\n\n<pre>")
-                    .append(envelopeTable(performance.byEnvelope()))
-                    .append("</pre>");
+        String table = table(summary);
+        if (!table.isEmpty()) {
+            message.append("\n\n<pre>").append(table).append("</pre>");
         }
         return message.toString();
     }
 
-    private static String envelopeTable(List<EnvelopePerformance> envelopes) {
-        List<List<String>> rows = envelopes.stream()
+    private static String table(DailySummary summary) {
+        Set<AccountType> cashOnly =
+                summary.cashOnlyAccounts().stream().map(CashOnlyAccount::type).collect(Collectors.toSet());
+        List<List<String>> moving = summary.performance().byEnvelope().stream()
+                .filter(envelope -> !cashOnly.contains(envelope.accountType()))
                 .map(envelope -> {
                     BigDecimal change = roundedEuros(envelope.change());
                     return List.of(
                             dot(change),
                             ENVELOPE_LABELS.get(envelope.accountType()),
-                            grouped(roundedEuros(envelope.value()), "#,##0"),
-                            signed(change, "#,##0"),
+                            euros(grouped(roundedEuros(envelope.value()), "#,##0")),
+                            euros(signed(change, "#,##0")),
                             envelope.changeRatio()
                                     .map(ratio -> signed(percent(ratio), "#,##0.00") + "%")
                                     .orElse(""));
                 })
                 .toList();
-        int labelWidth = width(rows, 1);
-        int valueWidth = width(rows, 2);
-        int changeWidth = width(rows, 3);
-        int ratioWidth = width(rows, 4);
-        return rows.stream()
-                .map(row -> (row.get(0) + " " + padRight(row.get(1), labelWidth) + "  "
-                                + padLeft(row.get(2), valueWidth) + "  " + padLeft(row.get(3), changeWidth) + "  "
-                                + padLeft(row.get(4), ratioWidth))
-                        .stripTrailing())
-                .collect(Collectors.joining("\n"));
+        List<List<String>> idle = summary.cashOnlyAccounts().stream()
+                .map(account ->
+                        List.of("🏦", account.name(), euros(grouped(roundedEuros(account.value()), "#,##0")), "", ""))
+                .toList();
+        List<List<String>> all = new ArrayList<>(moving);
+        all.addAll(idle);
+        int labelWidth = width(all, 1);
+        int valueWidth = width(all, 2);
+        int changeWidth = width(moving, 3);
+        int ratioWidth = width(moving, 4);
+        List<String> lines = new ArrayList<>();
+        moving.forEach(row -> lines.add(row(row, labelWidth, valueWidth, changeWidth, ratioWidth)));
+        if (!moving.isEmpty() && !idle.isEmpty()) {
+            lines.add("─".repeat(2 + 1 + labelWidth + 1 + valueWidth + 2 + changeWidth + 2 + ratioWidth));
+        }
+        idle.forEach(row -> lines.add(row(row, labelWidth, valueWidth, changeWidth, ratioWidth)));
+        return String.join("\n", lines);
+    }
+
+    private static String row(List<String> row, int labelWidth, int valueWidth, int changeWidth, int ratioWidth) {
+        return (row.get(0) + " " + escaped(padRight(row.get(1), labelWidth)) + " " + padLeft(row.get(2), valueWidth)
+                        + "  " + padLeft(row.get(3), changeWidth) + "  " + padLeft(row.get(4), ratioWidth))
+                .stripTrailing();
+    }
+
+    private static String euros(String amount) {
+        return amount + " €";
+    }
+
+    private static String escaped(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private static String dot(BigDecimal roundedChange) {
