@@ -318,6 +318,115 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /holdings/{id}/buy:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The holding's id.
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Holding]
+      operationId: buyHolding
+      summary: Record a purchase on a holding
+      description: >-
+        Adds the bought quantity and recomputes the average cost as the weighted mean of the
+        held and bought units, rounded to 6 decimals. A holding without an average cost takes the
+        unit price as its average cost. Cash holdings cannot be bought: set their balance instead.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyHoldingRequest'
+            example:
+              quantity: 40
+              unitPrice: 29.10
+      responses:
+        '200':
+          description: The holding after the purchase
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown holding
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: A quantity or unit price that is not positive, or a cash holding
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /holdings/{id}/sell:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The holding's id.
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Holding]
+      operationId: sellHolding
+      summary: Record a sale on a holding
+      description: >-
+        Lowers the quantity and keeps the average cost (French convention). Selling the whole
+        quantity deletes the holding and answers 204. Cash holdings cannot be sold: set their
+        balance instead.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SellHoldingRequest'
+            example:
+              quantity: 100
+      responses:
+        '200':
+          description: The holding after the sale, when some quantity remains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldingResponse'
+        '204':
+          description: The whole quantity was sold and the holding deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown holding
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: A quantity that is not positive or exceeds the held quantity, or a cash holding
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /accounts:
     get:
       tags: [Account]
@@ -1278,6 +1387,28 @@ components:
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
           example: 27.10
+    BuyHoldingRequest:
+      description: The body of `POST /holdings/{id}/buy`.
+      type: object
+      required: [quantity, unitPrice]
+      properties:
+        quantity:
+          type: number
+          description: The number of units bought. Must be positive.
+          example: 40
+        unitPrice:
+          type: number
+          description: The price paid per unit, in the instrument's currency. Must be positive.
+          example: 29.10
+    SellHoldingRequest:
+      description: The body of `POST /holdings/{id}/sell`.
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: number
+          description: The number of units sold. Must be positive and at most the held quantity.
+          example: 100
     HoldingResponse:
       description: >-
         A single position, valued: an instrument held in an account, with its current price,

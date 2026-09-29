@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
+import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
@@ -199,6 +200,67 @@ class HoldingControllerTest {
     void deletesAHolding() throws Exception {
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("joan")).with(csrf()))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void buyingAnswersTheUpdatedHolding() throws Exception {
+        UUID id = UUID.randomUUID();
+        Holding bought = new Holding(
+                id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("540"), new BigDecimal("24.488889"));
+        when(manageHolding.buy(id, new BigDecimal("40"), new BigDecimal("29.10")))
+                .thenReturn(bought);
+
+        mockMvc.perform(post("/holdings/{id}/buy", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"quantity\":40,\"unitPrice\":29.10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quantity").value(540))
+                .andExpect(jsonPath("$.averageCost").value(24.49));
+    }
+
+    @Test
+    void sellingPartAnswersTheRemainder() throws Exception {
+        UUID id = UUID.randomUUID();
+        Holding remaining =
+                new Holding(id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("400"), new BigDecimal("24.12"));
+        when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
+
+        mockMvc.perform(post("/holdings/{id}/sell", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"quantity\":100}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quantity").value(400));
+    }
+
+    @Test
+    void sellingEverythingAnswersNoContent() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(manageHolding.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/holdings/{id}/sell", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"quantity\":500}"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void sellingTooMuchIsABusinessRefusal() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(manageHolding.sell(id, new BigDecimal("501")))
+                .thenThrow(new InsufficientQuantityException(new BigDecimal("500"), new BigDecimal("501")));
+
+        mockMvc.perform(post("/holdings/{id}/sell", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"quantity\":501}"))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
