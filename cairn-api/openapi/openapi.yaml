@@ -1456,6 +1456,7 @@ components:
         - quantity
         - priceSource
         - stale
+        - accountCash
       properties:
         id:
           type: string
@@ -1522,6 +1523,12 @@ components:
           description: Where the instrument's price comes from.
           allOf:
             - $ref: '#/components/schemas/PriceSource'
+        accountCash:
+          type: boolean
+          description: >-
+            True for the account's EUR cash balance, the holding `PUT /accounts/{id}/cash` sets; false
+            for every other holding, a savings booklet such as a Livret A included.
+          example: false
         stale:
           type: boolean
           description: >-
