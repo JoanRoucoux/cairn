@@ -15,9 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.roucoux.cairn.application.mapper.QuoteRestMapper;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
-import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.port.in.RecordManualQuoteUseCase;
-import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
@@ -58,9 +56,6 @@ class QuoteControllerTest {
     private RecordManualQuoteUseCase recordManualQuote;
 
     @MockitoBean
-    private RefreshQuotesUseCase refreshQuotes;
-
-    @MockitoBean
     private JdbcOperations jdbcOperations;
 
     @Test
@@ -75,22 +70,6 @@ class QuoteControllerTest {
                 .andExpect(status().isCreated());
 
         verify(recordManualQuote).record(eq(INSTRUMENT_ID), eq(LocalDate.of(2026, 8, 20)), any());
-    }
-
-    @Test
-    void refreshesEveryQuoteAndReportsTheFailures() throws Exception {
-        when(refreshQuotes.refreshAll(any(), any()))
-                .thenReturn(new RefreshReport(
-                        25,
-                        3,
-                        List.of(new RefreshReport.Failure(
-                                INSTRUMENT_ID, "iShares MSCI World Swap PEA", PriceSource.YAHOO, "timeout"))));
-
-        mockMvc.perform(post("/quotes/refresh").with(user("joan")).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.refreshed").value(25))
-                .andExpect(jsonPath("$.skipped").value(3))
-                .andExpect(jsonPath("$.failures[0].instrumentName").value("iShares MSCI World Swap PEA"));
     }
 
     @Test

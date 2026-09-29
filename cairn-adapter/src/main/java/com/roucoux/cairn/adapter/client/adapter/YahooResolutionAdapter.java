@@ -45,7 +45,12 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
 
     private static InstrumentCandidate toCandidate(SearchQuote quote) {
         return new InstrumentCandidate(
-                quote.longname(), PriceSource.YAHOO, quote.symbol(), assetClassOf(quote.quoteType()), null);
+                quote.longname(),
+                PriceSource.YAHOO,
+                quote.symbol(),
+                assetClassOf(quote.quoteType()),
+                quote.exchDisp(),
+                null);
     }
 
     static AssetClass assetClassOf(String quoteType) {
@@ -60,5 +65,5 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
     private record SearchResponse(List<SearchQuote> quotes) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record SearchQuote(String symbol, String longname, String quoteType) {}
+    private record SearchQuote(String symbol, String longname, String quoteType, String exchDisp) {}
 }

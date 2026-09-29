@@ -2,6 +2,7 @@ package com.roucoux.cairn.infrastructure.config;
 
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
 import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
+import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
@@ -16,8 +17,9 @@ import org.springframework.context.annotation.Configuration;
 class InstrumentDomainConfig {
 
     @Bean
-    InstrumentResolutionService instrumentResolutionService(List<ResolveInstrumentPort> resolvers) {
-        return new InstrumentResolutionService(resolvers);
+    InstrumentResolutionService instrumentResolutionService(
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers) {
+        return new InstrumentResolutionService(resolvers, fetchers);
     }
 
     @Bean

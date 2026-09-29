@@ -125,6 +125,7 @@ class InstrumentControllerTest {
                         PriceSource.YAHOO,
                         "0P0000000A.F",
                         AssetClass.FUND,
+                        "Frankfurt",
                         new BigDecimal("131.57"))));
 
         mockMvc.perform(post("/instruments/resolve")
@@ -134,6 +135,7 @@ class InstrumentControllerTest {
                         .content("{\"query\":\"FR0000000010\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].sourceRef").value("0P0000000A.F"))
+                .andExpect(jsonPath("$[0].exchange").value("Frankfurt"))
                 .andExpect(jsonPath("$[0].probePrice").value(131.57));
     }
 
