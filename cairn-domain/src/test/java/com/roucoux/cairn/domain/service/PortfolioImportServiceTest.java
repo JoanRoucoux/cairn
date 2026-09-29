@@ -156,6 +156,13 @@ class PortfolioImportServiceTest {
                         .filter(holding -> holding.instrumentId().equals(instrumentId))
                         .toList();
             }
+
+            @Override
+            public List<Holding> findByAccount(UUID accountId) {
+                return holdings.stream()
+                        .filter(holding -> holding.accountId().equals(accountId))
+                        .toList();
+            }
         };
 
         return new PortfolioImportService(

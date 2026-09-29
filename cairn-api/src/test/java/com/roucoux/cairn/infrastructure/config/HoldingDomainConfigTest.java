@@ -155,6 +155,11 @@ class HoldingDomainConfigTest {
                     public List<Holding> findByInstrument(UUID instrumentId) {
                         return List.of();
                     }
+
+                    @Override
+                    public List<Holding> findByAccount(UUID accountId) {
+                        return List.of();
+                    }
                 };
         List<Holding> saved = new java.util.ArrayList<>();
         com.roucoux.cairn.domain.port.out.SaveHoldingPort saveHolding = holding -> {

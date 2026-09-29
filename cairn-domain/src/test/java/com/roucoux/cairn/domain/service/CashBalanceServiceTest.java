@@ -238,6 +238,13 @@ class CashBalanceServiceTest {
             }
 
             @Override
+            public List<Holding> findByAccount(UUID accountId) {
+                return holdings.stream()
+                        .filter(h -> h.accountId().equals(accountId))
+                        .toList();
+            }
+
+            @Override
             public List<Holding> findByInstrument(UUID instrumentId) {
                 return holdings.stream()
                         .filter(h -> h.instrumentId().equals(instrumentId))

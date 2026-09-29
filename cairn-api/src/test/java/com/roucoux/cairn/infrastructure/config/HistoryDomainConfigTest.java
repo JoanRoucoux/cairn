@@ -62,6 +62,11 @@ class HistoryDomainConfigTest {
             public List<Holding> findByInstrument(UUID instrumentId) {
                 return List.of();
             }
+
+            @Override
+            public List<Holding> findByAccount(UUID accountId) {
+                return List.of();
+            }
         };
         LoadInstrumentsPort loadInstruments = new LoadInstrumentsPort() {
             @Override

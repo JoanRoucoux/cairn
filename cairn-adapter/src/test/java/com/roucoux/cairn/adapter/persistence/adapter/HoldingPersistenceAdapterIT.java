@@ -84,6 +84,19 @@ class HoldingPersistenceAdapterIT {
     }
 
     @Test
+    void findsHoldingsByAccountOnly() {
+        Holding first = givenAHoldingOf(new BigDecimal("4"));
+        Holding second = givenAHoldingOf(new BigDecimal("7"));
+
+        assertThat(holdings.findByAccount(first.accountId()))
+                .extracting(Holding::id)
+                .containsExactly(first.id());
+        assertThat(holdings.findByAccount(second.accountId()))
+                .extracting(Holding::id)
+                .containsExactly(second.id());
+    }
+
+    @Test
     void deletesAHolding() {
         Holding saved = givenAHoldingOf(new BigDecimal("4"));
 

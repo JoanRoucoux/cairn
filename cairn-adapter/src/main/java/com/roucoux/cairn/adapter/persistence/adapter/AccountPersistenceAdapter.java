@@ -3,6 +3,7 @@ package com.roucoux.cairn.adapter.persistence.adapter;
 import com.roucoux.cairn.adapter.persistence.entity.AccountEntity;
 import com.roucoux.cairn.adapter.persistence.repository.AccountJpaRepository;
 import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.port.out.DeleteAccountPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import java.util.List;
@@ -11,7 +12,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AccountPersistenceAdapter implements LoadAccountsPort, SaveAccountPort {
+public class AccountPersistenceAdapter implements LoadAccountsPort, SaveAccountPort, DeleteAccountPort {
 
     private final AccountJpaRepository repository;
 
@@ -32,5 +33,10 @@ public class AccountPersistenceAdapter implements LoadAccountsPort, SaveAccountP
     @Override
     public Account save(Account account) {
         return repository.save(AccountEntity.fromDomain(account)).toDomain();
+    }
+
+    @Override
+    public void delete(UUID id) {
+        repository.deleteById(id);
     }
 }

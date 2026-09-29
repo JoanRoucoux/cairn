@@ -11,4 +11,6 @@ public interface HoldingJpaRepository extends JpaRepository<HoldingEntity, UUID>
     Optional<HoldingEntity> findByAccountIdAndInstrumentId(UUID accountId, UUID instrumentId);
 
     List<HoldingEntity> findByInstrumentId(UUID instrumentId);
+
+    List<HoldingEntity> findByAccountId(UUID accountId);
 }
