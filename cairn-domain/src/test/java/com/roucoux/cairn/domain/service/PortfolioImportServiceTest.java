@@ -203,6 +203,6 @@ class PortfolioImportServiceTest {
 
     private static InstrumentCandidate aCandidate() {
         return new InstrumentCandidate(
-                "Global Growth Tracker", PriceSource.YAHOO, "GGT.PA", AssetClass.ETF, new BigDecimal("22"));
+                "Global Growth Tracker", PriceSource.YAHOO, "GGT.PA", AssetClass.ETF, "Paris", new BigDecimal("22"));
     }
 }

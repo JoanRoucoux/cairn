@@ -22,9 +22,7 @@ tags:
   - name: Instrument
     description: Manage instruments and resolve them from an ISIN
   - name: Quote
-    description: Read and record quote history, and refresh quotes on demand
-  - name: Jobs
-    description: Inspect recent batch job runs
+    description: Read and record quote history
   - name: History
     description: The portfolio's value over time, from daily snapshots or intraday valuations
   - name: Session
@@ -804,6 +802,8 @@ paths:
                   type: string
                   description: An ISIN, a ticker or a name
                   example: FR0011550185
+            example:
+              query: FR0011550185
       responses:
         '200':
           description: Candidate price sources, each probed for a live price
@@ -905,58 +905,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-  /quotes/refresh:
-    post:
-      tags: [Quote]
-      operationId: refreshQuotes
-      summary: Refresh every refreshable instrument's quote synchronously
-      description: >-
-        Fetches a fresh quote for every non-manual instrument. A per-instrument failure (an
-        upstream source down, or a query it no longer resolves) is reported in `failures`; it
-        never fails the call as a whole.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      responses:
-        '200':
-          description: The outcome of the refresh
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RefreshReportResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /jobs/runs:
-    get:
-      tags: [Jobs]
-      operationId: getJobRuns
-      summary: List recent batch job runs, most recent first
-      description: Reads Spring Batch's own execution metadata; there is no Cairn-specific job history.
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          description: The maximum number of runs to return.
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-      responses:
-        '200':
-          description: Recent batch job executions, most recent first
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobRunResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
   /history:
     get:
       tags: [History]
@@ -1837,7 +1785,7 @@ components:
         One price source's answer while resolving a query, with a live price fetched as a sanity
         check. Returned by `POST /instruments/resolve`.
       type: object
-      required: [name, source, sourceRef, assetClass, probePrice]
+      required: [name, source, sourceRef, assetClass]
       properties:
         name:
           type: string
@@ -1855,9 +1803,17 @@ components:
           description: The kind of instrument this source reports it as.
           allOf:
             - $ref: '#/components/schemas/AssetClass'
+        exchange:
+          type: string
+          nullable: true
+          description: The exchange this candidate is listed on, as the source names it. Null when the source does not say.
+          example: Paris
         probePrice:
           type: number
-          description: The live price fetched from this source while resolving, as a sanity check.
+          nullable: true
+          description: >-
+            The live price fetched from this source while resolving, as a sanity check. Null when
+            the probe failed or timed out.
           example: 28.10
     QuoteResponse:
       description: >-
@@ -1902,82 +1858,6 @@ components:
           type: number
           description: The price, in the instrument's native currency.
           example: 28.10
-    RefreshReportResponse:
-      description: >-
-        The outcome of a synchronous refresh of every refreshable instrument. Returned by
-        `POST /quotes/refresh`.
-      type: object
-      required: [refreshed, skipped, failures]
-      properties:
-        refreshed:
-          type: integer
-          description: The number of instruments successfully repriced.
-          example: 14
-        skipped:
-          type: integer
-          description: The number of MANUAL instruments, not attempted.
-          example: 2
-        failures:
-          type: array
-          description: One entry per instrument whose price source could not be reached or resolved.
-          items:
-            $ref: '#/components/schemas/RefreshFailureResponse'
-    RefreshFailureResponse:
-      description: One instrument a refresh could not reprice, one entry of `RefreshReportResponse.failures`.
-      type: object
-      required: [instrumentId, instrumentName, source, message]
-      properties:
-        instrumentId:
-          type: string
-          format: uuid
-          description: The instrument that could not be repriced.
-          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-        instrumentName:
-          type: string
-          description: The instrument's name, for display without a further lookup.
-          example: Sample Bank Share
-        source:
-          description: The price source that failed to answer.
-          allOf:
-            - $ref: '#/components/schemas/PriceSource'
-        message:
-          type: string
-          description: A short, technical explanation of why this instrument could not be refreshed.
-          example: Yahoo Finance returned no quote for ticker GLE.PA
-    JobRunResponse:
-      description: One recorded execution of a Spring Batch job. Returned by `GET /jobs/runs`.
-      type: object
-      required: [id, jobName, status, startedAt]
-      properties:
-        id:
-          type: integer
-          format: int64
-          description: Spring Batch's own execution id.
-          example: 42
-        jobName:
-          type: string
-          description: The Spring Batch job's registered name.
-          example: refreshQuotesJob
-        status:
-          type: string
-          description: >-
-            The Spring Batch execution status. `STARTED`/`STARTING`/`STOPPING` are in progress,
-            `COMPLETED` is a success, `FAILED` and `ABANDONED` mark a run that did not complete,
-            `STOPPED` was stopped on request, and `UNKNOWN` is a status Spring Batch could not
-            determine.
-          example: COMPLETED
-          enum: [STARTING, STARTED, STOPPING, STOPPED, FAILED, COMPLETED, ABANDONED, UNKNOWN]
-        startedAt:
-          type: string
-          format: date-time
-          description: When this run started.
-          example: 2026-09-25T05:00:00Z
-        endedAt:
-          type: string
-          format: date-time
-          nullable: true
-          description: Absent while the run is still in progress.
-          example: 2026-09-25T05:02:14Z
     HistoryResponse:
       description: >-
         The portfolio's value over a date range, either measured or reconstructed. Returned by

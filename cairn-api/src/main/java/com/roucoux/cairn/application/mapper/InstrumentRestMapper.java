@@ -45,6 +45,7 @@ public class InstrumentRestMapper {
         response.setSource(PriceSource.valueOf(candidate.source().name()));
         response.setSourceRef(candidate.sourceRef());
         response.setAssetClass(AssetClass.valueOf(candidate.assetClass().name()));
+        response.setExchange(candidate.exchange());
         response.setProbePrice(candidate.probePrice());
         return response;
     }

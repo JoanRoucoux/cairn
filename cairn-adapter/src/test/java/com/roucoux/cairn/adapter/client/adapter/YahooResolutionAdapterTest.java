@@ -64,6 +64,7 @@ class YahooResolutionAdapterTest {
             assertThat(candidate.source()).isEqualTo(PriceSource.YAHOO);
             assertThat(candidate.assetClass()).isEqualTo(AssetClass.FUND);
             assertThat(candidate.name()).isEqualTo("Fonds Exemple Diversifié");
+            assertThat(candidate.exchange()).isEqualTo("Frankfurt");
         });
     }
 

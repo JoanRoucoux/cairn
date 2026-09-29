@@ -40,7 +40,10 @@ class MarketDataContractIT {
     @Test
     void yahooStillResolvesAnIsinToASymbol() {
         List.of("FR0000121014", "IE00B4L5Y983")
-                .forEach(isin -> assertThat(realResolver().resolve(isin)).isNotEmpty());
+                .forEach(isin -> assertThat(realResolver().resolve(isin))
+                        .isNotEmpty()
+                        .allSatisfy(
+                                candidate -> assertThat(candidate.exchange()).isNotBlank()));
     }
 
     @Test

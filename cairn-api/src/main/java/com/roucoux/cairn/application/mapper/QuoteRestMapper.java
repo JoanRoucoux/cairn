@@ -1,11 +1,8 @@
 package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.domain.model.Quote;
-import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.QuoteResponse;
-import com.roucoux.cairn.generated.model.RefreshFailureResponse;
-import com.roucoux.cairn.generated.model.RefreshReportResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.springframework.stereotype.Component;
@@ -22,24 +19,6 @@ public class QuoteRestMapper {
         response.setPrice(scaledPrice(quote.price()));
         response.setCurrency(quote.currency());
         response.setSource(PriceSource.valueOf(quote.source().name()));
-        return response;
-    }
-
-    public RefreshReportResponse toResponse(RefreshReport report) {
-        RefreshReportResponse response = new RefreshReportResponse();
-        response.setRefreshed(report.refreshed());
-        response.setSkipped(report.skipped());
-        response.setFailures(
-                report.failures().stream().map(this::toFailureResponse).toList());
-        return response;
-    }
-
-    private RefreshFailureResponse toFailureResponse(RefreshReport.Failure failure) {
-        RefreshFailureResponse response = new RefreshFailureResponse();
-        response.setInstrumentId(failure.instrumentId());
-        response.setInstrumentName(failure.instrumentName());
-        response.setSource(PriceSource.valueOf(failure.source().name()));
-        response.setMessage(failure.message());
         return response;
     }
 
