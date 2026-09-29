@@ -3,6 +3,7 @@ package com.roucoux.cairn.domain.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
@@ -19,6 +20,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,6 +128,60 @@ class HoldingServiceTest {
         assertThatThrownBy(() -> fixture.service().delete(UUID.randomUUID())).isInstanceOf(NotFoundException.class);
     }
 
+    @Test
+    void buyingSavesTheWeightedHolding() {
+        Fixture fixture = Fixture.withHolding("500", "24.12");
+
+        Holding bought = fixture.service().buy(fixture.holdingId(), new BigDecimal("40"), new BigDecimal("29.10"));
+
+        assertThat(bought.averageCost()).isEqualByComparingTo("24.488889");
+        assertThat(fixture.holdings())
+                .singleElement()
+                .satisfies(saved -> assertThat(saved.quantity()).isEqualByComparingTo("540"));
+    }
+
+    @Test
+    void sellingPartSavesTheRemainder() {
+        Fixture fixture = Fixture.withHolding("500", "24.12");
+
+        Optional<Holding> remaining = fixture.service().sell(fixture.holdingId(), new BigDecimal("100"));
+
+        assertThat(remaining).isPresent();
+        assertThat(fixture.holdings())
+                .singleElement()
+                .satisfies(saved -> assertThat(saved.quantity()).isEqualByComparingTo("400"));
+    }
+
+    @Test
+    void sellingEverythingDeletesTheHolding() {
+        Fixture fixture = Fixture.withHolding("500", "24.12");
+
+        Optional<Holding> remaining = fixture.service().sell(fixture.holdingId(), new BigDecimal("500"));
+
+        assertThat(remaining).isEmpty();
+        assertThat(fixture.holdings()).isEmpty();
+    }
+
+    @Test
+    void tradingAnUnknownHoldingIsNotFound() {
+        Fixture fixture = Fixture.withKnownAccountAndInstrument();
+
+        assertThatThrownBy(() -> fixture.service().buy(UUID.randomUUID(), BigDecimal.ONE, BigDecimal.ONE))
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> fixture.service().sell(UUID.randomUUID(), BigDecimal.ONE))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void cashCannotBeTraded() {
+        Fixture fixture = Fixture.withExistingCashHolding();
+
+        assertThatThrownBy(() -> fixture.service().buy(fixture.holdingId(), BigDecimal.ONE, BigDecimal.ONE))
+                .isInstanceOf(CashHoldingTradeException.class);
+        assertThatThrownBy(() -> fixture.service().sell(fixture.holdingId(), BigDecimal.ONE))
+                .isInstanceOf(CashHoldingTradeException.class);
+    }
+
     private static final class Fixture {
 
         private final List<Holding> holdings = new ArrayList<>();
@@ -141,7 +197,8 @@ class HoldingServiceTest {
             this.instrumentId = instrumentId;
             this.holdingId = holdingId;
             this.accounts = Map.of(accountId, new Account(accountId, "Livret A", AccountType.SAVINGS, "Bank"));
-            this.instruments = Map.of(
+            this.instruments = new HashMap<>();
+            this.instruments.put(
                     instrumentId,
                     new Instrument(
                             instrumentId,
@@ -165,6 +222,39 @@ class HoldingServiceTest {
             return fixture;
         }
 
+        static Fixture withExistingCashHolding() {
+            Fixture fixture = withKnownAccountAndInstrument();
+            fixture.instruments.put(
+                    fixture.instrumentId,
+                    new Instrument(
+                            fixture.instrumentId,
+                            "Livret A",
+                            null,
+                            "EUR",
+                            AssetClass.CASH,
+                            PriceSource.MANUAL,
+                            null,
+                            null));
+            fixture.holdings.add(new Holding(
+                    fixture.holdingId,
+                    fixture.accountId,
+                    fixture.instrumentId,
+                    new BigDecimal("20000"),
+                    BigDecimal.ONE));
+            return fixture;
+        }
+
+        static Fixture withHolding(String quantity, String averageCost) {
+            Fixture fixture = withKnownAccountAndInstrument();
+            fixture.holdings.add(new Holding(
+                    fixture.holdingId,
+                    fixture.accountId,
+                    fixture.instrumentId,
+                    new BigDecimal(quantity),
+                    averageCost == null ? null : new BigDecimal(averageCost)));
+            return fixture;
+        }
+
         UUID accountId() {
             return accountId;
         }
@@ -179,6 +269,10 @@ class HoldingServiceTest {
 
         List<UUID> deleted() {
             return deletedIds;
+        }
+
+        List<Holding> holdings() {
+            return holdings;
         }
 
         HoldingService service() {

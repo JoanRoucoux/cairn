@@ -6,8 +6,10 @@ import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.generated.api.HoldingApi;
+import com.roucoux.cairn.generated.model.BuyHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
+import com.roucoux.cairn.generated.model.SellHoldingRequest;
 import com.roucoux.cairn.generated.model.UpdateHoldingRequest;
 import java.util.List;
 import java.util.UUID;
@@ -64,6 +66,20 @@ class HoldingController implements HoldingApi {
     public ResponseEntity<Void> deleteHolding(UUID id) {
         manageHolding.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<HoldingResponse> buyHolding(UUID id, BuyHoldingRequest buyHoldingRequest) {
+        Holding holding = manageHolding.buy(id, buyHoldingRequest.getQuantity(), buyHoldingRequest.getUnitPrice());
+        return ResponseEntity.ok(toResponse(holding));
+    }
+
+    @Override
+    public ResponseEntity<HoldingResponse> sellHolding(UUID id, SellHoldingRequest sellHoldingRequest) {
+        return manageHolding
+                .sell(id, sellHoldingRequest.getQuantity())
+                .map(remaining -> ResponseEntity.ok(toResponse(remaining)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     private HoldingResponse toResponse(Holding holding) {
