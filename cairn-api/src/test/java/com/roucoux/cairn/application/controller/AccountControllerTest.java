@@ -1,11 +1,13 @@
 package com.roucoux.cairn.application.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -13,14 +15,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.AccountRestMapper;
+import com.roucoux.cairn.domain.exception.business.AccountNotEmptyException;
 import com.roucoux.cairn.domain.exception.business.NegativeCashBalanceException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
+import com.roucoux.cairn.domain.port.in.ManageAccountUseCase;
 import com.roucoux.cairn.domain.port.in.SetCashBalanceUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
-import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
+import com.roucoux.cairn.infrastructure.transaction.AccountDeletionTransaction;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -52,10 +56,13 @@ class AccountControllerTest {
     private LoadAccountsPort loadAccounts;
 
     @MockitoBean
-    private SaveAccountPort saveAccount;
+    private ManageAccountUseCase manageAccount;
 
     @MockitoBean
     private SetCashBalanceUseCase setCashBalance;
+
+    @MockitoBean
+    private AccountDeletionTransaction deletion;
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
@@ -72,7 +79,8 @@ class AccountControllerTest {
 
     @Test
     void createsAnAccount() throws Exception {
-        when(saveAccount.save(any())).thenReturn(BOURSORAMA_PEA);
+        when(manageAccount.create("PEA Boursorama", AccountType.PEA, "Boursorama"))
+                .thenReturn(BOURSORAMA_PEA);
 
         mockMvc.perform(post("/accounts")
                         .with(user("joan"))
@@ -81,6 +89,41 @@ class AccountControllerTest {
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.institution").value("Boursorama"));
+    }
+
+    @Test
+    void updatingAnswersTheAccount() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(manageAccount.update(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"))
+                .thenReturn(new Account(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"));
+
+        mockMvc.perform(put("/accounts/{id}", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"Saxo Investor\",\"type\":\"PEA\",\"institution\":\"Saxo Bank\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Saxo Investor"));
+    }
+
+    @Test
+    void deletingAnswersNoContent() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/accounts/{id}", id).with(user("joan")).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(deletion).run(id);
+    }
+
+    @Test
+    void deletingANonEmptyAccountIsRefused() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new AccountNotEmptyException(id, 8)).when(deletion).run(id);
+
+        mockMvc.perform(delete("/accounts/{id}", id).with(user("joan")).with(csrf()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("8 holding")));
     }
 
     @Test

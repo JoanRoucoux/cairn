@@ -120,6 +120,11 @@ class PortfolioDomainConfigTest {
             public List<Holding> findByInstrument(UUID instrumentId) {
                 return List.of();
             }
+
+            @Override
+            public List<Holding> findByAccount(UUID accountId) {
+                return List.of();
+            }
         };
         ValueHoldingUseCase valueHolding =
                 new HoldingValuationService(loadInstruments, loadAccounts, loadQuotes, CLOCK);

@@ -481,6 +481,88 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The account's id.
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Account]
+      operationId: updateAccount
+      summary: Update an account
+      description: Replaces the account's name, envelope type and institution. The name must stay unique across every account.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAccountRequest'
+            example:
+              name: Saxo Investor
+              type: PEA
+              institution: Saxo Bank
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown account
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Another account already has this name
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    delete:
+      tags: [Account]
+      operationId: deleteAccount
+      summary: Delete an account
+      description: >-
+        Deletes an account that holds nothing but its EUR cash balance, which is deleted with it.
+        An account that still holds any other holding, a savings booklet included, is refused:
+        sell or delete its holdings first.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        '204':
+          description: Account deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown account
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: The account still holds holdings other than its EUR cash balance; `detail` states how many
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /accounts/{id}/cash:
     parameters:
       - name: id
@@ -1564,6 +1646,23 @@ components:
           type: string
           description: The bank or broker the account is held at.
           example: Sample Bank
+    UpdateAccountRequest:
+      description: The body of `PUT /accounts/{id}`.
+      type: object
+      required: [name, type, institution]
+      properties:
+        name:
+          type: string
+          description: Must be unique across every account.
+          example: Saxo Investor
+        type:
+          description: The kind of envelope this account is.
+          allOf:
+            - $ref: '#/components/schemas/AccountType'
+        institution:
+          type: string
+          description: The bank or broker the account is held at.
+          example: Saxo Bank
     SetCashBalanceRequest:
       description: The body of `PUT /accounts/{id}/cash`.
       type: object
