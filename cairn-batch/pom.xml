@@ -23,11 +23,11 @@
     <cairn-adapter.version>0.1.0-SNAPSHOT</cairn-adapter.version>
     <cairn-schema.version>0.1.0-SNAPSHOT</cairn-schema.version>
 
-    <archunit.version>1.5.0</archunit.version>
+    <archunit.version>1.5.1</archunit.version>
     <testcontainers.version>1.21.4</testcontainers.version>
 
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
-    <spotless-maven-plugin.version>3.10.2</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.10.3</spotless-maven-plugin.version>
     <palantir-java-format.version>2.96.0</palantir-java-format.version>
   </properties>
 
