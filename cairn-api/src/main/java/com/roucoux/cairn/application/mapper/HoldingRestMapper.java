@@ -58,7 +58,9 @@ public class HoldingRestMapper {
             response.setPrice(scaledAmount(quote.price()));
             response.setPriceCurrency(quote.currency());
             response.setPriceAsOf(quote.asOf());
-            response.setPriceFetchedAt(quote.fetchedAt().atOffset(ZoneOffset.UTC));
+            if (!instrument.isPricedAtPar()) {
+                response.setPriceFetchedAt(quote.fetchedAt().atOffset(ZoneOffset.UTC));
+            }
         });
         response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
         response.setStale(line.isStale(clock));

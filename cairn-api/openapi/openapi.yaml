@@ -1678,7 +1678,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: When the latest quote was fetched; absent along with price.
+          description: When the latest quote was fetched or entered; absent when there is no quote or the value is computed at par.
           example: 2026-09-25T15:35:00Z
         priceSource:
           description: Where the instrument's price comes from.

@@ -68,11 +68,21 @@ class HoldingRestMapperTest {
     @Test
     void exposesWhenAManualQuoteWasEntered() {
         Instrument manual = new Instrument(
-                UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
+                UUID.randomUUID(), "Sample Fund", null, "EUR", AssetClass.FUND, PriceSource.MANUAL, null, null);
 
         assertThat(mapper.toResponse(valued(manual, quoteFetchedAt(manual, "2026-09-20T08:00:00Z")))
                         .getPriceFetchedAt())
                 .isEqualTo(OffsetDateTime.parse("2026-09-20T08:00:00Z"));
+    }
+
+    @Test
+    void leavesTheFetchTimeAbsentForCashPricedAtPar() {
+        Instrument livretA = new Instrument(
+                UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
+
+        assertThat(mapper.toResponse(valued(livretA, quoteFetchedAt(livretA, "2026-09-25T15:35:00Z")))
+                        .getPriceFetchedAt())
+                .isNull();
     }
 
     @Test
