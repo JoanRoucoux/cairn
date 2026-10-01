@@ -33,7 +33,8 @@ public class SessionRestMapper {
         String currentCredentialId =
                 authentication instanceof PasskeyAuthentication passkey ? passkey.credentialId() : null;
         return passkeys.stream()
-                .sorted(Comparator.comparing(CredentialRecord::getCreated)
+                .sorted(Comparator.comparing(
+                                CredentialRecord::getCreated, Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(passkey -> passkey.getCredentialId().toBase64UrlString()))
                 .map(passkey -> toResponse(passkey, currentCredentialId))
                 .toList();
@@ -58,7 +59,8 @@ public class SessionRestMapper {
         PasskeyProvider provider = PasskeyProviders.providerOf(credential.getAttestationObject());
         response.setProvider(provider == null ? null : PasskeyResponse.ProviderEnum.valueOf(provider.name()));
         response.setLabel(credential.getLabel());
-        response.setCreatedAt(credential.getCreated().atOffset(ZoneOffset.UTC));
+        response.setCreatedAt(
+                credential.getCreated() == null ? null : credential.getCreated().atOffset(ZoneOffset.UTC));
         response.setLastUsedAt(
                 credential.getLastUsed() == null
                         ? null

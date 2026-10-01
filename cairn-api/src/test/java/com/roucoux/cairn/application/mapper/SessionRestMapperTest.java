@@ -1,6 +1,7 @@
 package com.roucoux.cairn.application.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.roucoux.cairn.generated.model.PasskeyResponse;
 import com.roucoux.cairn.generated.model.SessionResponse;
@@ -84,16 +85,19 @@ class SessionRestMapperTest {
                 password,
                 List.of(
                         credential(MAC_KEY, null, later),
+                        credential(ICLOUD_KEY, null, null),
                         credential(MAC_KEY, null, earlier),
                         credential(ICLOUD_KEY, null, later)));
 
         assertThat(response)
                 .extracting(
-                        PasskeyResponse::getCredentialId, p -> p.getCreatedAt().toInstant())
+                        PasskeyResponse::getCredentialId,
+                        p -> p.getCreatedAt() == null ? null : p.getCreatedAt().toInstant())
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("bWFj", earlier),
-                        org.assertj.core.groups.Tuple.tuple("aXBob25l", later),
-                        org.assertj.core.groups.Tuple.tuple("bWFj", later));
+                        tuple("bWFj", earlier),
+                        tuple("aXBob25l", later),
+                        tuple("bWFj", later),
+                        tuple("aXBob25l", null));
     }
 
     @Test
