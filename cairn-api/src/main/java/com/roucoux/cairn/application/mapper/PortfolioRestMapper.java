@@ -53,7 +53,7 @@ public class PortfolioRestMapper {
         AllocationResponse response = new AllocationResponse();
         response.setLabel(allocation.label());
         response.setValueEur(amount(allocation.value()));
-        response.setShare(allocation.share().setScale(RATIO_SCALE, RoundingMode.HALF_UP));
+        response.setShare(share(allocation.share()));
         return response;
     }
 
@@ -88,7 +88,11 @@ public class PortfolioRestMapper {
         return denominator.signum() == 0 ? null : numerator.divide(denominator, RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal amount(Money money) {
+    static BigDecimal share(BigDecimal share) {
+        return share.setScale(RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    static BigDecimal amount(Money money) {
         return scaledAmount(money.amount());
     }
 

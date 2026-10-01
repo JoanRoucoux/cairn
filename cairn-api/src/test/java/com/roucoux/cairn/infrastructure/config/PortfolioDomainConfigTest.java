@@ -137,6 +137,12 @@ class PortfolioDomainConfigTest {
 
         assertThat(performance.to()).isEqualTo(LocalDate.now(CLOCK.withZone(ZONE)));
         assertThat(performance.total().amount()).isEqualByComparingTo("20000");
+        assertThat(new PortfolioDomainConfig()
+                        .allocationService(getPortfolio)
+                        .byAccount()
+                        .items())
+                .singleElement()
+                .satisfies(item -> assertThat(item.value().amount()).isEqualByComparingTo("20000"));
     }
 
     @Test

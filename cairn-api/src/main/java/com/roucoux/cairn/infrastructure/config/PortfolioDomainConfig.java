@@ -12,6 +12,7 @@ import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
+import com.roucoux.cairn.domain.service.AllocationService;
 import com.roucoux.cairn.domain.service.PerformanceService;
 import com.roucoux.cairn.domain.service.PortfolioImportService;
 import com.roucoux.cairn.domain.service.PortfolioService;
@@ -27,6 +28,11 @@ class PortfolioDomainConfig {
     @Bean
     PortfolioService portfolioService(LoadHoldingsPort loadHoldings, ValueHoldingUseCase valueHolding, Clock clock) {
         return new PortfolioService(loadHoldings, valueHolding, clock);
+    }
+
+    @Bean
+    AllocationService allocationService(GetPortfolioUseCase getPortfolio) {
+        return new AllocationService(getPortfolio);
     }
 
     @Bean

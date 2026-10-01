@@ -14,13 +14,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.roucoux.cairn.application.csv.HoldingCsvWriter;
 import com.roucoux.cairn.application.csv.PortfolioCsvReader;
+import com.roucoux.cairn.application.mapper.AccountRestMapper;
+import com.roucoux.cairn.application.mapper.AllocationRestMapper;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.model.AccountAllocation;
+import com.roucoux.cairn.domain.model.AccountBreakdown;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
+import com.roucoux.cairn.domain.model.AssetClassAllocation;
+import com.roucoux.cairn.domain.model.AssetClassBreakdown;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
@@ -31,6 +37,8 @@ import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
+import com.roucoux.cairn.domain.port.in.GetAccountAllocationUseCase;
+import com.roucoux.cairn.domain.port.in.GetAssetClassAllocationUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
@@ -61,6 +69,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
     WebAuthnConfig.class,
     PortfolioRestMapper.class,
+    AllocationRestMapper.class,
+    AccountRestMapper.class,
     HoldingRestMapper.class,
     HoldingCsvWriter.class,
     PortfolioCsvReader.class,
@@ -73,6 +83,12 @@ class PortfolioControllerTest {
 
     @MockitoBean
     private GetPortfolioUseCase getPortfolio;
+
+    @MockitoBean
+    private GetAssetClassAllocationUseCase getAssetClassAllocation;
+
+    @MockitoBean
+    private GetAccountAllocationUseCase getAccountAllocation;
 
     @MockitoBean
     private PortfolioImportTransaction importPortfolio;
@@ -130,6 +146,59 @@ class PortfolioControllerTest {
     @Test
     void refusesAnUnauthenticatedCall() throws Exception {
         mockMvc.perform(get("/portfolio")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void returnsTheBreakdownByAssetClass() throws Exception {
+        when(getAssetClassAllocation.byAssetClass())
+                .thenReturn(new AssetClassBreakdown(
+                        Money.eur(new BigDecimal("1000")),
+                        List.of(new AssetClassAllocation(
+                                AssetClass.ETF, Money.eur(new BigDecimal("800.456")), new BigDecimal("0.8"), 3))));
+
+        mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalEur").value(1000.0))
+                .andExpect(jsonPath("$.items[0].assetClass").value("ETF"))
+                .andExpect(jsonPath("$.items[0].valueEur").value(800.46))
+                .andExpect(jsonPath("$.items[0].share").value(0.8))
+                .andExpect(jsonPath("$.items[0].lineCount").value(3));
+    }
+
+    @Test
+    void returnsTheBreakdownByAccountWithTheWholeAccount() throws Exception {
+        Account account = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
+        when(getAccountAllocation.byAccount())
+                .thenReturn(new AccountBreakdown(
+                        Money.eur(new BigDecimal("1000")),
+                        List.of(new AccountAllocation(
+                                account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2))));
+
+        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].account.id").value(account.id().toString()))
+                .andExpect(jsonPath("$.items[0].account.name").value("Saxo"))
+                .andExpect(jsonPath("$.items[0].account.type").value("PEA"))
+                .andExpect(jsonPath("$.items[0].account.institution").value("Saxo Bank"))
+                .andExpect(jsonPath("$.items[0].valueEur").value(600.0))
+                .andExpect(jsonPath("$.items[0].lineCount").value(2));
+    }
+
+    @Test
+    void mapsANonEurHoldingTo422OnBothAllocationEndpoints() throws Exception {
+        when(getAssetClassAllocation.byAssetClass()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
+        when(getAccountAllocation.byAccount()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
+
+        mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
+                .andExpect(status().isUnprocessableEntity());
+        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void refusesAnUnauthenticatedCallOnBothAllocationEndpoints() throws Exception {
+        mockMvc.perform(get("/portfolio/allocation/classes")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/portfolio/allocation/accounts")).andExpect(status().isUnauthorized());
     }
 
     @Test
