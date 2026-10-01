@@ -33,6 +33,22 @@ class HoldingRestMapperTest {
     }
 
     @Test
+    void exposesTheInstrumentSymbol() {
+        Instrument ether = new Instrument(
+                UUID.randomUUID(),
+                "Ethereum",
+                null,
+                "ETH",
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                "ethereum",
+                null);
+
+        assertThat(mapper.toResponse(valued(ether)).getSymbol()).isEqualTo("ETH");
+    }
+
+    @Test
     void doesNotMarkASavingsBooklet() {
         Instrument livretA = new Instrument(
                 UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);

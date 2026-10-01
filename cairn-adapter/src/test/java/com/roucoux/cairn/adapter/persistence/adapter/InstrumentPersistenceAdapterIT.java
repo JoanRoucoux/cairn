@@ -43,6 +43,23 @@ class InstrumentPersistenceAdapterIT {
     }
 
     @Test
+    void roundTripsTheSymbol() {
+        Instrument saved = instruments.save(new Instrument(
+                UUID.randomUUID(),
+                "Ethereum",
+                null,
+                "ETH",
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                "ethereum",
+                null));
+
+        assertThat(instruments.findById(saved.id()))
+                .hasValueSatisfying(found -> assertThat(found.symbol()).isEqualTo("ETH"));
+    }
+
+    @Test
     void findsOnlyRefreshableInstrumentsOfTheRequestedAssetClasses() {
         instruments.save(etf("ETF.PA"));
         instruments.save(cashInstrument());

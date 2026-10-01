@@ -60,6 +60,7 @@ class InstrumentController implements InstrumentApi {
         Instrument created = manageInstrument.create(
                 createInstrumentRequest.getName(),
                 createInstrumentRequest.getIsin(),
+                createInstrumentRequest.getSymbol(),
                 createInstrumentRequest.getCurrency(),
                 AssetClass.valueOf(createInstrumentRequest.getAssetClass().name()),
                 PriceSource.valueOf(createInstrumentRequest.getPriceSource().name()),
@@ -81,6 +82,7 @@ class InstrumentController implements InstrumentApi {
                 id,
                 updateInstrumentRequest.getName(),
                 updateInstrumentRequest.getIsin(),
+                updateInstrumentRequest.getSymbol(),
                 AssetClass.valueOf(updateInstrumentRequest.getAssetClass().name()),
                 PriceSource.valueOf(updateInstrumentRequest.getPriceSource().name()),
                 updateInstrumentRequest.getSourceRef(),

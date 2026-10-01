@@ -106,6 +106,8 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
                 candidate.sourceRef(),
                 candidate.assetClass(),
                 candidate.exchange(),
+                candidate.isin(),
+                candidate.symbol(),
                 price);
     }
 }

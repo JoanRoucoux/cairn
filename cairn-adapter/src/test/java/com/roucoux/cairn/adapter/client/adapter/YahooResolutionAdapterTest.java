@@ -65,7 +65,30 @@ class YahooResolutionAdapterTest {
             assertThat(candidate.assetClass()).isEqualTo(AssetClass.FUND);
             assertThat(candidate.name()).isEqualTo("Fonds Exemple Diversifié");
             assertThat(candidate.exchange()).isEqualTo("Frankfurt");
+            assertThat(candidate.symbol()).isEqualTo("0P0000000A.F");
+            assertThat(candidate.isin()).isEqualTo("FR0000000010");
         });
+    }
+
+    @Test
+    void leavesTheIsinOutWhenTheQueryIsAName() {
+        stub("/v1/finance/search", "fixtures/yahoo-search-fund-isin.json");
+
+        List<InstrumentCandidate> candidates = adapter.resolve("fonds exemple");
+
+        assertThat(candidates).singleElement().satisfies(candidate -> {
+            assertThat(candidate.isin()).isNull();
+            assertThat(candidate.symbol()).isEqualTo("0P0000000A.F");
+        });
+    }
+
+    @Test
+    void readsTheIsinFromALowerCaseQuery() {
+        stub("/v1/finance/search", "fixtures/yahoo-search-fund-isin.json");
+
+        assertThat(adapter.resolve(" fr0000000010 "))
+                .singleElement()
+                .satisfies(candidate -> assertThat(candidate.isin()).isEqualTo("FR0000000010"));
     }
 
     @Test

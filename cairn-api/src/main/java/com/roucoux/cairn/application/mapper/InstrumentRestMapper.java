@@ -17,6 +17,7 @@ public class InstrumentRestMapper {
         response.setId(instrument.id());
         response.setName(instrument.name());
         response.setIsin(instrument.isin());
+        response.setSymbol(instrument.symbol());
         response.setCurrency(instrument.currency());
         response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
         response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
@@ -29,6 +30,7 @@ public class InstrumentRestMapper {
         response.setId(instrument.id());
         response.setName(instrument.name());
         response.setIsin(instrument.isin());
+        response.setSymbol(instrument.symbol());
         response.setCurrency(instrument.currency());
         response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
         response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
@@ -46,6 +48,8 @@ public class InstrumentRestMapper {
         response.setSourceRef(candidate.sourceRef());
         response.setAssetClass(AssetClass.valueOf(candidate.assetClass().name()));
         response.setExchange(candidate.exchange());
+        response.setIsin(candidate.isin());
+        response.setSymbol(candidate.symbol());
         response.setProbePrice(candidate.probePrice());
         return response;
     }

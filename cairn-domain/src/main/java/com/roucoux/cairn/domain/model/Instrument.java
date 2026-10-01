@@ -9,6 +9,7 @@ public record Instrument(
         UUID id,
         String name,
         String isin,
+        String symbol,
         String currency,
         AssetClass assetClass,
         PriceSource priceSource,
@@ -24,6 +25,7 @@ public record Instrument(
         Objects.requireNonNull(assetClass, "assetClass");
         Objects.requireNonNull(priceSource, "priceSource");
         isin = blankToNull(isin);
+        symbol = blankToNull(symbol);
         sourceRef = blankToNull(sourceRef);
         description = blankToNull(description);
         if (priceSource != PriceSource.MANUAL && sourceRef == null) {
@@ -32,6 +34,18 @@ public record Instrument(
         if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
             throw new InvalidInstrumentException("description must not exceed " + MAX_DESCRIPTION_LENGTH);
         }
+    }
+
+    public Instrument(
+            UUID id,
+            String name,
+            String isin,
+            String currency,
+            AssetClass assetClass,
+            PriceSource priceSource,
+            String sourceRef,
+            String description) {
+        this(id, name, isin, null, currency, assetClass, priceSource, sourceRef, description);
     }
 
     private static String blankToNull(String value) {

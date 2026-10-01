@@ -23,9 +23,16 @@ import org.junit.jupiter.api.Test;
 class InstrumentResolutionServiceTest {
 
     private static final InstrumentCandidate ETF_CANDIDATE = new InstrumentCandidate(
-            "Amundi MSCI World", PriceSource.YAHOO, "ETF.PA", AssetClass.ETF, "Paris", BigDecimal.TEN);
+            "Amundi MSCI World", PriceSource.YAHOO, "ETF.PA", AssetClass.ETF, "Paris", null, "ETF", BigDecimal.TEN);
     private static final InstrumentCandidate SG_CANDIDATE = new InstrumentCandidate(
-            "Societe Generale", PriceSource.SG_SIRIUS, "QS0000000010", AssetClass.EQUITY, "Paris", BigDecimal.ONE);
+            "Societe Generale",
+            PriceSource.SG_SIRIUS,
+            "QS0000000010",
+            AssetClass.EQUITY,
+            "Paris",
+            null,
+            "GLE",
+            BigDecimal.ONE);
 
     @Test
     void returnsEveryCandidateFoundAcrossSources() {
@@ -61,7 +68,14 @@ class InstrumentResolutionServiceTest {
     @Test
     void probesALivePriceForEachCandidate() {
         ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
-                "Amundi MSCI World", PriceSource.YAHOO, "CW8.PA", AssetClass.ETF, "Paris", null));
+                "Amundi MSCI World",
+                PriceSource.YAHOO,
+                "CW8.PA",
+                AssetClass.ETF,
+                "Paris",
+                "LU1681043599",
+                "CW8.PA",
+                null));
         FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> new BigDecimal("559.30"));
 
         List<InstrumentCandidate> candidates =
@@ -69,14 +83,16 @@ class InstrumentResolutionServiceTest {
 
         assertThat(candidates).singleElement().satisfies(candidate -> {
             assertThat(candidate.exchange()).isEqualTo("Paris");
+            assertThat(candidate.isin()).isEqualTo("LU1681043599");
+            assertThat(candidate.symbol()).isEqualTo("CW8.PA");
             assertThat(candidate.probePrice()).isEqualByComparingTo("559.30");
         });
     }
 
     @Test
     void aFailedProbeKeepsTheCandidateWithoutAPrice() {
-        ResolveInstrumentPort yahoo = resolver(
-                new InstrumentCandidate("Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null));
+        ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
+                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null));
         FetchQuotePort failing = fetcher(PriceSource.YAHOO, instrument -> {
             throw new MarketDataUnavailableException("yahoo down");
         });
@@ -91,8 +107,8 @@ class InstrumentResolutionServiceTest {
 
     @Test
     void aProbeThatTakesTooLongKeepsTheCandidateWithoutAPrice() {
-        ResolveInstrumentPort yahoo = resolver(
-                new InstrumentCandidate("Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null));
+        ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
+                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null));
         FetchQuotePort slow = fetcher(PriceSource.YAHOO, instrument -> {
             try {
                 Thread.sleep(Duration.ofSeconds(2).toMillis());

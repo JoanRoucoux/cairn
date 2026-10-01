@@ -8,4 +8,6 @@ public record InstrumentCandidate(
         String sourceRef,
         AssetClass assetClass,
         String exchange,
+        String isin,
+        String symbol,
         BigDecimal probePrice) {}

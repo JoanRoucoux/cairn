@@ -30,9 +30,10 @@ class InstrumentServiceTest {
         Fixture fixture = Fixture.empty();
 
         Instrument created = fixture.service()
-                .create("Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null);
+                .create("Bitcoin", null, "BTC", "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null);
 
         assertThat(created.name()).isEqualTo("Bitcoin");
+        assertThat(created.symbol()).isEqualTo("BTC");
         assertThat(created.sourceRef()).isEqualTo("bitcoin");
     }
 
@@ -45,6 +46,7 @@ class InstrumentServiceTest {
                         fixture.instrumentId(),
                         "Amundi ETF PEA S&P 500",
                         "FR0011550185",
+                        "ETF3",
                         AssetClass.ETF,
                         PriceSource.YAHOO,
                         "ETF3.PA",
@@ -53,6 +55,7 @@ class InstrumentServiceTest {
         assertThat(updated.currency()).isEqualTo("EUR");
         assertThat(updated.name()).isEqualTo("Amundi ETF PEA S&P 500");
         assertThat(updated.sourceRef()).isEqualTo("ETF3.PA");
+        assertThat(updated.symbol()).isEqualTo("ETF3");
     }
 
     @Test
@@ -60,7 +63,15 @@ class InstrumentServiceTest {
         Fixture fixture = Fixture.withExistingInstrument();
 
         assertThatThrownBy(() -> fixture.service()
-                        .update(UUID.randomUUID(), "Bitcoin", null, AssetClass.CRYPTO, PriceSource.MANUAL, null, null))
+                        .update(
+                                UUID.randomUUID(),
+                                "Bitcoin",
+                                null,
+                                null,
+                                AssetClass.CRYPTO,
+                                PriceSource.MANUAL,
+                                null,
+                                null))
                 .isInstanceOf(NotFoundException.class);
     }
 
