@@ -92,32 +92,66 @@ class SessionControllerTest {
     }
 
     @Test
-    void returnsTheOwnerAndTheirPasskeys() throws Exception {
+    void returnsTheOwnerWithoutTheirPasskeys() throws Exception {
         givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"));
 
         mockMvc.perform(get("/session").with(user("joan")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("Joan Roucoux"))
                 .andExpect(jsonPath("$.initials").value("JR"))
-                .andExpect(jsonPath("$.passkeys.length()").value(2))
-                .andExpect(jsonPath("$.passkeys[0].label").value("iPhone de Joan"));
-    }
-
-    @Test
-    void reportsAPasswordSessionWithNoCurrentPasskey() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"));
-
-        mockMvc.perform(get("/session").with(user("joan")))
                 .andExpect(jsonPath("$.username").value("joan"))
                 .andExpect(jsonPath("$.signInMethod").value("PASSWORD"))
-                .andExpect(jsonPath("$.passkeys[0].current").value(false))
-                .andExpect(jsonPath("$.passkeys[0].provider").doesNotExist());
+                .andExpect(jsonPath("$.passkeys").doesNotExist());
     }
 
     @Test
-    void reportsAPasskeySessionAndTheCredentialThatOpenedIt() throws Exception {
+    void returnsTheOwnerNamedAfterTheirUsernameWhenNoPasskeyWasRegisteredYet() throws Exception {
+        when(userEntities.findByUsername("joan")).thenReturn(null);
+
+        mockMvc.perform(get("/session").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("joan"));
+    }
+
+    @Test
+    void reportsAPasskeySessionOpenedByThePasskeyAuthentication() throws Exception {
+        PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
+                .name("joan")
+                .id(Bytes.random())
+                .displayName("Joan Roucoux")
+                .build();
+
+        mockMvc.perform(get("/session").with(authentication(new PasskeyAuthentication(principal, List.of(), "bWFj"))))
+                .andExpect(jsonPath("$.username").value("joan"))
+                .andExpect(jsonPath("$.signInMethod").value("PASSKEY"));
+    }
+
+    @Test
+    void listsThePasskeysOfTheOwner() throws Exception {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+
+        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].label").value("iPhone de Joan"))
+                .andExpect(jsonPath("$[1].label").value("MacBook"));
+    }
+
+    @Test
+    void flagsNoPasskeyAsCurrentWhenThePasswordOpenedTheSession() throws Exception {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+
+        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+                .andExpect(jsonPath("$[0].current").value(false))
+                .andExpect(jsonPath("$[1].current").value(false))
+                .andExpect(jsonPath("$[0].provider").doesNotExist());
+    }
+
+    @Test
+    void flagsThePasskeyThatOpenedTheSessionAsCurrent() throws Exception {
         givenOwner("joan", "Joan Roucoux");
         givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
         PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
@@ -126,12 +160,11 @@ class SessionControllerTest {
                 .displayName("Joan Roucoux")
                 .build();
 
-        mockMvc.perform(get("/session").with(authentication(new PasskeyAuthentication(principal, List.of(), "bWFj"))))
+        mockMvc.perform(get("/session/passkeys")
+                        .with(authentication(new PasskeyAuthentication(principal, List.of(), "bWFj"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("joan"))
-                .andExpect(jsonPath("$.signInMethod").value("PASSKEY"))
-                .andExpect(jsonPath("$.passkeys[0].current").value(false))
-                .andExpect(jsonPath("$.passkeys[1].current").value(true));
+                .andExpect(jsonPath("$[0].current").value(false))
+                .andExpect(jsonPath("$[1].current").value(true));
     }
 
     @Test
@@ -166,9 +199,10 @@ class SessionControllerTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/session").session(session))
-                .andExpect(jsonPath("$.signInMethod").value("PASSKEY"))
-                .andExpect(jsonPath("$.passkeys[0].current").value(false))
-                .andExpect(jsonPath("$.passkeys[1].current").value(true));
+                .andExpect(jsonPath("$.signInMethod").value("PASSKEY"));
+        mockMvc.perform(get("/session/passkeys").session(session))
+                .andExpect(jsonPath("$[0].current").value(false))
+                .andExpect(jsonPath("$[1].current").value(true));
     }
 
     @Test
@@ -176,8 +210,8 @@ class SessionControllerTest {
         givenOwner("joan", "Joan Roucoux");
         givenPasskeys(aNeverUsedCredential("aXBob25l", "iPhone de Joan"));
 
-        mockMvc.perform(get("/session").with(user("joan")))
-                .andExpect(jsonPath("$.passkeys[0].lastUsedAt").doesNotExist());
+        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+                .andExpect(jsonPath("$[0].lastUsedAt").doesNotExist());
     }
 
     @Test
@@ -186,13 +220,17 @@ class SessionControllerTest {
     }
 
     @Test
-    void returnsAnEmptySessionWhenNoPasskeyWasRegisteredYet() throws Exception {
+    void refusesAnUnauthenticatedPasskeyListing() throws Exception {
+        mockMvc.perform(get("/session/passkeys")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void listsNoPasskeyWhenNoneWasRegisteredYet() throws Exception {
         when(userEntities.findByUsername("joan")).thenReturn(null);
 
-        mockMvc.perform(get("/session").with(user("joan")))
+        mockMvc.perform(get("/session/passkeys").with(user("joan")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName").value("joan"))
-                .andExpect(jsonPath("$.passkeys.length()").value(0));
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
 import com.roucoux.cairn.infrastructure.auth.PasskeyProvider;
 import com.roucoux.cairn.infrastructure.auth.PasskeyProviders;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.security.core.Authentication;
@@ -16,10 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class SessionRestMapper {
 
-    public SessionResponse toResponse(
-            Authentication authentication, String displayName, List<CredentialRecord> passkeys) {
-        String currentCredentialId =
-                authentication instanceof PasskeyAuthentication passkey ? passkey.credentialId() : null;
+    public SessionResponse toResponse(Authentication authentication, String displayName) {
         SessionResponse response = new SessionResponse();
         response.setDisplayName(displayName);
         response.setInitials(initialsOf(displayName));
@@ -28,10 +26,18 @@ public class SessionRestMapper {
                 authentication instanceof WebAuthnAuthentication
                         ? SessionResponse.SignInMethodEnum.PASSKEY
                         : SessionResponse.SignInMethodEnum.PASSWORD);
-        response.setPasskeys(passkeys.stream()
-                .map(passkey -> toResponse(passkey, currentCredentialId))
-                .toList());
         return response;
+    }
+
+    public List<PasskeyResponse> toPasskeys(Authentication authentication, List<CredentialRecord> passkeys) {
+        String currentCredentialId =
+                authentication instanceof PasskeyAuthentication passkey ? passkey.credentialId() : null;
+        return passkeys.stream()
+                .sorted(Comparator.comparing(
+                                CredentialRecord::getCreated, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(passkey -> passkey.getCredentialId().toBase64UrlString()))
+                .map(passkey -> toResponse(passkey, currentCredentialId))
+                .toList();
     }
 
     public String initialsOf(String displayName) {
@@ -53,7 +59,8 @@ public class SessionRestMapper {
         PasskeyProvider provider = PasskeyProviders.providerOf(credential.getAttestationObject());
         response.setProvider(provider == null ? null : PasskeyResponse.ProviderEnum.valueOf(provider.name()));
         response.setLabel(credential.getLabel());
-        response.setCreatedAt(credential.getCreated().atOffset(ZoneOffset.UTC));
+        response.setCreatedAt(
+                credential.getCreated() == null ? null : credential.getCreated().atOffset(ZoneOffset.UTC));
         response.setLastUsedAt(
                 credential.getLastUsed() == null
                         ? null
