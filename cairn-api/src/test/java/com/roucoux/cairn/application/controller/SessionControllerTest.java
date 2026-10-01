@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.SessionRestMapper;
+import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
+import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
@@ -90,6 +93,36 @@ class SessionControllerTest {
                 .andExpect(jsonPath("$.initials").value("JR"))
                 .andExpect(jsonPath("$.passkeys.length()").value(2))
                 .andExpect(jsonPath("$.passkeys[0].label").value("iPhone de Joan"));
+    }
+
+    @Test
+    void reportsAPasswordSessionWithNoCurrentPasskey() throws Exception {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"));
+
+        mockMvc.perform(get("/session").with(user("joan")))
+                .andExpect(jsonPath("$.username").value("joan"))
+                .andExpect(jsonPath("$.signInMethod").value("PASSWORD"))
+                .andExpect(jsonPath("$.passkeys[0].current").value(false))
+                .andExpect(jsonPath("$.passkeys[0].provider").doesNotExist());
+    }
+
+    @Test
+    void reportsAPasskeySessionAndTheCredentialThatOpenedIt() throws Exception {
+        givenOwner("joan", "Joan Roucoux");
+        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
+                .name("joan")
+                .id(Bytes.random())
+                .displayName("Joan Roucoux")
+                .build();
+
+        mockMvc.perform(get("/session").with(authentication(new PasskeyAuthentication(principal, List.of(), "bWFj"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("joan"))
+                .andExpect(jsonPath("$.signInMethod").value("PASSKEY"))
+                .andExpect(jsonPath("$.passkeys[0].current").value(false))
+                .andExpect(jsonPath("$.passkeys[1].current").value(true));
     }
 
     @Test

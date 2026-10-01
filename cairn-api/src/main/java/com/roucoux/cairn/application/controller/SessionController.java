@@ -8,6 +8,7 @@ import com.roucoux.cairn.generated.model.SessionResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
@@ -41,10 +42,11 @@ class SessionController implements SessionApi {
 
     @Override
     public ResponseEntity<SessionResponse> getSession() {
-        String username = signedInUsername();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
         PublicKeyCredentialUserEntity owner = userEntities.findByUsername(username);
         String displayName = owner == null ? username : owner.getDisplayName();
-        return ResponseEntity.ok(mapper.toResponse(displayName, passkeysOf(owner)));
+        return ResponseEntity.ok(mapper.toResponse(authentication, displayName, passkeysOf(owner)));
     }
 
     @Override
