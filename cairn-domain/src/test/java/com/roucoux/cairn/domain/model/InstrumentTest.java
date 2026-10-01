@@ -48,6 +48,33 @@ class InstrumentTest {
     }
 
     @Test
+    void keepsTheSymbolStrippedAndTreatsABlankOneAsAbsent() {
+        Instrument ether = new Instrument(
+                UUID.randomUUID(),
+                "Ethereum",
+                null,
+                " ETH ",
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                "ethereum",
+                null);
+        Instrument blank = new Instrument(
+                UUID.randomUUID(),
+                "Ethereum",
+                null,
+                "  ",
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                "ethereum",
+                null);
+
+        assertThat(ether.symbol()).isEqualTo("ETH");
+        assertThat(blank.symbol()).isNull();
+    }
+
+    @Test
     void rejectsADescriptionLongerThanATweet() {
         assertThatThrownBy(() -> new Instrument(
                         UUID.randomUUID(),

@@ -10,6 +10,7 @@ public interface ManageInstrumentUseCase {
     Instrument create(
             String name,
             String isin,
+            String symbol,
             String currency,
             AssetClass assetClass,
             PriceSource priceSource,
@@ -20,6 +21,7 @@ public interface ManageInstrumentUseCase {
             UUID id,
             String name,
             String isin,
+            String symbol,
             AssetClass assetClass,
             PriceSource priceSource,
             String sourceRef,

@@ -134,6 +134,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 UUID.randomUUID(),
                 name,
                 isin(row.isinOrTicker()),
+                candidate.symbol(),
                 EUR,
                 candidate.assetClass(),
                 candidate.source(),

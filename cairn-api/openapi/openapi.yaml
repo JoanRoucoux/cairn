@@ -1645,6 +1645,11 @@ components:
           nullable: true
           description: The instrument's ISIN. Absent when the instrument has none.
           example: FR0011550185
+        symbol:
+          type: string
+          nullable: true
+          description: The instrument's ticker as people read it. Absent when the instrument has none.
+          example: AAPL
         assetClass:
           description: The instrument's asset class.
           allOf:
@@ -1810,6 +1815,11 @@ components:
           nullable: true
           description: The instrument's ISIN. Absent when the instrument has none.
           example: FR0011550185
+        symbol:
+          type: string
+          nullable: true
+          description: The instrument's ticker as people read it. Absent when the instrument has none.
+          example: AAPL
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code.
@@ -1849,6 +1859,11 @@ components:
           nullable: true
           description: The instrument's ISIN. Absent when the instrument has none.
           example: FR0011550185
+        symbol:
+          type: string
+          nullable: true
+          description: The instrument's ticker as people read it. Absent when the instrument has none.
+          example: AAPL
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code. Not editable.
@@ -1894,6 +1909,12 @@ components:
           nullable: true
           description: The instrument's ISIN. Must be unique across every instrument when given.
           example: FR0011550185
+        symbol:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: The instrument's ticker as people read it, for example the candidate's `symbol`. Free text up to 32 characters.
+          example: AAPL
         currency:
           type: string
           description: The instrument's native pricing currency, as an ISO 4217 code.
@@ -1938,6 +1959,12 @@ components:
           nullable: true
           description: The instrument's ISIN. Must be unique across every instrument when given.
           example: FR0011550185
+        symbol:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: The instrument's ticker as people read it. Replaced as sent, so omitting it clears the stored symbol. Up to 32 characters.
+          example: AAPL
         sourceRef:
           type: string
           nullable: true
@@ -1971,6 +1998,20 @@ components:
           description: The kind of instrument this source reports it as.
           allOf:
             - $ref: '#/components/schemas/AssetClass'
+        isin:
+          type: string
+          nullable: true
+          description: >-
+            The instrument's ISIN when the source can tell it, else null. Yahoo Finance does not
+            return it, so it is set only when the query was itself an ISIN, which the source then matched.
+          example: US0378331005
+        symbol:
+          type: string
+          nullable: true
+          description: >-
+            The ticker as the source gives it, exchange suffix included ("AI.PA"). Null when the
+            source gives none.
+          example: AI.PA
         exchange:
           type: string
           nullable: true

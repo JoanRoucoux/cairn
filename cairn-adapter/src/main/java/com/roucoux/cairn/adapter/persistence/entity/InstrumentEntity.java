@@ -27,6 +27,9 @@ public class InstrumentEntity {
     @Column(length = 12)
     private String isin;
 
+    @Column(length = 32)
+    private String symbol;
+
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 3)
     private String currency;
@@ -55,6 +58,7 @@ public class InstrumentEntity {
         entity.id = instrument.id();
         entity.name = instrument.name();
         entity.isin = instrument.isin();
+        entity.symbol = instrument.symbol();
         entity.currency = instrument.currency();
         entity.assetClass = instrument.assetClass();
         entity.priceSource = instrument.priceSource();
@@ -65,6 +69,6 @@ public class InstrumentEntity {
     }
 
     public Instrument toDomain() {
-        return new Instrument(id, name, isin, currency, assetClass, priceSource, sourceRef, description);
+        return new Instrument(id, name, isin, symbol, currency, assetClass, priceSource, sourceRef, description);
     }
 }

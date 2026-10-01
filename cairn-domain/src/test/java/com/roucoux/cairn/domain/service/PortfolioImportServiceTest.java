@@ -50,6 +50,9 @@ class PortfolioImportServiceTest {
         assertThat(holdings)
                 .singleElement()
                 .satisfies(holding -> assertThat(holding.quantity()).isEqualByComparingTo("100"));
+        assertThat(instruments)
+                .singleElement()
+                .satisfies(instrument -> assertThat(instrument.symbol()).isEqualTo("GGT"));
     }
 
     @Test
@@ -203,6 +206,13 @@ class PortfolioImportServiceTest {
 
     private static InstrumentCandidate aCandidate() {
         return new InstrumentCandidate(
-                "Global Growth Tracker", PriceSource.YAHOO, "GGT.PA", AssetClass.ETF, "Paris", new BigDecimal("22"));
+                "Global Growth Tracker",
+                PriceSource.YAHOO,
+                "GGT.PA",
+                AssetClass.ETF,
+                "Paris",
+                null,
+                "GGT",
+                new BigDecimal("22"));
     }
 }

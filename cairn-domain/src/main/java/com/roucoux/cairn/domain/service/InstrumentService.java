@@ -37,13 +37,14 @@ public class InstrumentService implements ManageInstrumentUseCase {
     public Instrument create(
             String name,
             String isin,
+            String symbol,
             String currency,
             AssetClass assetClass,
             PriceSource priceSource,
             String sourceRef,
             String description) {
         return saveInstrument.save(new Instrument(
-                UUID.randomUUID(), name, isin, currency, assetClass, priceSource, sourceRef, description));
+                UUID.randomUUID(), name, isin, symbol, currency, assetClass, priceSource, sourceRef, description));
     }
 
     @Override
@@ -51,13 +52,22 @@ public class InstrumentService implements ManageInstrumentUseCase {
             UUID id,
             String name,
             String isin,
+            String symbol,
             AssetClass assetClass,
             PriceSource priceSource,
             String sourceRef,
             String description) {
         Instrument existing = loadInstruments.findById(id).orElseThrow(() -> new NotFoundException("instrument", id));
         return saveInstrument.save(new Instrument(
-                existing.id(), name, isin, existing.currency(), assetClass, priceSource, sourceRef, description));
+                existing.id(),
+                name,
+                isin,
+                symbol,
+                existing.currency(),
+                assetClass,
+                priceSource,
+                sourceRef,
+                description));
     }
 
     @Override

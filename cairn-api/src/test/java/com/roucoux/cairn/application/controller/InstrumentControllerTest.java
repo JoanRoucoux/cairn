@@ -3,6 +3,7 @@ package com.roucoux.cairn.application.controller;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -55,6 +56,7 @@ class InstrumentControllerTest {
             INSTRUMENT_ID,
             "Amundi ETF PEA S&P 500",
             "FR0011550185",
+            "PSP5",
             "EUR",
             AssetClass.ETF,
             PriceSource.YAHOO,
@@ -88,9 +90,9 @@ class InstrumentControllerTest {
     void stubDefaults() {
         when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
         when(loadHoldings.findByInstrument(any())).thenReturn(List.of());
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(SP500);
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(SP500);
     }
 
@@ -100,7 +102,8 @@ class InstrumentControllerTest {
 
         mockMvc.perform(get("/instruments").with(user("joan")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].isin").value("FR0011550185"));
+                .andExpect(jsonPath("$[0].isin").value("FR0011550185"))
+                .andExpect(jsonPath("$[0].symbol").value("PSP5"));
     }
 
     @Test
@@ -110,11 +113,23 @@ class InstrumentControllerTest {
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"name":"Amundi ETF PEA S&P 500","isin":"FR0011550185","currency":"EUR",
-                                 "assetClass":"ETF","priceSource":"YAHOO","sourceRef":"ETF3.PA"}
+                                {"name":"Amundi ETF PEA S&P 500","isin":"FR0011550185","symbol":"PSP5",
+                                 "currency":"EUR","assetClass":"ETF","priceSource":"YAHOO","sourceRef":"ETF3.PA"}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sourceRef").value("ETF3.PA"));
+                .andExpect(jsonPath("$.sourceRef").value("ETF3.PA"))
+                .andExpect(jsonPath("$.symbol").value("PSP5"));
+
+        verify(manageInstrument)
+                .create(
+                        "Amundi ETF PEA S&P 500",
+                        "FR0011550185",
+                        "PSP5",
+                        "EUR",
+                        AssetClass.ETF,
+                        PriceSource.YAHOO,
+                        "ETF3.PA",
+                        null);
     }
 
     @Test
@@ -126,6 +141,8 @@ class InstrumentControllerTest {
                         "0P0000000A.F",
                         AssetClass.FUND,
                         "Frankfurt",
+                        "FR0000000010",
+                        "0P0000000A.F",
                         new BigDecimal("131.57"))));
 
         mockMvc.perform(post("/instruments/resolve")
@@ -136,6 +153,8 @@ class InstrumentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].sourceRef").value("0P0000000A.F"))
                 .andExpect(jsonPath("$[0].exchange").value("Frankfurt"))
+                .andExpect(jsonPath("$[0].isin").value("FR0000000010"))
+                .andExpect(jsonPath("$[0].symbol").value("0P0000000A.F"))
                 .andExpect(jsonPath("$[0].probePrice").value(131.57));
     }
 
@@ -188,12 +207,13 @@ class InstrumentControllerTest {
                 INSTRUMENT_ID,
                 "Amundi ETF PEA S&P 500",
                 "FR0011550185",
+                "PSP5",
                 "EUR",
                 AssetClass.ETF,
                 PriceSource.YAHOO,
                 "ETF4.PA",
                 "Les 500 plus grandes capitalisations americaines");
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(updated);
 
         mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
@@ -202,11 +222,12 @@ class InstrumentControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO",
-                                 "isin":"FR0011550185","sourceRef":"ETF4.PA",
+                                 "isin":"FR0011550185","symbol":"PSP5","sourceRef":"ETF4.PA",
                                  "description":"Les 500 plus grandes capitalisations americaines"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sourceRef").value("ETF4.PA"))
+                .andExpect(jsonPath("$.symbol").value("PSP5"))
                 .andExpect(jsonPath("$.description").value("Les 500 plus grandes capitalisations americaines"));
     }
 
@@ -220,7 +241,7 @@ class InstrumentControllerTest {
 
     @Test
     void reportsAnUnknownInstrumentOnUpdateAs404() throws Exception {
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new NotFoundException("instrument", LIVRET_A_ID));
 
         mockMvc.perform(put("/instruments/{id}", LIVRET_A_ID)
@@ -235,7 +256,7 @@ class InstrumentControllerTest {
 
     @Test
     void reportsADuplicateOnUpdateAsAConflict() throws Exception {
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
 
         mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
@@ -282,7 +303,7 @@ class InstrumentControllerTest {
 
     @Test
     void reportsAnInstrumentTheDomainRefusesAs422() throws Exception {
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new InvalidInstrumentException("sourceRef is required unless priceSource is MANUAL"));
 
         mockMvc.perform(post("/instruments")
@@ -298,7 +319,7 @@ class InstrumentControllerTest {
 
     @Test
     void reportsAnInstrumentThatAlreadyExistsAsAConflict() throws Exception {
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any()))
+        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
 
         mockMvc.perform(post("/instruments")
