@@ -2,11 +2,48 @@ package com.roucoux.cairn.application.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roucoux.cairn.generated.model.PasskeyResponse;
+import com.roucoux.cairn.generated.model.SessionResponse;
+import com.roucoux.cairn.infrastructure.auth.AttestationFixtures;
+import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.web.webauthn.api.Bytes;
+import org.springframework.security.web.webauthn.api.CredentialRecord;
+import org.springframework.security.web.webauthn.api.ImmutableCredentialRecord;
+import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCose;
+import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCredentialUserEntity;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
+import org.springframework.security.web.webauthn.authentication.WebAuthnAuthentication;
 
 class SessionRestMapperTest {
 
     private final SessionRestMapper mapper = new SessionRestMapper();
+
+    private static final Bytes ICLOUD_KEY = Bytes.fromBase64("aXBob25l");
+    private static final Bytes MAC_KEY = Bytes.fromBase64("bWFj");
+
+    private static PublicKeyCredentialUserEntity owner() {
+        return ImmutablePublicKeyCredentialUserEntity.builder()
+                .name("joan")
+                .id(Bytes.random())
+                .displayName("Joan Roucoux")
+                .build();
+    }
+
+    private static CredentialRecord credential(Bytes id, Bytes attestation) {
+        return ImmutableCredentialRecord.builder()
+                .credentialId(id)
+                .userEntityUserId(Bytes.random())
+                .publicKey(new ImmutablePublicKeyCose(new byte[] {1}))
+                .label("key")
+                .created(Instant.parse("2026-01-01T00:00:00Z"))
+                .attestationObject(attestation)
+                .build();
+    }
 
     @Test
     void takesOneInitialFromEachOfTheFirstTwoWords() {
@@ -31,5 +68,75 @@ class SessionRestMapperTest {
     @Test
     void survivesAnEmptyDisplayName() {
         assertThat(mapper.initialsOf("  ")).isEmpty();
+    }
+
+    @Test
+    void exposesTheUsernameAndFlagsAPasskeySignIn() {
+        Authentication passkey = new PasskeyAuthentication(owner(), List.of(), ICLOUD_KEY.toBase64UrlString());
+
+        SessionResponse response = mapper.toResponse(passkey, "Joan Roucoux", List.of());
+
+        assertThat(response.getUsername()).isEqualTo("joan");
+        assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
+    }
+
+    @Test
+    void flagsAPasswordSignIn() {
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+
+        SessionResponse response = mapper.toResponse(password, "Joan Roucoux", List.of());
+
+        assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSWORD);
+    }
+
+    @Test
+    void marksOnlyThePasskeyThatOpenedTheSessionAsCurrent() {
+        Authentication passkey = new PasskeyAuthentication(owner(), List.of(), ICLOUD_KEY.toBase64UrlString());
+
+        SessionResponse response = mapper.toResponse(
+                passkey, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null), credential(MAC_KEY, null)));
+
+        assertThat(response.getPasskeys())
+                .extracting(PasskeyResponse::getCurrent)
+                .containsExactly(true, false);
+    }
+
+    @Test
+    void marksNoPasskeyAsCurrentWhenThePasswordOpenedTheSession() {
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+
+        SessionResponse response = mapper.toResponse(password, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null)));
+
+        assertThat(response.getPasskeys())
+                .extracting(PasskeyResponse::getCurrent)
+                .containsExactly(false);
+    }
+
+    @Test
+    void marksNoPasskeyAsCurrentForASessionOpenedBeforeTheCredentialWasRemembered() {
+        Authentication legacy = new WebAuthnAuthentication(owner(), List.of());
+
+        SessionResponse response = mapper.toResponse(legacy, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null)));
+
+        assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
+        assertThat(response.getPasskeys())
+                .extracting(PasskeyResponse::getCurrent)
+                .containsExactly(false);
+    }
+
+    @Test
+    void namesTheProviderFromTheAttestationAndLeavesItNullWhenUnknown() {
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+
+        SessionResponse response = mapper.toResponse(
+                password,
+                "Joan Roucoux",
+                List.of(
+                        credential(ICLOUD_KEY, AttestationFixtures.attestationWithAaguid(AttestationFixtures.ICLOUD)),
+                        credential(MAC_KEY, AttestationFixtures.attestationWithAaguid(AttestationFixtures.NONE))));
+
+        assertThat(response.getPasskeys())
+                .extracting(PasskeyResponse::getProvider)
+                .containsExactly(PasskeyResponse.ProviderEnum.ICLOUD_KEYCHAIN, null);
     }
 }

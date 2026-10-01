@@ -2,20 +2,35 @@ package com.roucoux.cairn.application.mapper;
 
 import com.roucoux.cairn.generated.model.PasskeyResponse;
 import com.roucoux.cairn.generated.model.SessionResponse;
+import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
+import com.roucoux.cairn.infrastructure.auth.PasskeyProvider;
+import com.roucoux.cairn.infrastructure.auth.PasskeyProviders;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
+import org.springframework.security.web.webauthn.authentication.WebAuthnAuthentication;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SessionRestMapper {
 
-    public SessionResponse toResponse(String displayName, List<CredentialRecord> passkeys) {
+    public SessionResponse toResponse(
+            Authentication authentication, String displayName, List<CredentialRecord> passkeys) {
+        String currentCredentialId =
+                authentication instanceof PasskeyAuthentication passkey ? passkey.credentialId() : null;
         SessionResponse response = new SessionResponse();
         response.setDisplayName(displayName);
         response.setInitials(initialsOf(displayName));
-        response.setPasskeys(passkeys.stream().map(this::toResponse).toList());
+        response.setUsername(authentication.getName());
+        response.setSignInMethod(
+                authentication instanceof WebAuthnAuthentication
+                        ? SessionResponse.SignInMethodEnum.PASSKEY
+                        : SessionResponse.SignInMethodEnum.PASSWORD);
+        response.setPasskeys(passkeys.stream()
+                .map(passkey -> toResponse(passkey, currentCredentialId))
+                .toList());
         return response;
     }
 
@@ -30,9 +45,13 @@ public class SessionRestMapper {
         return ("" + words[0].charAt(0) + words[1].charAt(0)).toUpperCase(Locale.ROOT);
     }
 
-    private PasskeyResponse toResponse(CredentialRecord credential) {
+    private PasskeyResponse toResponse(CredentialRecord credential, String currentCredentialId) {
         PasskeyResponse response = new PasskeyResponse();
-        response.setCredentialId(credential.getCredentialId().toBase64UrlString());
+        String credentialId = credential.getCredentialId().toBase64UrlString();
+        response.setCredentialId(credentialId);
+        response.setCurrent(credentialId.equals(currentCredentialId));
+        PasskeyProvider provider = PasskeyProviders.providerOf(credential.getAttestationObject());
+        response.setProvider(provider == null ? null : PasskeyResponse.ProviderEnum.valueOf(provider.name()));
         response.setLabel(credential.getLabel());
         response.setCreatedAt(credential.getCreated().atOffset(ZoneOffset.UTC));
         response.setLastUsedAt(

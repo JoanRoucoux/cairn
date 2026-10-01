@@ -1931,7 +1931,7 @@ components:
     SessionResponse:
       description: The signed-in owner's display name and registered passkeys. Returned by `GET /session`.
       type: object
-      required: [displayName, initials, passkeys]
+      required: [displayName, initials, username, signInMethod, passkeys]
       properties:
         displayName:
           type: string
@@ -1942,6 +1942,15 @@ components:
           maxLength: 2
           description: Up to two letters derived from displayName, for a compact avatar.
           example: JR
+        username:
+          type: string
+          description: The owner's sign-in identifier.
+          example: joan
+        signInMethod:
+          type: string
+          enum: [PASSKEY, PASSWORD]
+          description: How the current session was opened.
+          example: PASSKEY
         passkeys:
           type: array
           description: Every passkey currently registered for the owner.
@@ -1950,7 +1959,7 @@ components:
     PasskeyResponse:
       description: One registered passkey, one entry of `SessionResponse.passkeys`.
       type: object
-      required: [credentialId, label, createdAt]
+      required: [credentialId, label, createdAt, current]
       properties:
         credentialId:
           type: string
@@ -1971,3 +1980,13 @@ components:
           nullable: true
           description: When this passkey last opened a session. Absent when it has never been used to sign in.
           example: 2026-09-25T07:45:00Z
+        current:
+          type: boolean
+          description: True for the passkey that opened the current session. False for every passkey when the session was opened by password.
+          example: true
+        provider:
+          type: string
+          nullable: true
+          enum: [ICLOUD_KEYCHAIN, GOOGLE_PASSWORD_MANAGER, WINDOWS_HELLO, ONE_PASSWORD, BITWARDEN, SECURITY_KEY]
+          description: Where the passkey lives, when it can be told from its AAGUID. Absent when the authenticator is unknown or did not disclose its AAGUID. The consumer turns the code into a display label.
+          example: ICLOUD_KEYCHAIN

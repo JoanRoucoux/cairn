@@ -37,6 +37,23 @@ class SessionSerializationTest {
     }
 
     @Test
+    void thePasskeyThatSignedInSurvivesTheTripThroughTheSessionTable() throws Exception {
+        PasskeyAuthentication signedIn = new PasskeyAuthentication(
+                ImmutablePublicKeyCredentialUserEntity.builder()
+                        .name("joan")
+                        .id(Bytes.random())
+                        .displayName("Joan")
+                        .build(),
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                "aXBob25l");
+
+        PasskeyAuthentication restored = (PasskeyAuthentication) roundTrip(signedIn);
+
+        assertThat(restored.credentialId()).isEqualTo("aXBob25l");
+        assertThat(restored.isAuthenticated()).isTrue();
+    }
+
+    @Test
     void aRequestOptionsChallengeSurvivesTheTripThroughTheSessionTable() throws Exception {
         PublicKeyCredentialRequestOptions options = PublicKeyCredentialRequestOptions.builder()
                 .challenge(Bytes.random())

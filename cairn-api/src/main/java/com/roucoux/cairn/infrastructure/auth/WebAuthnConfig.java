@@ -1,11 +1,16 @@
 package com.roucoux.cairn.infrastructure.auth;
 
+import java.util.Set;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.security.authentication.AuthenticationEventPublisher;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -18,10 +23,15 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
+import org.springframework.security.web.webauthn.authentication.WebAuthnAuthenticationFilter;
+import org.springframework.security.web.webauthn.authentication.WebAuthnAuthenticationProvider;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
+import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
+import org.springframework.security.web.webauthn.management.Webauthn4JRelyingPartyOperations;
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
@@ -34,8 +44,9 @@ public class WebAuthnConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            @Value("${app.webauthn.rp-id}") String rpId,
-            @Value("${app.webauthn.allowed-origins}") String allowedOrigins,
+            WebAuthnRelyingPartyOperations relyingParty,
+            UserDetailsService userDetailsService,
+            ObjectProvider<AuthenticationEventPublisher> eventPublisher,
             @Value("${app.security.permit-all:false}") boolean permitAll)
             throws Exception {
         if (permitAll) {
@@ -43,7 +54,8 @@ public class WebAuthnConfig {
                     .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                     .build();
         }
-        return http.webAuthn(webAuthn -> webAuthn.rpName("Cairn").rpId(rpId).allowedOrigins(allowedOrigins))
+        return http.webAuthn(webAuthn -> webAuthn.withObjectPostProcessor(
+                        rememberingTheCredential(relyingParty, userDetailsService, eventPublisher.getIfAvailable())))
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // Not authenticationEntryPoint: that one makes GET /webauthn/register answer 404.
@@ -64,6 +76,37 @@ public class WebAuthnConfig {
                         (request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .build();
+    }
+
+    static ObjectPostProcessor<WebAuthnAuthenticationFilter> rememberingTheCredential(
+            WebAuthnRelyingPartyOperations relyingParty,
+            UserDetailsService userDetailsService,
+            AuthenticationEventPublisher eventPublisher) {
+        return new ObjectPostProcessor<>() {
+            @Override
+            public <O extends WebAuthnAuthenticationFilter> O postProcess(O filter) {
+                ProviderManager manager = new ProviderManager(new PasskeyAuthenticationProvider(
+                        new WebAuthnAuthenticationProvider(relyingParty, userDetailsService)));
+                if (eventPublisher != null) {
+                    manager.setAuthenticationEventPublisher(eventPublisher);
+                }
+                filter.setAuthenticationManager(manager);
+                return filter;
+            }
+        };
+    }
+
+    @Bean
+    WebAuthnRelyingPartyOperations relyingPartyOperations(
+            PublicKeyCredentialUserEntityRepository userEntities,
+            UserCredentialRepository credentials,
+            @Value("${app.webauthn.rp-id}") String rpId,
+            @Value("${app.webauthn.allowed-origins}") String allowedOrigins) {
+        return new Webauthn4JRelyingPartyOperations(
+                userEntities,
+                credentials,
+                PublicKeyCredentialRpEntity.builder().id(rpId).name("Cairn").build(),
+                Set.of(allowedOrigins));
     }
 
     @Bean
