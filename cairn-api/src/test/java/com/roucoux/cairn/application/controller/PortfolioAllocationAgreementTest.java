@@ -123,6 +123,8 @@ class PortfolioAllocationAgreementTest {
             assertThat(item.get("assetClass")).isEqualTo(expected.get("label"));
             assertThat(item.get("valueEur")).isEqualTo(expected.get("valueEur"));
             assertThat(item.get("share")).isEqualTo(expected.get("share"));
+            assertThat(item.get("lineCount").asInt())
+                    .isEqualTo(linesOf(portfolio, "assetClass", item.get("assetClass")));
         }
         assertThat(accounts.get("items")).hasSameSizeAs(portfolio.get("byAccount"));
         for (int i = 0; i < accounts.get("items").size(); i++) {
@@ -131,7 +133,18 @@ class PortfolioAllocationAgreementTest {
             assertThat(item.get("account").get("name")).isEqualTo(expected.get("label"));
             assertThat(item.get("valueEur")).isEqualTo(expected.get("valueEur"));
             assertThat(item.get("share")).isEqualTo(expected.get("share"));
+            assertThat(item.get("lineCount").asInt())
+                    .isEqualTo(
+                            linesOf(portfolio, "accountId", item.get("account").get("id")));
         }
+    }
+
+    private static long linesOf(JsonNode portfolio, String field, JsonNode key) {
+        return portfolio
+                .get("holdings")
+                .valueStream()
+                .filter(h -> h.get(field).equals(key))
+                .count();
     }
 
     private JsonNode read(String path) throws Exception {

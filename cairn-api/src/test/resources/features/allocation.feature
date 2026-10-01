@@ -1,6 +1,6 @@
 Feature: Portfolio allocation
 
-  Scenario: the breakdown by asset class counts valued lines only
+  Scenario: the breakdown by asset class counts every line, unvalued included
     Given an account "Allocation Broker" of type PEA
     And an instrument "Allocation Tracker" quoted by YAHOO as "ALT.PA"
     And a holding of 100 units bought at 20.00
@@ -9,9 +9,9 @@ Feature: Portfolio allocation
     And a holding of 10 units with no cost basis
     When I read the allocation by asset class
     Then the allocation total is 2200 EUR
-    And the asset class ETF is worth 2200 EUR with a share of 1 over 1 line
+    And the asset class ETF is worth 2200 EUR with a share of 1 over 2 lines
 
-  Scenario: the breakdown by account carries the account and counts valued lines only
+  Scenario: the breakdown by account carries the account and counts every line
     Given an account "Allocation Broker Two" of type CTO
     And an instrument "Allocation Tracker Two" quoted by YAHOO as "AL2.PA"
     And a holding of 50 units bought at 30.00
@@ -20,7 +20,7 @@ Feature: Portfolio allocation
     And a holding of 10 units with no cost basis
     When I read the allocation by account
     Then the allocation total is 2000 EUR
-    And the account "Allocation Broker Two" of type CTO is worth 2000 EUR with a share of 1 over 1 line
+    And the account "Allocation Broker Two" of type CTO is worth 2000 EUR with a share of 1 over 2 lines
 
   Scenario: both breakdowns agree with the portfolio
     Given an account "Allocation Broker Three" of type PEA

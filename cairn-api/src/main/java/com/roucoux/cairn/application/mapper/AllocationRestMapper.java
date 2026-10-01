@@ -4,10 +4,10 @@ import com.roucoux.cairn.domain.model.AccountAllocation;
 import com.roucoux.cairn.domain.model.AccountBreakdown;
 import com.roucoux.cairn.domain.model.AssetClassAllocation;
 import com.roucoux.cairn.domain.model.AssetClassBreakdown;
-import com.roucoux.cairn.generated.model.AccountAllocationItem;
+import com.roucoux.cairn.generated.model.AccountAllocationItemResponse;
 import com.roucoux.cairn.generated.model.AccountAllocationResponse;
 import com.roucoux.cairn.generated.model.AssetClass;
-import com.roucoux.cairn.generated.model.AssetClassAllocationItem;
+import com.roucoux.cairn.generated.model.AssetClassAllocationItemResponse;
 import com.roucoux.cairn.generated.model.AssetClassAllocationResponse;
 import org.springframework.stereotype.Component;
 
@@ -34,8 +34,8 @@ public class AllocationRestMapper {
         return response;
     }
 
-    private AssetClassAllocationItem toItem(AssetClassAllocation allocation) {
-        AssetClassAllocationItem item = new AssetClassAllocationItem();
+    private AssetClassAllocationItemResponse toItem(AssetClassAllocation allocation) {
+        AssetClassAllocationItemResponse item = new AssetClassAllocationItemResponse();
         item.setAssetClass(AssetClass.valueOf(allocation.assetClass().name()));
         item.setValueEur(PortfolioRestMapper.amount(allocation.value()));
         item.setShare(PortfolioRestMapper.share(allocation.share()));
@@ -43,8 +43,8 @@ public class AllocationRestMapper {
         return item;
     }
 
-    private AccountAllocationItem toItem(AccountAllocation allocation) {
-        AccountAllocationItem item = new AccountAllocationItem();
+    private AccountAllocationItemResponse toItem(AccountAllocation allocation) {
+        AccountAllocationItemResponse item = new AccountAllocationItemResponse();
         item.setAccount(accountMapper.toResponse(allocation.account()));
         item.setValueEur(PortfolioRestMapper.amount(allocation.value()));
         item.setShare(PortfolioRestMapper.share(allocation.share()));

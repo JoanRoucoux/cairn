@@ -151,7 +151,7 @@ public class PortfolioSteps {
         assertThat(actual).isEqualByComparingTo(total);
     }
 
-    @Then("the asset class {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} line")
+    @Then("the asset class {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} lines")
     public void theAssetClassIsWorth(String assetClass, BigDecimal value, BigDecimal share, int lines) {
         assertThat(classAllocation.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getAssetClass().getValue()).isEqualTo(assetClass);
@@ -161,7 +161,7 @@ public class PortfolioSteps {
         });
     }
 
-    @Then("the account {string} of type {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} line")
+    @Then("the account {string} of type {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} lines")
     public void theAccountIsWorth(String name, String type, BigDecimal value, BigDecimal share, int lines) {
         assertThat(accountAllocation.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getAccount().getName()).isEqualTo(name);

@@ -61,7 +61,7 @@ paths:
       description: >-
         The same breakdown as `PortfolioResponse.byAssetClass`, served on its own so the ring that
         shows it loads and fails independently. Holdings with no quote yet are left out of the
-        values, the shares and the line counts, exactly as in `GET /portfolio`.
+        values and the shares, exactly as in `GET /portfolio`, but still count in the line counts.
       responses:
         '200':
           description: The breakdown by asset class, largest first
@@ -85,8 +85,8 @@ paths:
       description: >-
         The same breakdown as `PortfolioResponse.byAccount`, served on its own so the ring that
         shows it loads and fails independently, with each account carried whole so a consumer
-        needs no second call to name it. Holdings with no quote yet are left out of the values, the
-        shares and the line counts, exactly as in `GET /portfolio`.
+        needs no second call to name it. Holdings with no quote yet are left out of the values and
+        the shares, exactly as in `GET /portfolio`, but still count in the line counts.
       responses:
         '200':
           description: The breakdown by account, largest first
@@ -1476,8 +1476,8 @@ components:
           type: array
           description: Sorted by valueEur, descending. Empty when no holding is valued.
           items:
-            $ref: '#/components/schemas/AssetClassAllocationItem'
-    AssetClassAllocationItem:
+            $ref: '#/components/schemas/AssetClassAllocationItemResponse'
+    AssetClassAllocationItemResponse:
       description: One asset class of the portfolio and what it holds.
       type: object
       required: [assetClass, valueEur, share, lineCount]
@@ -1496,7 +1496,7 @@ components:
           example: 0.4991
         lineCount:
           type: integer
-          description: The number of valued holdings in this slice.
+          description: The number of holdings in this slice, those with no quote yet included.
           example: 6
     AccountAllocationResponse:
       description: >-
@@ -1512,8 +1512,8 @@ components:
           type: array
           description: Sorted by valueEur, descending. Empty when no holding is valued.
           items:
-            $ref: '#/components/schemas/AccountAllocationItem'
-    AccountAllocationItem:
+            $ref: '#/components/schemas/AccountAllocationItemResponse'
+    AccountAllocationItemResponse:
       description: One account of the portfolio and what it holds.
       type: object
       required: [account, valueEur, share, lineCount]
@@ -1532,7 +1532,7 @@ components:
           example: 0.3326
         lineCount:
           type: integer
-          description: The number of valued holdings in this account.
+          description: The number of holdings in this account, those with no quote yet included.
           example: 4
     CreateHoldingRequest:
       description: The body of `POST /holdings`, a new position of an instrument in an account.

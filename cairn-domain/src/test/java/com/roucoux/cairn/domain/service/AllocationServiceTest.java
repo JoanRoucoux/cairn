@@ -65,10 +65,10 @@ class AllocationServiceTest {
     }
 
     @Test
-    void countsOnlyTheValuedLinesOfEachClass() {
+    void countsEveryLineOfEachClassUnvaluedIncluded() {
         assertThat(service.byAssetClass().items())
                 .extracting(AssetClassAllocation::lineCount)
-                .containsExactly(2, 1);
+                .containsExactly(3, 1);
     }
 
     @Test
@@ -84,10 +84,10 @@ class AllocationServiceTest {
     }
 
     @Test
-    void countsOnlyTheValuedLinesOfEachAccount() {
+    void countsEveryLineOfEachAccountUnvaluedIncluded() {
         assertThat(service.byAccount().items())
                 .extracting(AccountAllocation::lineCount)
-                .containsExactly(1, 2);
+                .containsExactly(2, 2);
     }
 
     private static ValuedHolding line(Account account, AssetClass assetClass, String quantity, String price) {
