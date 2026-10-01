@@ -3,13 +3,18 @@ package com.roucoux.cairn.application.controller;
 import com.roucoux.cairn.application.csv.HoldingCsvWriter;
 import com.roucoux.cairn.application.csv.ImportFile;
 import com.roucoux.cairn.application.csv.PortfolioCsvReader;
+import com.roucoux.cairn.application.mapper.AllocationRestMapper;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.port.in.GetAccountAllocationUseCase;
+import com.roucoux.cairn.domain.port.in.GetAssetClassAllocationUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.generated.api.PortfolioApi;
+import com.roucoux.cairn.generated.model.AccountAllocationResponse;
+import com.roucoux.cairn.generated.model.AssetClassAllocationResponse;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.ImportReportResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
@@ -27,6 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 class PortfolioController implements PortfolioApi {
 
     private final GetPortfolioUseCase getPortfolio;
+    private final GetAssetClassAllocationUseCase getAssetClassAllocation;
+    private final GetAccountAllocationUseCase getAccountAllocation;
+    private final AllocationRestMapper allocationMapper;
     private final PortfolioImportTransaction importPortfolio;
     private final PortfolioCsvReader csvReader;
     private final LoadHoldingsPort loadHoldings;
@@ -38,6 +46,9 @@ class PortfolioController implements PortfolioApi {
 
     PortfolioController(
             GetPortfolioUseCase getPortfolio,
+            GetAssetClassAllocationUseCase getAssetClassAllocation,
+            GetAccountAllocationUseCase getAccountAllocation,
+            AllocationRestMapper allocationMapper,
             PortfolioImportTransaction importPortfolio,
             PortfolioCsvReader csvReader,
             LoadHoldingsPort loadHoldings,
@@ -47,6 +58,9 @@ class PortfolioController implements PortfolioApi {
             HoldingCsvWriter csvWriter,
             Clock clock) {
         this.getPortfolio = getPortfolio;
+        this.getAssetClassAllocation = getAssetClassAllocation;
+        this.getAccountAllocation = getAccountAllocation;
+        this.allocationMapper = allocationMapper;
         this.importPortfolio = importPortfolio;
         this.csvReader = csvReader;
         this.loadHoldings = loadHoldings;
@@ -60,6 +74,16 @@ class PortfolioController implements PortfolioApi {
     @Override
     public ResponseEntity<PortfolioResponse> getPortfolio() {
         return ResponseEntity.ok(mapper.toResponse(getPortfolio.get()));
+    }
+
+    @Override
+    public ResponseEntity<AssetClassAllocationResponse> getAssetClassAllocation() {
+        return ResponseEntity.ok(allocationMapper.toResponse(getAssetClassAllocation.byAssetClass()));
+    }
+
+    @Override
+    public ResponseEntity<AccountAllocationResponse> getAccountAllocation() {
+        return ResponseEntity.ok(allocationMapper.toResponse(getAccountAllocation.byAccount()));
     }
 
     @Override

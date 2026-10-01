@@ -1,10 +1,13 @@
 package com.roucoux.cairn.cucumber;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 
+import com.roucoux.cairn.generated.model.AccountAllocationResponse;
 import com.roucoux.cairn.generated.model.AccountResponse;
 import com.roucoux.cairn.generated.model.AccountType;
 import com.roucoux.cairn.generated.model.AssetClass;
+import com.roucoux.cairn.generated.model.AssetClassAllocationResponse;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
@@ -34,6 +37,8 @@ public class PortfolioSteps {
     private UUID accountId;
     private UUID instrumentId;
     private PortfolioResponse portfolio;
+    private AssetClassAllocationResponse classAllocation;
+    private AccountAllocationResponse accountAllocation;
 
     @Before
     public void resetPortfolio() {
@@ -117,6 +122,72 @@ public class PortfolioSteps {
     @Then("the unvalued count is {int}")
     public void theUnvaluedCountIs(int count) {
         assertThat(portfolio.getUnvaluedCount()).isEqualTo(count);
+    }
+
+    @When("I read the allocation by asset class")
+    public void iReadTheAllocationByAssetClass() {
+        classAllocation = restTemplate
+                .getForEntity("/portfolio/allocation/classes", AssetClassAllocationResponse.class)
+                .getBody();
+    }
+
+    @When("I read the allocation by account")
+    public void iReadTheAllocationByAccount() {
+        accountAllocation = restTemplate
+                .getForEntity("/portfolio/allocation/accounts", AccountAllocationResponse.class)
+                .getBody();
+    }
+
+    @When("I read the portfolio and both allocations")
+    public void iReadThePortfolioAndBothAllocations() {
+        iReadThePortfolio();
+        iReadTheAllocationByAssetClass();
+        iReadTheAllocationByAccount();
+    }
+
+    @Then("the allocation total is {bigdecimal} EUR")
+    public void theAllocationTotalIsEur(BigDecimal total) {
+        BigDecimal actual = classAllocation != null ? classAllocation.getTotalEur() : accountAllocation.getTotalEur();
+        assertThat(actual).isEqualByComparingTo(total);
+    }
+
+    @Then("the asset class {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} line")
+    public void theAssetClassIsWorth(String assetClass, BigDecimal value, BigDecimal share, int lines) {
+        assertThat(classAllocation.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getAssetClass().getValue()).isEqualTo(assetClass);
+            assertThat(item.getValueEur()).isEqualByComparingTo(value);
+            assertThat(item.getShare()).isEqualByComparingTo(share);
+            assertThat(item.getLineCount()).isEqualTo(lines);
+        });
+    }
+
+    @Then("the account {string} of type {word} is worth {bigdecimal} EUR with a share of {bigdecimal} over {int} line")
+    public void theAccountIsWorth(String name, String type, BigDecimal value, BigDecimal share, int lines) {
+        assertThat(accountAllocation.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getAccount().getName()).isEqualTo(name);
+            assertThat(item.getAccount().getType().getValue()).isEqualTo(type);
+            assertThat(item.getAccount().getId()).isEqualTo(accountId);
+            assertThat(item.getValueEur()).isEqualByComparingTo(value);
+            assertThat(item.getShare()).isEqualByComparingTo(share);
+            assertThat(item.getLineCount()).isEqualTo(lines);
+        });
+    }
+
+    @Then("both allocations match the portfolio breakdowns")
+    public void bothAllocationsMatchThePortfolioBreakdowns() {
+        assertThat(classAllocation.getTotalEur()).isEqualByComparingTo(portfolio.getTotalEur());
+        assertThat(accountAllocation.getTotalEur()).isEqualByComparingTo(portfolio.getTotalEur());
+        assertThat(classAllocation.getItems())
+                .extracting(
+                        item -> item.getAssetClass().getValue(), item -> item.getValueEur(), item -> item.getShare())
+                .containsExactlyElementsOf(portfolio.getByAssetClass().stream()
+                        .map(slice -> tuple(slice.getLabel(), slice.getValueEur(), slice.getShare()))
+                        .toList());
+        assertThat(accountAllocation.getItems())
+                .extracting(item -> item.getAccount().getName(), item -> item.getValueEur(), item -> item.getShare())
+                .containsExactlyElementsOf(portfolio.getByAccount().stream()
+                        .map(slice -> tuple(slice.getLabel(), slice.getValueEur(), slice.getShare()))
+                        .toList());
     }
 
     private void createHolding(int quantity, BigDecimal averageCost) {

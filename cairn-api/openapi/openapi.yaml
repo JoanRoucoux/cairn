@@ -53,6 +53,55 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /portfolio/allocation/classes:
+    get:
+      tags: [Portfolio]
+      operationId: getAssetClassAllocation
+      summary: Get the portfolio's breakdown by asset class
+      description: >-
+        The same breakdown as `PortfolioResponse.byAssetClass`, served on its own so the ring that
+        shows it loads and fails independently. Holdings with no quote yet are left out of the
+        values, the shares and the line counts, exactly as in `GET /portfolio`.
+      responses:
+        '200':
+          description: The breakdown by asset class, largest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassAllocationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: A holding is priced in a currency other than EUR
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /portfolio/allocation/accounts:
+    get:
+      tags: [Portfolio]
+      operationId: getAccountAllocation
+      summary: Get the portfolio's breakdown by account
+      description: >-
+        The same breakdown as `PortfolioResponse.byAccount`, served on its own so the ring that
+        shows it loads and fails independently, with each account carried whole so a consumer
+        needs no second call to name it. Holdings with no quote yet are left out of the values, the
+        shares and the line counts, exactly as in `GET /portfolio`.
+      responses:
+        '200':
+          description: The breakdown by account, largest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountAllocationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: A holding is priced in a currency other than EUR
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /portfolio/export:
     get:
       tags: [Portfolio]
@@ -1413,6 +1462,78 @@ components:
           type: number
           description: This allocation's fraction of the portfolio's total value.
           example: 0.4991
+    AssetClassAllocationResponse:
+      description: >-
+        The portfolio's breakdown by asset class. Returned by `GET /portfolio/allocation/classes`.
+      type: object
+      required: [totalEur, items]
+      properties:
+        totalEur:
+          type: number
+          description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
+          example: 184320.75
+        items:
+          type: array
+          description: Sorted by valueEur, descending. Empty when no holding is valued.
+          items:
+            $ref: '#/components/schemas/AssetClassAllocationItem'
+    AssetClassAllocationItem:
+      description: One asset class of the portfolio and what it holds.
+      type: object
+      required: [assetClass, valueEur, share, lineCount]
+      properties:
+        assetClass:
+          description: The asset class this slice groups holdings under.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
+        valueEur:
+          type: number
+          description: The total value of every valued holding in this slice.
+          example: 92000.00
+        share:
+          type: number
+          description: This slice's fraction of the portfolio's total value.
+          example: 0.4991
+        lineCount:
+          type: integer
+          description: The number of valued holdings in this slice.
+          example: 6
+    AccountAllocationResponse:
+      description: >-
+        The portfolio's breakdown by account. Returned by `GET /portfolio/allocation/accounts`.
+      type: object
+      required: [totalEur, items]
+      properties:
+        totalEur:
+          type: number
+          description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
+          example: 184320.75
+        items:
+          type: array
+          description: Sorted by valueEur, descending. Empty when no holding is valued.
+          items:
+            $ref: '#/components/schemas/AccountAllocationItem'
+    AccountAllocationItem:
+      description: One account of the portfolio and what it holds.
+      type: object
+      required: [account, valueEur, share, lineCount]
+      properties:
+        account:
+          description: The account this slice groups holdings under.
+          allOf:
+            - $ref: '#/components/schemas/AccountResponse'
+        valueEur:
+          type: number
+          description: The total value of every valued holding in this account.
+          example: 61247.83
+        share:
+          type: number
+          description: This account's fraction of the portfolio's total value.
+          example: 0.3326
+        lineCount:
+          type: integer
+          description: The number of valued holdings in this account.
+          example: 4
     CreateHoldingRequest:
       description: The body of `POST /holdings`, a new position of an instrument in an account.
       type: object
