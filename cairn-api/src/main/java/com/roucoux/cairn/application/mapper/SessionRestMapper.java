@@ -6,6 +6,7 @@ import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
 import com.roucoux.cairn.infrastructure.auth.PasskeyProvider;
 import com.roucoux.cairn.infrastructure.auth.PasskeyProviders;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.security.core.Authentication;
@@ -32,6 +33,8 @@ public class SessionRestMapper {
         String currentCredentialId =
                 authentication instanceof PasskeyAuthentication passkey ? passkey.credentialId() : null;
         return passkeys.stream()
+                .sorted(Comparator.comparing(CredentialRecord::getCreated)
+                        .thenComparing(passkey -> passkey.getCredentialId().toBase64UrlString()))
                 .map(passkey -> toResponse(passkey, currentCredentialId))
                 .toList();
     }

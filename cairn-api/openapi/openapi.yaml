@@ -1002,7 +1002,7 @@ paths:
       operationId: listPasskeys
       summary: List the owner's registered passkeys
       description: >-
-        Every passkey registered for the signed-in owner, in registration order. Kept apart from
+        Every passkey registered for the signed-in owner, oldest first by registration date, then by credential id. Kept apart from
         `GET /session` so that the owner's identity stays readable when this list cannot be loaded.
         Fails with 401 when no session is open.
       responses:

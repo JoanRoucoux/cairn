@@ -35,12 +35,16 @@ class SessionRestMapperTest {
     }
 
     private static CredentialRecord credential(Bytes id, Bytes attestation) {
+        return credential(id, attestation, Instant.parse("2026-01-01T00:00:00Z"));
+    }
+
+    private static CredentialRecord credential(Bytes id, Bytes attestation, Instant created) {
         return ImmutableCredentialRecord.builder()
                 .credentialId(id)
                 .userEntityUserId(Bytes.random())
                 .publicKey(new ImmutablePublicKeyCose(new byte[] {1}))
                 .label("key")
-                .created(Instant.parse("2026-01-01T00:00:00Z"))
+                .created(created)
                 .attestationObject(attestation)
                 .build();
     }
@@ -68,6 +72,28 @@ class SessionRestMapperTest {
     @Test
     void survivesAnEmptyDisplayName() {
         assertThat(mapper.initialsOf("  ")).isEmpty();
+    }
+
+    @Test
+    void ordersThePasskeysOldestFirstThenByCredentialId() {
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+        Instant earlier = Instant.parse("2026-01-01T00:00:00Z");
+        Instant later = Instant.parse("2026-02-01T00:00:00Z");
+
+        List<PasskeyResponse> response = mapper.toPasskeys(
+                password,
+                List.of(
+                        credential(MAC_KEY, null, later),
+                        credential(MAC_KEY, null, earlier),
+                        credential(ICLOUD_KEY, null, later)));
+
+        assertThat(response)
+                .extracting(
+                        PasskeyResponse::getCredentialId, p -> p.getCreatedAt().toInstant())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("bWFj", earlier),
+                        org.assertj.core.groups.Tuple.tuple("aXBob25l", later),
+                        org.assertj.core.groups.Tuple.tuple("bWFj", later));
     }
 
     @Test
