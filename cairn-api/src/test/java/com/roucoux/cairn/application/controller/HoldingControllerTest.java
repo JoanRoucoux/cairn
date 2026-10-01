@@ -101,6 +101,7 @@ class HoldingControllerTest {
                 .andExpect(jsonPath("$.assetClass").value("EQUITY"))
                 .andExpect(jsonPath("$.price").value(123.45))
                 .andExpect(jsonPath("$.priceCurrency").value("USD"))
+                .andExpect(jsonPath("$.priceFetchedAt").value("2026-08-26T20:00:00Z"))
                 .andExpect(jsonPath("$.priceSource").value("YAHOO"))
                 .andExpect(jsonPath("$.stale").value(false))
                 .andExpect(jsonPath("$.marketValueEur").exists());

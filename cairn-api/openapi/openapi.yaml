@@ -1674,6 +1674,12 @@ components:
           nullable: true
           description: The date the latest quote was observed on. Absent along with price.
           example: 2026-09-25
+        priceFetchedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the latest quote was fetched; absent along with price.
+          example: 2026-09-25T15:35:00Z
         priceSource:
           description: Where the instrument's price comes from.
           allOf:

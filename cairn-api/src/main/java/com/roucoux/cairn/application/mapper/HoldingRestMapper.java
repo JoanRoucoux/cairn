@@ -12,6 +12,7 @@ import com.roucoux.cairn.generated.model.PriceSource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.ZoneOffset;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -57,6 +58,7 @@ public class HoldingRestMapper {
             response.setPrice(scaledAmount(quote.price()));
             response.setPriceCurrency(quote.currency());
             response.setPriceAsOf(quote.asOf());
+            response.setPriceFetchedAt(quote.fetchedAt().atOffset(ZoneOffset.UTC));
         });
         response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
         response.setStale(line.isStale(clock));
