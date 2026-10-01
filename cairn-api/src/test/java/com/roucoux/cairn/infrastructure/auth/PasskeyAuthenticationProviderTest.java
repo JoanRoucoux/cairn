@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.webauthn.api.AuthenticatorAssertionResponse;
@@ -65,8 +66,6 @@ class PasskeyAuthenticationProviderTest {
     @Test
     void handlesTheSameRequestsAsTheProviderItWraps() {
         assertThat(provider.supports(WebAuthnAuthenticationRequestToken.class)).isTrue();
-        assertThat(provider.supports(
-                        org.springframework.security.authentication.UsernamePasswordAuthenticationToken.class))
-                .isFalse();
+        assertThat(provider.supports(UsernamePasswordAuthenticationToken.class)).isFalse();
     }
 }

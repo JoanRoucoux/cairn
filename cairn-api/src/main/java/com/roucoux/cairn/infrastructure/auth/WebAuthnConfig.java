@@ -1,12 +1,14 @@
 package com.roucoux.cairn.infrastructure.auth;
 
 import java.util.Set;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,6 +46,7 @@ public class WebAuthnConfig {
             HttpSecurity http,
             WebAuthnRelyingPartyOperations relyingParty,
             UserDetailsService userDetailsService,
+            ObjectProvider<AuthenticationEventPublisher> eventPublisher,
             @Value("${app.security.permit-all:false}") boolean permitAll)
             throws Exception {
         if (permitAll) {
@@ -51,8 +54,8 @@ public class WebAuthnConfig {
                     .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                     .build();
         }
-        return http.webAuthn(webAuthn ->
-                        webAuthn.withObjectPostProcessor(rememberingTheCredential(relyingParty, userDetailsService)))
+        return http.webAuthn(webAuthn -> webAuthn.withObjectPostProcessor(
+                        rememberingTheCredential(relyingParty, userDetailsService, eventPublisher.getIfAvailable())))
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // Not authenticationEntryPoint: that one makes GET /webauthn/register answer 404.
@@ -76,12 +79,18 @@ public class WebAuthnConfig {
     }
 
     static ObjectPostProcessor<WebAuthnAuthenticationFilter> rememberingTheCredential(
-            WebAuthnRelyingPartyOperations relyingParty, UserDetailsService userDetailsService) {
+            WebAuthnRelyingPartyOperations relyingParty,
+            UserDetailsService userDetailsService,
+            AuthenticationEventPublisher eventPublisher) {
         return new ObjectPostProcessor<>() {
             @Override
             public <O extends WebAuthnAuthenticationFilter> O postProcess(O filter) {
-                filter.setAuthenticationManager(new ProviderManager(new PasskeyAuthenticationProvider(
-                        new WebAuthnAuthenticationProvider(relyingParty, userDetailsService))));
+                ProviderManager manager = new ProviderManager(new PasskeyAuthenticationProvider(
+                        new WebAuthnAuthenticationProvider(relyingParty, userDetailsService)));
+                if (eventPublisher != null) {
+                    manager.setAuthenticationEventPublisher(eventPublisher);
+                }
+                filter.setAuthenticationManager(manager);
                 return filter;
             }
         };

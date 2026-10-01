@@ -23,6 +23,28 @@ class SessionRestMapperTest {
 
     private final SessionRestMapper mapper = new SessionRestMapper();
 
+    private static final Bytes ICLOUD_KEY = Bytes.fromBase64("aXBob25l");
+    private static final Bytes MAC_KEY = Bytes.fromBase64("bWFj");
+
+    private static PublicKeyCredentialUserEntity owner() {
+        return ImmutablePublicKeyCredentialUserEntity.builder()
+                .name("joan")
+                .id(Bytes.random())
+                .displayName("Joan Roucoux")
+                .build();
+    }
+
+    private static CredentialRecord credential(Bytes id, Bytes attestation) {
+        return ImmutableCredentialRecord.builder()
+                .credentialId(id)
+                .userEntityUserId(Bytes.random())
+                .publicKey(new ImmutablePublicKeyCose(new byte[] {1}))
+                .label("key")
+                .created(Instant.parse("2026-01-01T00:00:00Z"))
+                .attestationObject(attestation)
+                .build();
+    }
+
     @Test
     void takesOneInitialFromEachOfTheFirstTwoWords() {
         assertThat(mapper.initialsOf("Joan Roucoux")).isEqualTo("JR");
@@ -46,28 +68,6 @@ class SessionRestMapperTest {
     @Test
     void survivesAnEmptyDisplayName() {
         assertThat(mapper.initialsOf("  ")).isEmpty();
-    }
-
-    private static final Bytes ICLOUD_KEY = Bytes.fromBase64("aXBob25l");
-    private static final Bytes MAC_KEY = Bytes.fromBase64("bWFj");
-
-    private static PublicKeyCredentialUserEntity owner() {
-        return ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
-                .id(Bytes.random())
-                .displayName("Joan Roucoux")
-                .build();
-    }
-
-    private static CredentialRecord credential(Bytes id, Bytes attestation) {
-        return ImmutableCredentialRecord.builder()
-                .credentialId(id)
-                .userEntityUserId(Bytes.random())
-                .publicKey(new ImmutablePublicKeyCose(new byte[] {1}))
-                .label("key")
-                .created(Instant.parse("2026-01-01T00:00:00Z"))
-                .attestationObject(attestation)
-                .build();
     }
 
     @Test
@@ -137,6 +137,6 @@ class SessionRestMapperTest {
 
         assertThat(response.getPasskeys())
                 .extracting(PasskeyResponse::getProvider)
-                .containsExactly("iCloud", null);
+                .containsExactly(PasskeyResponse.ProviderEnum.ICLOUD_KEYCHAIN, null);
     }
 }

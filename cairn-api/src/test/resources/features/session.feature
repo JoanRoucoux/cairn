@@ -4,6 +4,6 @@ Feature: Reading the signed-in session
     Given a registered passkey "iPhone de Joan" from an iCloud authenticator
     And a registered passkey "Cle USB" from an authenticator the API does not know
     When I read the session
-    Then the passkey "iPhone de Joan" is provided by "iCloud"
+    Then the passkey "iPhone de Joan" is provided by "ICLOUD_KEYCHAIN"
     And the passkey "Cle USB" has no provider
     And no passkey is the current one

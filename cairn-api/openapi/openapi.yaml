@@ -1987,5 +1987,6 @@ components:
         provider:
           type: string
           nullable: true
-          description: Where the passkey lives, when it can be told from its AAGUID (for example iCloud, Google Password Manager, Clé de sécurité). Absent when the authenticator is unknown or did not disclose its AAGUID.
-          example: iCloud
+          enum: [ICLOUD_KEYCHAIN, GOOGLE_PASSWORD_MANAGER, WINDOWS_HELLO, ONE_PASSWORD, BITWARDEN, SECURITY_KEY]
+          description: Where the passkey lives, when it can be told from its AAGUID. Absent when the authenticator is unknown or did not disclose its AAGUID. The consumer turns the code into a display label.
+          example: ICLOUD_KEYCHAIN

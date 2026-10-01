@@ -3,6 +3,7 @@ package com.roucoux.cairn.application.mapper;
 import com.roucoux.cairn.generated.model.PasskeyResponse;
 import com.roucoux.cairn.generated.model.SessionResponse;
 import com.roucoux.cairn.infrastructure.auth.PasskeyAuthentication;
+import com.roucoux.cairn.infrastructure.auth.PasskeyProvider;
 import com.roucoux.cairn.infrastructure.auth.PasskeyProviders;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -49,7 +50,8 @@ public class SessionRestMapper {
         String credentialId = credential.getCredentialId().toBase64UrlString();
         response.setCredentialId(credentialId);
         response.setCurrent(credentialId.equals(currentCredentialId));
-        response.setProvider(PasskeyProviders.providerOf(credential.getAttestationObject()));
+        PasskeyProvider provider = PasskeyProviders.providerOf(credential.getAttestationObject());
+        response.setProvider(provider == null ? null : PasskeyResponse.ProviderEnum.valueOf(provider.name()));
         response.setLabel(credential.getLabel());
         response.setCreatedAt(credential.getCreated().atOffset(ZoneOffset.UTC));
         response.setLastUsedAt(

@@ -3,6 +3,7 @@ package com.roucoux.cairn.infrastructure.auth;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.security.web.webauthn.api.Bytes;
 
@@ -75,7 +76,7 @@ public final class AttestationFixtures {
 
     private static byte[] filled(int length, int value) {
         byte[] bytes = new byte[length];
-        java.util.Arrays.fill(bytes, (byte) value);
+        Arrays.fill(bytes, (byte) value);
         return bytes;
     }
 }

@@ -62,7 +62,7 @@ public class SessionSteps {
 
     @Then("the passkey {string} is provided by {string}")
     public void thePasskeyIsProvidedBy(String label, String provider) {
-        assertThat(passkey(label).getProvider()).isEqualTo(provider);
+        assertThat(passkey(label).getProvider()).hasToString(provider);
     }
 
     @Then("the passkey {string} has no provider")

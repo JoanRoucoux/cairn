@@ -77,7 +77,7 @@ class WebAuthnConfigTest {
         when(users.loadUserByUsername("joan"))
                 .thenReturn(
                         User.withUsername("joan").password("x").roles("USER").build());
-        WebAuthnAuthenticationFilter filter = WebAuthnConfig.rememberingTheCredential(operations, users)
+        WebAuthnAuthenticationFilter filter = WebAuthnConfig.rememberingTheCredential(operations, users, null)
                 .postProcess(new WebAuthnAuthenticationFilter());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login/webauthn");
         request.setContentType("application/json");
