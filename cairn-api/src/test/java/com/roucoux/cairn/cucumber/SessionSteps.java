@@ -3,13 +3,13 @@ package com.roucoux.cairn.cucumber;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.generated.model.PasskeyResponse;
-import com.roucoux.cairn.generated.model.SessionResponse;
 import com.roucoux.cairn.infrastructure.auth.AttestationFixtures;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.jdbc.core.JdbcOperations;
@@ -20,6 +20,7 @@ import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCredentia
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
+import tools.jackson.databind.JsonNode;
 
 public class SessionSteps {
 
@@ -37,7 +38,8 @@ public class SessionSteps {
     @Autowired
     private UserCredentialRepository credentials;
 
-    private SessionResponse session;
+    private JsonNode session;
+    private List<PasskeyResponse> passkeys;
 
     @Before
     public void resetPasskeys() {
@@ -57,7 +59,18 @@ public class SessionSteps {
 
     @When("I read the session")
     public void iReadTheSession() {
-        session = restTemplate.getForObject("/session", SessionResponse.class);
+        session = restTemplate.getForObject("/session", JsonNode.class);
+    }
+
+    @When("I read the passkeys")
+    public void iReadThePasskeys() {
+        passkeys = List.of(restTemplate.getForObject("/session/passkeys", PasskeyResponse[].class));
+    }
+
+    @Then("the session carries the owner {string} and no passkey list")
+    public void theSessionCarriesTheOwnerAndNoPasskeyList(String displayName) {
+        assertThat(session.get("displayName").asText()).isEqualTo(displayName);
+        assertThat(session.has("passkeys")).isFalse();
     }
 
     @Then("the passkey {string} is provided by {string}")
@@ -72,9 +85,7 @@ public class SessionSteps {
 
     @Then("no passkey is the current one")
     public void noPasskeyIsTheCurrentOne() {
-        assertThat(session.getPasskeys())
-                .extracting(PasskeyResponse::getCurrent)
-                .containsOnly(false);
+        assertThat(passkeys).extracting(PasskeyResponse::getCurrent).containsOnly(false);
     }
 
     private void register(String label, String aaguid) {
@@ -98,7 +109,7 @@ public class SessionSteps {
     }
 
     private PasskeyResponse passkey(String label) {
-        return session.getPasskeys().stream()
+        return passkeys.stream()
                 .filter(passkey -> label.equals(passkey.getLabel()))
                 .findFirst()
                 .orElseThrow();

@@ -74,7 +74,7 @@ class SessionRestMapperTest {
     void exposesTheUsernameAndFlagsAPasskeySignIn() {
         Authentication passkey = new PasskeyAuthentication(owner(), List.of(), ICLOUD_KEY.toBase64UrlString());
 
-        SessionResponse response = mapper.toResponse(passkey, "Joan Roucoux", List.of());
+        SessionResponse response = mapper.toResponse(passkey, "Joan Roucoux");
 
         assertThat(response.getUsername()).isEqualTo("joan");
         assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
@@ -84,7 +84,7 @@ class SessionRestMapperTest {
     void flagsAPasswordSignIn() {
         Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
 
-        SessionResponse response = mapper.toResponse(password, "Joan Roucoux", List.of());
+        SessionResponse response = mapper.toResponse(password, "Joan Roucoux");
 
         assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSWORD);
     }
@@ -93,49 +93,43 @@ class SessionRestMapperTest {
     void marksOnlyThePasskeyThatOpenedTheSessionAsCurrent() {
         Authentication passkey = new PasskeyAuthentication(owner(), List.of(), ICLOUD_KEY.toBase64UrlString());
 
-        SessionResponse response = mapper.toResponse(
-                passkey, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null), credential(MAC_KEY, null)));
+        List<PasskeyResponse> response =
+                mapper.toPasskeys(passkey, List.of(credential(ICLOUD_KEY, null), credential(MAC_KEY, null)));
 
-        assertThat(response.getPasskeys())
-                .extracting(PasskeyResponse::getCurrent)
-                .containsExactly(true, false);
+        assertThat(response).extracting(PasskeyResponse::getCurrent).containsExactly(true, false);
     }
 
     @Test
     void marksNoPasskeyAsCurrentWhenThePasswordOpenedTheSession() {
         Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
 
-        SessionResponse response = mapper.toResponse(password, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null)));
+        List<PasskeyResponse> response = mapper.toPasskeys(password, List.of(credential(ICLOUD_KEY, null)));
 
-        assertThat(response.getPasskeys())
-                .extracting(PasskeyResponse::getCurrent)
-                .containsExactly(false);
+        assertThat(response).extracting(PasskeyResponse::getCurrent).containsExactly(false);
     }
 
     @Test
     void marksNoPasskeyAsCurrentForASessionOpenedBeforeTheCredentialWasRemembered() {
         Authentication legacy = new WebAuthnAuthentication(owner(), List.of());
 
-        SessionResponse response = mapper.toResponse(legacy, "Joan Roucoux", List.of(credential(ICLOUD_KEY, null)));
+        List<PasskeyResponse> response = mapper.toPasskeys(legacy, List.of(credential(ICLOUD_KEY, null)));
 
-        assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
-        assertThat(response.getPasskeys())
-                .extracting(PasskeyResponse::getCurrent)
-                .containsExactly(false);
+        assertThat(mapper.toResponse(legacy, "Joan Roucoux").getSignInMethod())
+                .isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
+        assertThat(response).extracting(PasskeyResponse::getCurrent).containsExactly(false);
     }
 
     @Test
     void namesTheProviderFromTheAttestationAndLeavesItNullWhenUnknown() {
         Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
 
-        SessionResponse response = mapper.toResponse(
+        List<PasskeyResponse> response = mapper.toPasskeys(
                 password,
-                "Joan Roucoux",
                 List.of(
                         credential(ICLOUD_KEY, AttestationFixtures.attestationWithAaguid(AttestationFixtures.ICLOUD)),
                         credential(MAC_KEY, AttestationFixtures.attestationWithAaguid(AttestationFixtures.NONE))));
 
-        assertThat(response.getPasskeys())
+        assertThat(response)
                 .extracting(PasskeyResponse::getProvider)
                 .containsExactly(PasskeyResponse.ProviderEnum.ICLOUD_KEYCHAIN, null);
     }

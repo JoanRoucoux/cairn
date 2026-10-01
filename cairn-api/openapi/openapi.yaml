@@ -26,7 +26,7 @@ tags:
   - name: History
     description: The portfolio's value over time, from daily snapshots or intraday valuations
   - name: Session
-    description: The signed-in owner and their registered passkeys
+    description: The signed-in owner and their registered passkeys, read separately
 security:
   - sessionCookie: []
 paths:
@@ -985,15 +985,49 @@ paths:
     get:
       tags: [Session]
       operationId: getSession
-      summary: Get the signed-in owner and their registered passkeys
+      summary: Get the signed-in owner
       description: Fails with 401 rather than an empty body when no session is open, since Cairn has a single owner.
       responses:
         '200':
-          description: The signed-in owner and the passkeys registered for them
+          description: The signed-in owner and how the session was opened
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /session/passkeys:
+    get:
+      tags: [Session]
+      operationId: listPasskeys
+      summary: List the owner's registered passkeys
+      description: >-
+        Every passkey registered for the signed-in owner, in registration order. Kept apart from
+        `GET /session` so that the owner's identity stays readable when this list cannot be loaded.
+        Fails with 401 when no session is open.
+      responses:
+        '200':
+          description: The passkeys registered for the owner, empty when none was registered yet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasskeyResponse'
+              examples:
+                twoPasskeys:
+                  summary: A passkey in iCloud Keychain, currently in use, and a security key
+                  value:
+                    - credentialId: AbCdEf1234567890
+                      label: iPhone de Joan
+                      createdAt: 2026-01-15T09:30:00Z
+                      lastUsedAt: 2026-09-25T07:45:00Z
+                      current: true
+                      provider: ICLOUD_KEYCHAIN
+                    - credentialId: ZyXwVu0987654321
+                      label: Cle USB
+                      createdAt: 2026-03-02T18:10:00Z
+                      current: false
         '401':
           $ref: '#/components/responses/Unauthorized'
   /session/passkeys/{credentialId}:
@@ -1011,7 +1045,7 @@ paths:
         - name: credentialId
           in: path
           required: true
-          description: Base64url credential id, as returned by `GET /session`.
+          description: Base64url credential id, as returned by `GET /session/passkeys`.
           schema:
             type: string
       responses:
@@ -1929,9 +1963,9 @@ components:
           description: The portfolio's total value at that instant.
           example: 183900.50
     SessionResponse:
-      description: The signed-in owner's display name and registered passkeys. Returned by `GET /session`.
+      description: The signed-in owner and how the session was opened. Returned by `GET /session`.
       type: object
-      required: [displayName, initials, username, signInMethod, passkeys]
+      required: [displayName, initials, username, signInMethod]
       properties:
         displayName:
           type: string
@@ -1951,13 +1985,8 @@ components:
           enum: [PASSKEY, PASSWORD]
           description: How the current session was opened.
           example: PASSKEY
-        passkeys:
-          type: array
-          description: Every passkey currently registered for the owner.
-          items:
-            $ref: '#/components/schemas/PasskeyResponse'
     PasskeyResponse:
-      description: One registered passkey, one entry of `SessionResponse.passkeys`.
+      description: One registered passkey, one entry of the `GET /session/passkeys` list.
       type: object
       required: [credentialId, label, createdAt, current]
       properties:

@@ -4,6 +4,7 @@ import com.roucoux.cairn.application.exception.LastPasskeyException;
 import com.roucoux.cairn.application.mapper.SessionRestMapper;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.generated.api.SessionApi;
+import com.roucoux.cairn.generated.model.PasskeyResponse;
 import com.roucoux.cairn.generated.model.SessionResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -46,7 +47,14 @@ class SessionController implements SessionApi {
         String username = authentication.getName();
         PublicKeyCredentialUserEntity owner = userEntities.findByUsername(username);
         String displayName = owner == null ? username : owner.getDisplayName();
-        return ResponseEntity.ok(mapper.toResponse(authentication, displayName, passkeysOf(owner)));
+        return ResponseEntity.ok(mapper.toResponse(authentication, displayName));
+    }
+
+    @Override
+    public ResponseEntity<List<PasskeyResponse>> listPasskeys() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<CredentialRecord> owned = passkeysOf(userEntities.findByUsername(authentication.getName()));
+        return ResponseEntity.ok(mapper.toPasskeys(authentication, owned));
     }
 
     @Override
