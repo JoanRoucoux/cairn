@@ -39,8 +39,9 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
             if (response == null || response.quotes() == null) {
                 return List.of();
             }
+            String isin = isinOf(query);
             return response.quotes().stream()
-                    .map(quote -> toCandidate(quote, isinOf(query)))
+                    .map(quote -> toCandidate(quote, isin))
                     .toList();
         } catch (RestClientException failure) {
             return List.of();

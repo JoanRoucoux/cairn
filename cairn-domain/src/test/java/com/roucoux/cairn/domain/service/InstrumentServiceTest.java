@@ -59,6 +59,24 @@ class InstrumentServiceTest {
     }
 
     @Test
+    void clearsTheSymbolWhenAnUpdateOmitsIt() {
+        Fixture fixture = Fixture.withExistingInstrument();
+
+        Instrument updated = fixture.service()
+                .update(
+                        fixture.instrumentId(),
+                        "Amundi ETF PEA S&P 500",
+                        "FR0011550185",
+                        null,
+                        AssetClass.ETF,
+                        PriceSource.YAHOO,
+                        "ETF3.PA",
+                        null);
+
+        assertThat(updated.symbol()).isNull();
+    }
+
+    @Test
     void rejectsUpdatingAnUnknownInstrument() {
         Fixture fixture = Fixture.withExistingInstrument();
 
