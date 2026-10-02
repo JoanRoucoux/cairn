@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.out.SaveSnapshotPort;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -126,7 +127,8 @@ class SnapshotServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", accountType, "Test institution");
         Instrument instrument =
                 new Instrument(instrumentId, "Test", null, "EUR", assetClass, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 9, 24),
@@ -142,7 +144,8 @@ class SnapshotServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.PEA, "Test institution");
         Instrument instrument =
                 new Instrument(instrumentId, "Test", null, "USD", AssetClass.ETF, PriceSource.YAHOO, "TEST3", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 9, 24),
@@ -158,7 +161,8 @@ class SnapshotServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test institution");
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST2.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 

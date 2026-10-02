@@ -19,7 +19,6 @@ import com.roucoux.cairn.application.mapper.AllocationRestMapper;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
-import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountAllocation;
 import com.roucoux.cairn.domain.model.AccountBreakdown;
@@ -247,8 +246,8 @@ class PortfolioControllerTest {
 
     @Test
     void servesThePortfolioAsACsvAttachmentDatedToday() throws Exception {
-        Holding holding =
-                new Holding(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10"), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10"), null, Instant.EPOCH);
         when(loadHoldings.findAll()).thenReturn(List.of(holding));
         when(valueHolding.value(holding)).thenReturn(Optional.of(aValuedHolding(holding)));
 
@@ -301,8 +300,10 @@ class PortfolioControllerTest {
     }
 
     @Test
-    void refusesALineOnASavingsAccountAsAPlainProblemDetail() throws Exception {
-        when(importPortfolio.run(anyList())).thenThrow(new SavingsAccountLineException());
+    void listsALineOnASavingsAccountAsARowErrorWithItsCode() throws Exception {
+        when(importPortfolio.run(anyList()))
+                .thenThrow(new PortfolioImportRejectedException(
+                        List.of(new ImportError(0, ImportErrorCode.SAVINGS_ACCOUNT_LINE, "LU0000000001"))));
 
         mockMvc.perform(post("/portfolio/import")
                         .with(user("joan"))
@@ -311,7 +312,9 @@ class PortfolioControllerTest {
                         .content(PortfolioCsvReader.HEADER + "\r\n"
                                 + "Livret A;SAVINGS;Fortuneo;Tracker;LU0000000001;100;20.00\r\n"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
+                .andExpect(jsonPath("$.errors[0].line").value(2))
+                .andExpect(jsonPath("$.errors[0].code").value("SAVINGS_ACCOUNT_LINE"))
+                .andExpect(jsonPath("$.errors[0].value").value("LU0000000001"));
     }
 
     @Test
@@ -372,7 +375,7 @@ class PortfolioControllerTest {
     private static ValuedHolding eurLine(BigDecimal quantity, BigDecimal price, boolean withPreviousQuote) {
         UUID accountId = UUID.randomUUID();
         UUID instrumentId = UUID.randomUUID();
-        Holding holding = new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, null);
+        Holding holding = new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, null, Instant.EPOCH);
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
         Account account = new Account(accountId, "CTO Boursorama", AccountType.CTO, "Boursorama");
@@ -398,7 +401,8 @@ class PortfolioControllerTest {
     private static ValuedHolding aHolding() {
         UUID accountId = UUID.randomUUID();
         UUID instrumentId = UUID.randomUUID();
-        Holding holding = new Holding(UUID.randomUUID(), accountId, instrumentId, new BigDecimal("10"), null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), accountId, instrumentId, new BigDecimal("10"), null, Instant.EPOCH);
         Instrument instrument = new Instrument(
                 instrumentId, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
         Account account = new Account(accountId, "CTO Boursorama", AccountType.CTO, "Boursorama");

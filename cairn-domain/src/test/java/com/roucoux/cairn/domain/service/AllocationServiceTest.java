@@ -102,7 +102,8 @@ class AllocationServiceTest {
 
     private static ValuedHolding line(Account account, AssetClass assetClass, String quantity, String price) {
         Instrument instrument = instrument(assetClass);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrument.id(),
                 LocalDate.of(2026, 8, 21),
@@ -115,13 +116,15 @@ class AllocationServiceTest {
 
     private static ValuedHolding unvaluedLine(Account account, AssetClass assetClass) {
         Instrument instrument = instrument(assetClass);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null, Instant.EPOCH);
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 
     private static ValuedHolding usdLine(Account account, AssetClass assetClass) {
         Instrument instrument = instrument(assetClass);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrument.id(),
                 LocalDate.of(2026, 8, 21),

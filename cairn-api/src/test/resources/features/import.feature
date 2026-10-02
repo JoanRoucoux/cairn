@@ -25,3 +25,23 @@ Feature: Portfolio import
     Then the import is refused
     When I read the portfolio
     Then the total is 2200 EUR
+
+  Scenario: a savings account refuses a line other than its balance
+    When I import:
+      """
+      account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
+      Livret A;SAVINGS;Fortuneo;Global Growth Tracker;GGT.PA;10;
+      """
+    Then the import is refused
+    When I read the portfolio
+    Then the total is 2200 EUR
+
+  Scenario: a savings balance is imported as the euro cash line
+    When I import:
+      """
+      account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
+      Livret A;SAVINGS;Fortuneo;Euros;EUR;500;
+      """
+    Then the import reports 1 created and 0 updated holdings
+    When I read the portfolio
+    Then the total is 2700 EUR

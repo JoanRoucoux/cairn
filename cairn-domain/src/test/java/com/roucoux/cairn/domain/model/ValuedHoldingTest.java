@@ -72,7 +72,8 @@ class ValuedHoldingTest {
         Account account = new Account(UUID.randomUUID(), "Sample Broker", AccountType.PEA, "Sample Bank");
         Instrument instrument =
                 new Instrument(INSTRUMENT_ID, "Test", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost, Instant.EPOCH);
         return new ValuedHolding(
                 holding,
                 instrument,
@@ -85,7 +86,8 @@ class ValuedHoldingTest {
         Account account = new Account(UUID.randomUUID(), "Sample Broker", AccountType.PEA, "Sample Bank");
         Instrument instrument =
                 new Instrument(INSTRUMENT_ID, "Test", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), INSTRUMENT_ID, quantity, averageCost, Instant.EPOCH);
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 

@@ -88,7 +88,7 @@ class HoldingValuationServiceTest {
     }
 
     private static Holding cash(BigDecimal amount, BigDecimal averageCost) {
-        return new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), amount, averageCost);
+        return new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), amount, averageCost, Instant.EPOCH);
     }
 
     private static HoldingValuationService service(Instrument instrument, List<Quote> quotes) {

@@ -49,8 +49,8 @@ class HoldingPersistenceAdapterIT {
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
 
-        Holding saved = holdings.save(
-                new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00005752"), null));
+        Holding saved = holdings.save(new Holding(
+                UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00005752"), null, Instant.EPOCH));
 
         assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00005752");
     }
@@ -124,6 +124,6 @@ class HoldingPersistenceAdapterIT {
         Account account = accounts.save(new Account(UUID.randomUUID(), "Binance", AccountType.CRYPTO, "Binance"));
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
-        return holdings.save(new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), quantity, null));
+        return holdings.save(new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), quantity, null, Instant.EPOCH));
     }
 }

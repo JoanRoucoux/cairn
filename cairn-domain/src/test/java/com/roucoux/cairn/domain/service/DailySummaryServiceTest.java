@@ -155,7 +155,8 @@ class DailySummaryServiceTest {
     }
 
     private static ValuedHolding line(Account account, Instrument instrument, String quantity, Optional<Quote> quote) {
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null, Instant.EPOCH);
         return new ValuedHolding(holding, instrument, account, quote, Optional.empty());
     }
 

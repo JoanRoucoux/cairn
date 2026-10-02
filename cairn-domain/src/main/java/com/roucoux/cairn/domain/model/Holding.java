@@ -22,8 +22,8 @@ public record Holding(
         Objects.requireNonNull(updatedAt, "updatedAt");
     }
 
-    public Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost) {
-        this(id, accountId, instrumentId, quantity, averageCost, Instant.now());
+    public Holding withUpdatedAt(Instant at) {
+        return new Holding(id, accountId, instrumentId, quantity, averageCost, at);
     }
 
     public Optional<BigDecimal> costBasis() {
@@ -39,7 +39,7 @@ public record Holding(
                 : quantity.multiply(averageCost)
                         .add(boughtQuantity.multiply(unitPrice))
                         .divide(newQuantity, AVERAGE_COST_SCALE, RoundingMode.HALF_UP);
-        return new Holding(id, accountId, instrumentId, newQuantity, newAverageCost);
+        return new Holding(id, accountId, instrumentId, newQuantity, newAverageCost, updatedAt);
     }
 
     public Optional<Holding> sell(BigDecimal soldQuantity) {
@@ -51,7 +51,8 @@ public record Holding(
         if (comparison == 0) {
             return Optional.empty();
         }
-        return Optional.of(new Holding(id, accountId, instrumentId, quantity.subtract(soldQuantity), averageCost));
+        return Optional.of(
+                new Holding(id, accountId, instrumentId, quantity.subtract(soldQuantity), averageCost, updatedAt));
     }
 
     private static void requirePositive(BigDecimal value, String what) {

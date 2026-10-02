@@ -176,7 +176,7 @@ class HistoryServiceTest {
     }
 
     private static Holding holding(UUID instrumentId, BigDecimal quantity) {
-        return new Holding(UUID.randomUUID(), UUID.randomUUID(), instrumentId, quantity, null);
+        return new Holding(UUID.randomUUID(), UUID.randomUUID(), instrumentId, quantity, null, Instant.EPOCH);
     }
 
     private static Map<UUID, List<Quote>> quotes(UUID instrumentId, Map<LocalDate, BigDecimal> pricesByDate) {

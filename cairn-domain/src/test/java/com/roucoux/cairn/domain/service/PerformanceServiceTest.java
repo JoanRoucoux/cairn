@@ -260,7 +260,8 @@ class PerformanceServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
                 new Instrument(instrumentId, "Test", null, "USD", AssetClass.EQUITY, PriceSource.YAHOO, "TEST", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         Quote current = new Quote(
                 instrumentId, LocalDate.now(CLOCK), new BigDecimal(price), "USD", PriceSource.YAHOO, CLOCK.instant());
         return new Line(holding, instrument, account, current, List.of());
@@ -282,7 +283,8 @@ class PerformanceServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         Quote current = new Quote(
                 instrumentId, LocalDate.now(CLOCK), new BigDecimal(price), "EUR", PriceSource.YAHOO, fetchedAt);
         List<Quote> withId = history.stream()
@@ -295,7 +297,8 @@ class PerformanceServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
                 new Instrument(instrumentId, "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         return new Line(holding, instrument, account, null, List.of());
     }
 

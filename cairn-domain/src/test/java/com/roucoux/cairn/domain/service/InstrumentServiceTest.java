@@ -14,6 +14,7 @@ import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -151,10 +152,10 @@ class InstrumentServiceTest {
 
         static Fixture withExistingInstrumentAndHoldings() {
             Fixture fixture = withExistingInstrument();
-            fixture.holdings.add(
-                    new Holding(UUID.randomUUID(), UUID.randomUUID(), fixture.instrumentId, BigDecimal.ONE, null));
-            fixture.holdings.add(
-                    new Holding(UUID.randomUUID(), UUID.randomUUID(), fixture.instrumentId, BigDecimal.TEN, null));
+            fixture.holdings.add(new Holding(
+                    UUID.randomUUID(), UUID.randomUUID(), fixture.instrumentId, BigDecimal.ONE, null, Instant.EPOCH));
+            fixture.holdings.add(new Holding(
+                    UUID.randomUUID(), UUID.randomUUID(), fixture.instrumentId, BigDecimal.TEN, null, Instant.EPOCH));
             return new Fixture(fixture.instruments, fixture.holdings, fixture.instrumentId);
         }
 

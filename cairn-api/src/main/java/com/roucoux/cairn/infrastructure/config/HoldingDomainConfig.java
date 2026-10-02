@@ -25,8 +25,9 @@ class HoldingDomainConfig {
             SaveHoldingPort saveHolding,
             DeleteHoldingPort deleteHolding,
             LoadAccountsPort loadAccounts,
-            LoadInstrumentsPort loadInstruments) {
-        return new HoldingService(loadHoldings, saveHolding, deleteHolding, loadAccounts, loadInstruments);
+            LoadInstrumentsPort loadInstruments,
+            Clock clock) {
+        return new HoldingService(loadHoldings, saveHolding, deleteHolding, loadAccounts, loadInstruments, clock);
     }
 
     @Bean
@@ -36,9 +37,10 @@ class HoldingDomainConfig {
             SaveInstrumentPort saveInstrument,
             LoadHoldingsPort loadHoldings,
             SaveHoldingPort saveHolding,
-            DeleteHoldingPort deleteHolding) {
+            DeleteHoldingPort deleteHolding,
+            Clock clock) {
         return new CashBalanceService(
-                loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding);
+                loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding, clock);
     }
 
     @Bean

@@ -44,8 +44,8 @@ class HistoryDomainConfigTest {
         LoadHoldingsPort loadHoldings = new LoadHoldingsPort() {
             @Override
             public List<Holding> findAll() {
-                return List.of(
-                        new Holding(UUID.randomUUID(), UUID.randomUUID(), CASH_ID, new BigDecimal("1000"), null));
+                return List.of(new Holding(
+                        UUID.randomUUID(), UUID.randomUUID(), CASH_ID, new BigDecimal("1000"), null, Instant.EPOCH));
             }
 
             @Override

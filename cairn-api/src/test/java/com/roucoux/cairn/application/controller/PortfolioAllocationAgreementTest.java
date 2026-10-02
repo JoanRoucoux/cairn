@@ -165,7 +165,8 @@ class PortfolioAllocationAgreementTest {
                 source,
                 source == PriceSource.MANUAL ? null : "TEST.PA",
                 null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null, Instant.EPOCH);
         Optional<Quote> quote = quoted
                 ? Optional.of(new Quote(
                         instrument.id(),

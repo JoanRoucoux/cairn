@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,18 +28,21 @@ public class HoldingService implements ManageHoldingUseCase {
     private final DeleteHoldingPort deleteHolding;
     private final LoadAccountsPort loadAccounts;
     private final LoadInstrumentsPort loadInstruments;
+    private final Clock clock;
 
     public HoldingService(
             LoadHoldingsPort loadHoldings,
             SaveHoldingPort saveHolding,
             DeleteHoldingPort deleteHolding,
             LoadAccountsPort loadAccounts,
-            LoadInstrumentsPort loadInstruments) {
+            LoadInstrumentsPort loadInstruments,
+            Clock clock) {
         this.loadHoldings = loadHoldings;
         this.saveHolding = saveHolding;
         this.deleteHolding = deleteHolding;
         this.loadAccounts = loadAccounts;
         this.loadInstruments = loadInstruments;
+        this.clock = clock;
     }
 
     @Override
@@ -55,15 +59,16 @@ public class HoldingService implements ManageHoldingUseCase {
         loadHoldings.findByAccountAndInstrument(accountId, instrumentId).ifPresent(existing -> {
             throw new DuplicateHoldingException(accountId, instrumentId);
         });
-        return saveHolding.save(new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, averageCost));
+        return saveHolding.save(
+                new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, averageCost, clock.instant()));
     }
 
     @Override
     public Holding update(UUID id, BigDecimal quantity, BigDecimal averageCost) {
         requireNonZero(quantity);
         Holding existing = loadHoldings.findById(id).orElseThrow(() -> new NotFoundException("holding", id));
-        return saveHolding.save(
-                new Holding(existing.id(), existing.accountId(), existing.instrumentId(), quantity, averageCost));
+        return saveHolding.save(new Holding(
+                existing.id(), existing.accountId(), existing.instrumentId(), quantity, averageCost, clock.instant()));
     }
 
     @Override
@@ -75,7 +80,7 @@ public class HoldingService implements ManageHoldingUseCase {
     @Override
     public Holding buy(UUID id, BigDecimal quantity, BigDecimal unitPrice) {
         Holding existing = tradable(id);
-        return saveHolding.save(existing.buy(quantity, unitPrice));
+        return saveHolding.save(existing.buy(quantity, unitPrice).withUpdatedAt(clock.instant()));
     }
 
     @Override
@@ -86,7 +91,7 @@ public class HoldingService implements ManageHoldingUseCase {
             deleteHolding.delete(id);
             return Optional.empty();
         }
-        return Optional.of(saveHolding.save(remaining.get()));
+        return Optional.of(saveHolding.save(remaining.get().withUpdatedAt(clock.instant())));
     }
 
     private Holding tradable(UUID id) {

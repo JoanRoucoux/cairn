@@ -20,6 +20,9 @@ import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +33,9 @@ import org.junit.jupiter.api.Test;
 
 class HoldingServiceTest {
 
+    private static final Instant NOW = Instant.parse("2026-09-12T08:30:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+
     @Test
     void createsAHolding() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
@@ -39,6 +45,7 @@ class HoldingServiceTest {
 
         assertThat(created.quantity()).isEqualByComparingTo("4");
         assertThat(created.averageCost()).isEqualByComparingTo("43.64");
+        assertThat(created.updatedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -127,6 +134,7 @@ class HoldingServiceTest {
         Holding updated = fixture.service().update(fixture.holdingId(), new BigDecimal("31"), new BigDecimal("394.25"));
 
         assertThat(updated.quantity()).isEqualByComparingTo("31");
+        assertThat(updated.updatedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -169,6 +177,7 @@ class HoldingServiceTest {
         Holding bought = fixture.service().buy(fixture.holdingId(), new BigDecimal("40"), new BigDecimal("29.10"));
 
         assertThat(bought.averageCost()).isEqualByComparingTo("24.488889");
+        assertThat(bought.updatedAt()).isEqualTo(NOW);
         assertThat(fixture.holdings())
                 .singleElement()
                 .satisfies(saved -> assertThat(saved.quantity()).isEqualByComparingTo("540"));
@@ -261,8 +270,8 @@ class HoldingServiceTest {
 
         static Fixture withExistingHolding() {
             Fixture fixture = withKnownAccountAndInstrument();
-            fixture.holdings.add(
-                    new Holding(fixture.holdingId, fixture.accountId, fixture.instrumentId, BigDecimal.ONE, null));
+            fixture.holdings.add(new Holding(
+                    fixture.holdingId, fixture.accountId, fixture.instrumentId, BigDecimal.ONE, null, Instant.EPOCH));
             return fixture;
         }
 
@@ -284,7 +293,8 @@ class HoldingServiceTest {
                     fixture.accountId,
                     fixture.instrumentId,
                     new BigDecimal("20000"),
-                    BigDecimal.ONE));
+                    BigDecimal.ONE,
+                    Instant.EPOCH));
             return fixture;
         }
 
@@ -295,7 +305,8 @@ class HoldingServiceTest {
                     fixture.accountId,
                     fixture.instrumentId,
                     new BigDecimal(quantity),
-                    averageCost == null ? null : new BigDecimal(averageCost)));
+                    averageCost == null ? null : new BigDecimal(averageCost),
+                    Instant.EPOCH));
             return fixture;
         }
 
@@ -325,7 +336,8 @@ class HoldingServiceTest {
                     new InMemorySaveHoldingPort(),
                     new InMemoryDeleteHoldingPort(),
                     new InMemoryLoadAccountsPort(),
-                    new InMemoryLoadInstrumentsPort());
+                    new InMemoryLoadInstrumentsPort(),
+                    CLOCK);
         }
 
         private final class InMemoryLoadHoldingsPort implements LoadHoldingsPort {

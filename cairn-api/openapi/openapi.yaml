@@ -147,15 +147,13 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           description: >-
-            Nothing was written: either every refused row is listed, or a row puts a line other
-            than the EUR cash balance on a savings account (a savings account holds one balance,
-            not lines), in which case the body is a plain problem detail without `errors`
+            Nothing was written; every refused row is listed, a line other than the EUR cash
+            balance on a savings account included (`SAVINGS_ACCOUNT_LINE`: a savings account
+            holds one balance, not lines)
           content:
             application/problem+json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ImportRejectionResponse'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ImportRejectionResponse'
   /portfolio/performance:
     get:
       tags: [Performance]
@@ -1408,6 +1406,7 @@ components:
             - NOT_A_NUMBER
             - ZERO_QUANTITY
             - UNRESOLVED_INSTRUMENT
+            - SAVINGS_ACCOUNT_LINE
         value:
           type: string
           description: The offending token, absent when the failure has none

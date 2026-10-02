@@ -59,8 +59,8 @@ class HoldingControllerTest {
     private static final String VALID_BODY = """
             {"accountId":"%s","instrumentId":"%s","quantity":4,"averageCost":43.64}
             """.formatted(ACCOUNT_ID, INSTRUMENT_ID);
-    private static final Holding A_HOLDING =
-            new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), new BigDecimal("43.64"));
+    private static final Holding A_HOLDING = new Holding(
+            HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), new BigDecimal("43.64"), Instant.EPOCH);
 
     @Autowired
     private MockMvc mockMvc;
@@ -145,7 +145,8 @@ class HoldingControllerTest {
 
     @Test
     void listsAnEuroHoldingWithItsValueInEuro() throws Exception {
-        Holding held = new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, BigDecimal.TEN, new BigDecimal("100"));
+        Holding held = new Holding(
+                HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, BigDecimal.TEN, new BigDecimal("100"), Instant.EPOCH);
         when(loadHoldings.findAll()).thenReturn(List.of(held));
         when(valueHolding.value(held)).thenReturn(Optional.of(aQuotedHolding(held, "EUR")));
 
@@ -183,7 +184,8 @@ class HoldingControllerTest {
 
     @Test
     void reportsAnAbsentAverageCostAsNullNotZero() throws Exception {
-        Holding holdingWithoutCostBasis = new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), null);
+        Holding holdingWithoutCostBasis =
+                new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), null, Instant.EPOCH);
         when(manageHolding.create(any(), any(), any(), any())).thenReturn(holdingWithoutCostBasis);
         when(valueHolding.value(holdingWithoutCostBasis))
                 .thenReturn(Optional.of(aValuedHolding(holdingWithoutCostBasis)));
@@ -243,7 +245,12 @@ class HoldingControllerTest {
     void buyingAnswersTheUpdatedHolding() throws Exception {
         UUID id = UUID.randomUUID();
         Holding bought = new Holding(
-                id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("540"), new BigDecimal("24.488889"));
+                id,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new BigDecimal("540"),
+                new BigDecimal("24.488889"),
+                Instant.EPOCH);
         when(manageHolding.buy(id, new BigDecimal("40"), new BigDecimal("29.10")))
                 .thenReturn(bought);
 
@@ -260,8 +267,13 @@ class HoldingControllerTest {
     @Test
     void sellingPartAnswersTheRemainder() throws Exception {
         UUID id = UUID.randomUUID();
-        Holding remaining =
-                new Holding(id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("400"), new BigDecimal("24.12"));
+        Holding remaining = new Holding(
+                id,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new BigDecimal("400"),
+                new BigDecimal("24.12"),
+                Instant.EPOCH);
         when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)

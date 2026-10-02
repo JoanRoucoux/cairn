@@ -16,6 +16,8 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +29,7 @@ public class CashBalanceService implements SetCashBalanceUseCase {
     private final LoadHoldingsPort loadHoldings;
     private final SaveHoldingPort saveHolding;
     private final DeleteHoldingPort deleteHolding;
+    private final Clock clock;
 
     public CashBalanceService(
             LoadAccountsPort loadAccounts,
@@ -34,13 +37,15 @@ public class CashBalanceService implements SetCashBalanceUseCase {
             SaveInstrumentPort saveInstrument,
             LoadHoldingsPort loadHoldings,
             SaveHoldingPort saveHolding,
-            DeleteHoldingPort deleteHolding) {
+            DeleteHoldingPort deleteHolding,
+            Clock clock) {
         this.loadAccounts = loadAccounts;
         this.loadInstruments = loadInstruments;
         this.saveInstrument = saveInstrument;
         this.loadHoldings = loadHoldings;
         this.saveHolding = saveHolding;
         this.deleteHolding = deleteHolding;
+        this.clock = clock;
     }
 
     @Override
@@ -60,10 +65,11 @@ public class CashBalanceService implements SetCashBalanceUseCase {
         }
 
         UUID instrumentId = eurosId.orElseGet(this::createEurCash);
+        Instant now = clock.instant();
         Holding holding = loadHoldings
                 .findByAccountAndInstrument(accountId, instrumentId)
-                .map(current -> new Holding(current.id(), accountId, instrumentId, amount, BigDecimal.ONE))
-                .orElseGet(() -> new Holding(UUID.randomUUID(), accountId, instrumentId, amount, BigDecimal.ONE));
+                .map(current -> new Holding(current.id(), accountId, instrumentId, amount, BigDecimal.ONE, now))
+                .orElseGet(() -> new Holding(UUID.randomUUID(), accountId, instrumentId, amount, BigDecimal.ONE, now));
         saveHolding.save(holding);
     }
 

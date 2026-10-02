@@ -18,6 +18,7 @@ import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,8 +113,13 @@ class AccountServiceTest {
         }
 
         void holding(UUID accountId, UUID instrumentId, String quantity) {
-            holdings.add(
-                    new Holding(UUID.randomUUID(), accountId, instrumentId, new BigDecimal(quantity), BigDecimal.ONE));
+            holdings.add(new Holding(
+                    UUID.randomUUID(),
+                    accountId,
+                    instrumentId,
+                    new BigDecimal(quantity),
+                    BigDecimal.ONE,
+                    Instant.EPOCH));
         }
 
         AccountService service() {
