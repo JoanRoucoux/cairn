@@ -35,6 +35,7 @@ class AllocationServiceTest {
     private final ValuedHolding etfB = line(SAVINGS, AssetClass.ETF, "5", "40.00");
     private final ValuedHolding cash = line(SAVINGS, AssetClass.CASH, "200", "1");
     private final ValuedHolding unvalued = unvaluedLine(PEA, AssetClass.ETF);
+    private final ValuedHolding usd = usdLine(PEA, AssetClass.ETF);
 
     private final Portfolio portfolio = new Portfolio(
             Money.eur(new BigDecimal("1000")),
@@ -46,8 +47,9 @@ class AllocationServiceTest {
             List.of(
                     new Allocation("Saxo", Money.eur(new BigDecimal("600")), new BigDecimal("0.6")),
                     new Allocation("Fortuneo", Money.eur(new BigDecimal("400")), new BigDecimal("0.4"))),
-            List.of(etfA, etfB, cash, unvalued),
+            List.of(etfA, etfB, cash, unvalued, usd),
             0,
+            1,
             1);
 
     private final AllocationService service = new AllocationService(() -> portfolio);
@@ -65,10 +67,18 @@ class AllocationServiceTest {
     }
 
     @Test
-    void countsEveryLineOfEachClassUnvaluedIncluded() {
+    void countsEveryLineOfEachClassExcludedOnesIncluded() {
         assertThat(service.byAssetClass().items())
                 .extracting(AssetClassAllocation::lineCount)
-                .containsExactly(3, 1);
+                .containsExactly(4, 1);
+    }
+
+    @Test
+    void carriesTheExcludedLineCountsOnBothBreakdowns() {
+        assertThat(service.byAssetClass().unvaluedCount()).isEqualTo(1);
+        assertThat(service.byAssetClass().nonEurCount()).isEqualTo(1);
+        assertThat(service.byAccount().unvaluedCount()).isEqualTo(1);
+        assertThat(service.byAccount().nonEurCount()).isEqualTo(1);
     }
 
     @Test
@@ -84,10 +94,10 @@ class AllocationServiceTest {
     }
 
     @Test
-    void countsEveryLineOfEachAccountUnvaluedIncluded() {
+    void countsEveryLineOfEachAccountExcludedOnesIncluded() {
         assertThat(service.byAccount().items())
                 .extracting(AccountAllocation::lineCount)
-                .containsExactly(2, 2);
+                .containsExactly(3, 2);
     }
 
     private static ValuedHolding line(Account account, AssetClass assetClass, String quantity, String price) {
@@ -107,6 +117,19 @@ class AllocationServiceTest {
         Instrument instrument = instrument(assetClass);
         Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null);
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
+    }
+
+    private static ValuedHolding usdLine(Account account, AssetClass assetClass) {
+        Instrument instrument = instrument(assetClass);
+        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), BigDecimal.ONE, null);
+        Quote quote = new Quote(
+                instrument.id(),
+                LocalDate.of(2026, 8, 21),
+                BigDecimal.TEN,
+                "USD",
+                instrument.priceSource(),
+                Instant.parse("2026-08-21T18:00:00Z"));
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 
     private static Instrument instrument(AssetClass assetClass) {

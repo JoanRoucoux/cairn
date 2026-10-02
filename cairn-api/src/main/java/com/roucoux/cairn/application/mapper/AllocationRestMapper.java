@@ -23,6 +23,8 @@ public class AllocationRestMapper {
     public AssetClassAllocationResponse toResponse(AssetClassBreakdown breakdown) {
         AssetClassAllocationResponse response = new AssetClassAllocationResponse();
         response.setTotalEur(PortfolioRestMapper.amount(breakdown.total()));
+        response.setUnvaluedCount(breakdown.unvaluedCount());
+        response.setNonEurCount(breakdown.nonEurCount());
         response.setItems(breakdown.items().stream().map(this::toItem).toList());
         return response;
     }
@@ -30,6 +32,8 @@ public class AllocationRestMapper {
     public AccountAllocationResponse toResponse(AccountBreakdown breakdown) {
         AccountAllocationResponse response = new AccountAllocationResponse();
         response.setTotalEur(PortfolioRestMapper.amount(breakdown.total()));
+        response.setUnvaluedCount(breakdown.unvaluedCount());
+        response.setNonEurCount(breakdown.nonEurCount());
         response.setItems(breakdown.items().stream().map(this::toItem).toList());
         return response;
     }

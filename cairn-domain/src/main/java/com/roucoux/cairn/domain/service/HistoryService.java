@@ -7,6 +7,7 @@ import com.roucoux.cairn.domain.model.HistoryMode;
 import com.roucoux.cairn.domain.model.HistoryPoint;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.GetHistoryUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
@@ -71,6 +72,7 @@ public class HistoryService implements GetHistoryUseCase {
             List<Quote> series = new ArrayList<>();
             Optional.ofNullable(seeds.get(id)).ifPresent(series::add);
             series.addAll(window.getOrDefault(id, List.of()));
+            series.removeIf(quote -> !Money.EUR.equals(quote.currency()));
             if (!series.isEmpty()) {
                 quotes.put(id, series);
             }

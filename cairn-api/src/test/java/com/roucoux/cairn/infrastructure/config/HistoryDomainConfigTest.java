@@ -141,6 +141,7 @@ class HistoryDomainConfigTest {
                 List.<Allocation>of(),
                 List.of(),
                 0,
+                0,
                 0);
         Clock clock = Clock.fixed(pastDay.plusDays(4).atStartOfDay(paris).toInstant(), paris);
         LoadValuationsPort loadValuations =

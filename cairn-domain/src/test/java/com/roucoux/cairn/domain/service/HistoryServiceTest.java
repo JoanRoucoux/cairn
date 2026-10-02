@@ -151,6 +151,21 @@ class HistoryServiceTest {
     }
 
     @Test
+    void skipsAHoldingQuotedInAnotherCurrency() {
+        UUID usdId = UUID.randomUUID();
+        Quote usdQuote = new Quote(
+                usdId, LocalDate.of(2026, 8, 20), new BigDecimal("500"), "USD", PriceSource.YAHOO, Instant.EPOCH);
+        HistoryService service = serviceWith(
+                List.of(holding(ETF_ID, BigDecimal.ONE), holding(usdId, BigDecimal.ONE)),
+                Map.of(ETF_ID, quotesFrom(LocalDate.of(2026, 8, 20)), usdId, List.of(usdQuote)));
+
+        assertThat(service.history(HistoryMode.CONSTANT_MIX, LocalDate.of(2026, 8, 20), LocalDate.of(2026, 8, 21)))
+                .extracting(HistoryPoint::totalEur)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("10"), new BigDecimal("10"));
+    }
+
+    @Test
     void readsTheSnapshotTableInSnapshotMode() {
         HistoryService service = serviceWithSnapshots(
                 List.of(new Snapshot(LocalDate.of(2026, 8, 21), new BigDecimal("278146.45"), Map.of(), Map.of())));

@@ -104,7 +104,10 @@ class HoldingControllerTest {
                 .andExpect(jsonPath("$.priceFetchedAt").value("2026-08-26T20:00:00Z"))
                 .andExpect(jsonPath("$.priceSource").value("YAHOO"))
                 .andExpect(jsonPath("$.stale").value(false))
-                .andExpect(jsonPath("$.marketValueEur").exists());
+                .andExpect(jsonPath("$.marketValueEur").doesNotExist())
+                .andExpect(jsonPath("$.dayChangeEur").doesNotExist())
+                .andExpect(jsonPath("$.dayChangeRatio").doesNotExist())
+                .andExpect(jsonPath("$.unrealizedGainEur").doesNotExist());
     }
 
     @Test
@@ -131,8 +134,27 @@ class HoldingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].accountName").value("CTO Boursorama"))
                 .andExpect(jsonPath("$[0].price").value(123.45))
-                .andExpect(jsonPath("$[0].marketValueEur").exists())
+                .andExpect(jsonPath("$[0].priceCurrency").value("USD"))
+                .andExpect(jsonPath("$[0].marketValueEur").doesNotExist())
+                .andExpect(jsonPath("$[0].dayChangeEur").doesNotExist())
+                .andExpect(jsonPath("$[0].dayChangeRatio").doesNotExist())
+                .andExpect(jsonPath("$[0].unrealizedGainEur").doesNotExist())
                 .andExpect(jsonPath("$[0].stale").value(false));
+    }
+
+    @Test
+    void listsAnEuroHoldingWithItsValueInEuro() throws Exception {
+        Holding held = new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, BigDecimal.TEN, new BigDecimal("100"));
+        when(loadHoldings.findAll()).thenReturn(List.of(held));
+        when(valueHolding.value(held)).thenReturn(Optional.of(aQuotedHolding(held, "EUR")));
+
+        mockMvc.perform(get("/holdings").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].priceCurrency").value("EUR"))
+                .andExpect(jsonPath("$[0].marketValueEur").value(1234.5))
+                .andExpect(jsonPath("$[0].dayChangeEur").value(10.0))
+                .andExpect(jsonPath("$[0].dayChangeRatio").exists())
+                .andExpect(jsonPath("$[0].unrealizedGainEur").value(234.5));
     }
 
     @Test
@@ -274,6 +296,10 @@ class HoldingControllerTest {
     }
 
     private static ValuedHolding aValuedHolding(Holding holding) {
+        return aQuotedHolding(holding, "USD");
+    }
+
+    private static ValuedHolding aQuotedHolding(Holding holding, String currency) {
         Instrument instrument = new Instrument(
                 INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
         Account account = new Account(ACCOUNT_ID, "CTO Boursorama", AccountType.CTO, "Boursorama");
@@ -281,10 +307,17 @@ class HoldingControllerTest {
                 INSTRUMENT_ID,
                 LocalDate.of(2026, 8, 26),
                 new BigDecimal("123.45"),
-                "USD",
+                currency,
                 PriceSource.YAHOO,
                 Instant.parse("2026-08-26T20:00:00Z"));
-        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
+        Quote previous = new Quote(
+                INSTRUMENT_ID,
+                LocalDate.of(2026, 8, 25),
+                new BigDecimal("122.45"),
+                currency,
+                PriceSource.YAHOO,
+                Instant.parse("2026-08-25T20:00:00Z"));
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.of(previous));
     }
 
     private static ValuedHolding aValuedHoldingWithoutQuote(Holding holding) {

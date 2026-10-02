@@ -1,10 +1,8 @@
 package com.roucoux.cairn.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.Allocation;
@@ -97,15 +95,35 @@ class PortfolioServiceTest {
     }
 
     @Test
-    void rejectsANonEurHoldingInsteadOfCrashingTheWholePortfolio() {
-        Line eurLine = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
+    void aLineQuotedInAnotherCurrencyIsExcludedFromEveryTotalAndCounted() {
+        Line eurLine =
+                holding(new BigDecimal("10"), new BigDecimal("40.00"), AssetClass.EQUITY, new BigDecimal("50.00"));
         Line usdLine = nonEurLine("US0000000001", "USD");
         PortfolioService service = serviceWith(List.of(eurLine, usdLine));
 
-        assertThatThrownBy(service::get)
-                .isInstanceOf(NonEurHoldingException.class)
-                .hasMessageContaining("US0000000001")
-                .hasMessageContaining("USD");
+        Portfolio portfolio = service.get();
+
+        assertThat(portfolio.total().amount()).isEqualByComparingTo("500");
+        assertThat(portfolio.unrealizedGain().orElseThrow().amount()).isEqualByComparingTo("100");
+        assertThat(portfolio.byAssetClass()).singleElement().satisfies(allocation -> {
+            assertThat(allocation.value().amount()).isEqualByComparingTo("500");
+            assertThat(allocation.share()).isEqualByComparingTo("1");
+        });
+        assertThat(portfolio.nonEurCount()).isEqualTo(1);
+        assertThat(portfolio.unvaluedCount()).isZero();
+        assertThat(portfolio.holdings()).hasSize(2);
+    }
+
+    @Test
+    void countsUnpricedAndNonEurLinesSeparately() {
+        Line eurLine = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
+        PortfolioService service =
+                serviceWith(List.of(eurLine, unvaluedLine(AssetClass.EQUITY), nonEurLine("US0000000001", "USD")));
+
+        Portfolio portfolio = service.get();
+
+        assertThat(portfolio.unvaluedCount()).isEqualTo(1);
+        assertThat(portfolio.nonEurCount()).isEqualTo(1);
     }
 
     private static Line nonEurLine(String isin, String currency) {

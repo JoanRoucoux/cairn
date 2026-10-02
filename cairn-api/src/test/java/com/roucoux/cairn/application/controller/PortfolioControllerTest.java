@@ -18,7 +18,6 @@ import com.roucoux.cairn.application.mapper.AccountRestMapper;
 import com.roucoux.cairn.application.mapper.AllocationRestMapper;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
-import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountAllocation;
@@ -137,10 +136,24 @@ class PortfolioControllerTest {
     }
 
     @Test
-    void mapsANonEurHoldingTo422InsteadOfCrashing() throws Exception {
-        when(getPortfolio.get()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
+    void reportsTheLinesQuotedInAnotherCurrencyWithoutRejectingThePortfolio() throws Exception {
+        Portfolio portfolio = new Portfolio(
+                Money.eur(new BigDecimal("1000")),
+                Money.zeroEur(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                0,
+                2,
+                1);
+        when(getPortfolio.get()).thenReturn(portfolio);
 
-        mockMvc.perform(get("/portfolio").with(user("joan"))).andExpect(status().isUnprocessableEntity());
+        mockMvc.perform(get("/portfolio").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalEur").value(1000.0))
+                .andExpect(jsonPath("$.unvaluedCount").value(2))
+                .andExpect(jsonPath("$.nonEurCount").value(1));
     }
 
     @Test
@@ -154,7 +167,9 @@ class PortfolioControllerTest {
                 .thenReturn(new AssetClassBreakdown(
                         Money.eur(new BigDecimal("1000")),
                         List.of(new AssetClassAllocation(
-                                AssetClass.ETF, Money.eur(new BigDecimal("800.456")), new BigDecimal("0.8"), 3))));
+                                AssetClass.ETF, Money.eur(new BigDecimal("800.456")), new BigDecimal("0.8"), 3)),
+                        0,
+                        0));
 
         mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
                 .andExpect(status().isOk())
@@ -172,7 +187,9 @@ class PortfolioControllerTest {
                 .thenReturn(new AccountBreakdown(
                         Money.eur(new BigDecimal("1000")),
                         List.of(new AccountAllocation(
-                                account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2))));
+                                account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2)),
+                        0,
+                        0));
 
         mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
                 .andExpect(status().isOk())
@@ -185,14 +202,20 @@ class PortfolioControllerTest {
     }
 
     @Test
-    void mapsANonEurHoldingTo422OnBothAllocationEndpoints() throws Exception {
-        when(getAssetClassAllocation.byAssetClass()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
-        when(getAccountAllocation.byAccount()).thenThrow(new NonEurHoldingException("US0378331005", "USD"));
+    void reportsTheExcludedLineCountsOnBothAllocationEndpoints() throws Exception {
+        when(getAssetClassAllocation.byAssetClass())
+                .thenReturn(new AssetClassBreakdown(Money.eur(new BigDecimal("1000")), List.of(), 2, 1));
+        when(getAccountAllocation.byAccount())
+                .thenReturn(new AccountBreakdown(Money.eur(new BigDecimal("1000")), List.of(), 3, 4));
 
         mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unvaluedCount").value(2))
+                .andExpect(jsonPath("$.nonEurCount").value(1));
         mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unvaluedCount").value(3))
+                .andExpect(jsonPath("$.nonEurCount").value(4));
     }
 
     @Test
@@ -212,6 +235,7 @@ class PortfolioControllerTest {
                 List.of(),
                 List.of(),
                 List.of(withPreviousQuote, withoutPreviousQuote),
+                0,
                 0,
                 0);
         when(getPortfolio.get()).thenReturn(portfolio);
@@ -313,6 +337,7 @@ class PortfolioControllerTest {
                 List.of(),
                 List.of(aHolding()),
                 0,
+                0,
                 0);
     }
 
@@ -324,6 +349,7 @@ class PortfolioControllerTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                0,
                 0,
                 0);
     }

@@ -37,7 +37,9 @@ public class AllocationService implements GetAssetClassAllocationUseCase, GetAcc
                             return new AssetClassAllocation(
                                     assetClass, allocation.value(), allocation.share(), lineCounts.get(assetClass));
                         })
-                        .toList());
+                        .toList(),
+                portfolio.unvaluedCount(),
+                portfolio.nonEurCount());
     }
 
     @Override
@@ -54,7 +56,9 @@ public class AllocationService implements GetAssetClassAllocationUseCase, GetAcc
                             return new AccountAllocation(
                                     account, allocation.value(), allocation.share(), lineCounts.get(account));
                         })
-                        .toList());
+                        .toList(),
+                portfolio.unvaluedCount(),
+                portfolio.nonEurCount());
     }
 
     private static <K> Map<K, Integer> lineCounts(Portfolio portfolio, Function<ValuedHolding, K> by) {

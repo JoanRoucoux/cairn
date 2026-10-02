@@ -216,6 +216,42 @@ class PerformanceServiceTest {
                 .containsExactly(AccountType.CTO, AccountType.PEA);
     }
 
+    @Test
+    void aLineQuotedInAnotherCurrencyCountsInNeitherTheTotalNorTheChange() {
+        Line eur = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(LocalDate.of(2026, 9, 23), "50.00")));
+        Line usd = usdEquityLine(ACCOUNT_2, "80.00", "5");
+
+        Fixture fixture = new Fixture(List.of(eur, usd));
+        Performance performance = fixture.service().performance(PerformanceRange.D1);
+
+        assertThat(performance.total().amount()).isEqualByComparingTo("550");
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
+        assertThat(performance.byEnvelope())
+                .extracting(EnvelopePerformance::accountType)
+                .containsExactly(AccountType.CTO);
+    }
+
+    @Test
+    void aLineQuotedInAnotherCurrencyDoesNotBreakARangeEither() {
+        Line eur = equityLine(ACCOUNT_1, "55.00", "10", List.of());
+        Line usd = usdEquityLine(ACCOUNT_2, "80.00", "5");
+
+        Fixture fixture = new Fixture(List.of(eur, usd));
+        Performance performance = fixture.service().performance(PerformanceRange.M1);
+
+        assertThat(performance.total().amount()).isEqualByComparingTo("550");
+    }
+
+    private static Line usdEquityLine(Account account, String price, String quantity) {
+        UUID instrumentId = UUID.randomUUID();
+        Instrument instrument =
+                new Instrument(instrumentId, "Test", null, "USD", AssetClass.EQUITY, PriceSource.YAHOO, "TEST", null);
+        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Quote current = new Quote(
+                instrumentId, LocalDate.now(CLOCK), new BigDecimal(price), "USD", PriceSource.YAHOO, CLOCK.instant());
+        return new Line(holding, instrument, account, current, List.of());
+    }
+
     private static Quote quoteOn(LocalDate asOf, String price) {
         return new Quote(
                 PLACEHOLDER_INSTRUMENT_ID, asOf, new BigDecimal(price), "EUR", PriceSource.YAHOO, CLOCK.instant());

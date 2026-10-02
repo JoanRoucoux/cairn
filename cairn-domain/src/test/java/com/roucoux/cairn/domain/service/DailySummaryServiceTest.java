@@ -119,6 +119,24 @@ class DailySummaryServiceTest {
                         new CashOnlyAccount("Livret A", AccountType.SAVINGS, Money.eur(new BigDecimal("20000"))));
     }
 
+    @Test
+    void aLineQuotedInAnotherCurrencyIsIgnored() {
+        Instrument usdEtf = new Instrument(
+                UUID.randomUUID(), "US ETF", null, "USD", AssetClass.ETF, PriceSource.YAHOO, "SPY", null);
+        Quote usdQuote =
+                new Quote(usdEtf.id(), TODAY, new BigDecimal("500"), "USD", PriceSource.YAHOO, CLOCK.instant());
+        GetPortfolioUseCase getPortfolio = () -> portfolioOf(List.of(
+                line(LIVRET_A, EUROS, "20000", Optional.of(par())),
+                line(LIVRET_A, usdEtf, "10", Optional.of(usdQuote))));
+        List<DailySummary> sent = new ArrayList<>();
+
+        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sent::add, CLOCK, PARIS).send();
+
+        assertThat(sent.getFirst().cashOnlyAccounts())
+                .containsExactly(
+                        new CashOnlyAccount("Livret A", AccountType.SAVINGS, Money.eur(new BigDecimal("20000"))));
+    }
+
     private static ValuedHolding line(Account account, Instrument instrument, String quantity, Optional<Quote> quote) {
         Holding holding = new Holding(UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal(quantity), null);
         return new ValuedHolding(holding, instrument, account, quote, Optional.empty());
@@ -133,6 +151,7 @@ class DailySummaryServiceTest {
     }
 
     private static Portfolio portfolioOf(List<ValuedHolding> holdings) {
-        return new Portfolio(Money.zeroEur(), Money.zeroEur(), Optional.empty(), List.of(), List.of(), holdings, 0, 0);
+        return new Portfolio(
+                Money.zeroEur(), Money.zeroEur(), Optional.empty(), List.of(), List.of(), holdings, 0, 0, 0);
     }
 }

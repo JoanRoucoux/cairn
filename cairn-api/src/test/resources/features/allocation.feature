@@ -31,3 +31,17 @@ Feature: Portfolio allocation
     And a holding of 10 units with no cost basis
     When I read the portfolio and both allocations
     Then both allocations match the portfolio breakdowns
+
+  Scenario: both breakdowns exclude a line quoted in another currency and count it
+    Given an account "Allocation Broker Four" of type PEA
+    And an instrument "Allocation Tracker Four" quoted by YAHOO as "AL4.PA"
+    And a holding of 10 units bought at 20.00
+    And a quote of 30.00 EUR dated 2026-08-21
+    And a USD instrument "Allocation Dollar Tracker" quoted by YAHOO as "ALD"
+    And a holding of 5 units with no cost basis
+    And a quote of 90.00 USD dated 2026-08-21
+    When I read the allocation by asset class
+    Then the allocation total is 300 EUR
+    And the asset class allocation excludes 0 unpriced and 1 non-EUR lines
+    When I read the allocation by account
+    Then the account allocation excludes 0 unpriced and 1 non-EUR lines
