@@ -41,7 +41,7 @@ public record ValuedHolding(
         return quote.filter(ValuedHolding::isEur);
     }
 
-    private static boolean isEur(Quote quote) {
+    public static boolean isEur(Quote quote) {
         return Money.EUR.equals(quote.currency());
     }
 

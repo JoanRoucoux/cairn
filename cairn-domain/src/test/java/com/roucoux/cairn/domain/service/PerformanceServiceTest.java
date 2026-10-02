@@ -242,6 +242,20 @@ class PerformanceServiceTest {
         assertThat(performance.total().amount()).isEqualByComparingTo("550");
     }
 
+    @Test
+    void aRangeStartBaseQuotedInAnotherCurrencyReadsAsAMissingBase() {
+        LocalDate from = LocalDate.now(CLOCK).minusDays(31);
+        Quote usdBase = new Quote(
+                PLACEHOLDER_INSTRUMENT_ID, from, new BigDecimal("50.00"), "USD", PriceSource.YAHOO, CLOCK.instant());
+        Line line = equityLine(ACCOUNT_1, "55.00", "10", List.of(usdBase));
+
+        Performance performance = new Fixture(List.of(line)).service().performance(PerformanceRange.M1);
+
+        assertThat(performance.total().amount()).isEqualByComparingTo("550");
+        assertThat(performance.change().amount()).isEqualByComparingTo("0");
+        assertThat(performance.changeRatio()).isEmpty();
+    }
+
     private static Line usdEquityLine(Account account, String price, String quantity) {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
