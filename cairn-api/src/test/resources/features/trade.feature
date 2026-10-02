@@ -23,3 +23,19 @@ Feature: Buying and selling a holding
     When I sell 501 units
     Then the sale answers 422
     And the holding has 500 units at an average cost of 24.12
+
+  Scenario: a holding moves to another instrument and keeps its quantity and average cost
+    Given a holding of 500 units at an average cost of 24.12
+    And another instrument
+    When I move the holding to the other instrument
+    Then the move answers 200
+    And the holding is on the other instrument
+    And the holding has 500 units at an average cost of 24.12
+
+  Scenario: a holding cannot move to an instrument its account already holds
+    Given a holding of 500 units at an average cost of 24.12
+    And another instrument
+    And the account already holds the other instrument
+    When I move the holding to the other instrument
+    Then the move answers 409
+    And the holding has 500 units at an average cost of 24.12

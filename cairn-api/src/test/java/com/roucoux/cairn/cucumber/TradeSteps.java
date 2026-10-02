@@ -6,6 +6,7 @@ import com.roucoux.cairn.generated.model.AccountResponse;
 import com.roucoux.cairn.generated.model.AccountType;
 import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.BuyHoldingRequest;
+import com.roucoux.cairn.generated.model.ChangeHoldingInstrumentRequest;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
@@ -38,6 +39,9 @@ public class TradeSteps {
     private JdbcOperations jdbc;
 
     private UUID holdingId;
+    private UUID accountId;
+    private UUID otherInstrumentId;
+    private HttpStatus moveStatus;
     private HttpStatus lastStatus;
 
     @Before
@@ -81,6 +85,38 @@ public class TradeSteps {
         assertThat(holding.getAverageCost()).isEqualByComparingTo(averageCost);
     }
 
+    @Given("another instrument")
+    public void anotherInstrument() {
+        otherInstrumentId = createInstrument("Other ETF");
+    }
+
+    @Given("the account already holds the other instrument")
+    public void theAccountAlreadyHoldsTheOtherInstrument() {
+        CreateHoldingRequest request = new CreateHoldingRequest();
+        request.setAccountId(accountId);
+        request.setInstrumentId(otherInstrumentId);
+        request.setQuantity(BigDecimal.ONE);
+        restTemplate.postForEntity("/holdings", request, HoldingResponse.class);
+    }
+
+    @When("I move the holding to the other instrument")
+    public void iMoveTheHoldingToTheOtherInstrument() {
+        ChangeHoldingInstrumentRequest request = new ChangeHoldingInstrumentRequest(otherInstrumentId);
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/holdings/{id}/instrument", HttpMethod.PUT, new HttpEntity<>(request), String.class, holdingId);
+        moveStatus = (HttpStatus) response.getStatusCode();
+    }
+
+    @Then("the move answers {int}")
+    public void theMoveAnswers(int status) {
+        assertThat(moveStatus.value()).isEqualTo(status);
+    }
+
+    @Then("the holding is on the other instrument")
+    public void theHoldingIsOnTheOtherInstrument() {
+        assertThat(findHolding().getInstrumentId()).isEqualTo(otherInstrumentId);
+    }
+
     @Then("the sale answers {int}")
     public void theSaleAnswers(int status) {
         assertThat(lastStatus.value()).isEqualTo(status);
@@ -96,20 +132,12 @@ public class TradeSteps {
         accountRequest.setName("Sample Broker");
         accountRequest.setType(AccountType.CTO);
         accountRequest.setInstitution("Sample Broker");
-        UUID accountId = restTemplate
+        accountId = restTemplate
                 .postForEntity("/accounts", accountRequest, AccountResponse.class)
                 .getBody()
                 .getId();
 
-        CreateInstrumentRequest instrumentRequest = new CreateInstrumentRequest();
-        instrumentRequest.setName("Sample ETF");
-        instrumentRequest.setCurrency("EUR");
-        instrumentRequest.setAssetClass(AssetClass.ETF);
-        instrumentRequest.setPriceSource(PriceSource.MANUAL);
-        UUID instrumentId = restTemplate
-                .postForEntity("/instruments", instrumentRequest, InstrumentResponse.class)
-                .getBody()
-                .getId();
+        UUID instrumentId = createInstrument("Sample ETF");
 
         CreateHoldingRequest holdingRequest = new CreateHoldingRequest();
         holdingRequest.setAccountId(accountId);
@@ -118,6 +146,18 @@ public class TradeSteps {
         holdingRequest.setAverageCost(averageCost);
         holdingId = restTemplate
                 .postForEntity("/holdings", holdingRequest, HoldingResponse.class)
+                .getBody()
+                .getId();
+    }
+
+    private UUID createInstrument(String name) {
+        CreateInstrumentRequest instrumentRequest = new CreateInstrumentRequest();
+        instrumentRequest.setName(name);
+        instrumentRequest.setCurrency("EUR");
+        instrumentRequest.setAssetClass(AssetClass.ETF);
+        instrumentRequest.setPriceSource(PriceSource.MANUAL);
+        return restTemplate
+                .postForEntity("/instruments", instrumentRequest, InstrumentResponse.class)
                 .getBody()
                 .getId();
     }

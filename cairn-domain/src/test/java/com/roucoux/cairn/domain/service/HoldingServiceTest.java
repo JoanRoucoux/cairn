@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
+import com.roucoux.cairn.domain.exception.business.InstrumentAlreadyHeldException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
@@ -225,6 +226,66 @@ class HoldingServiceTest {
                 .isInstanceOf(CashHoldingTradeException.class);
     }
 
+    @Test
+    void movesAHoldingToAnotherInstrumentKeepingQuantityCostAndId() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+        Instrument xetra = fixture.addInstrument("EUR", AssetClass.ETF);
+
+        Holding moved = fixture.service().changeInstrument(fixture.holdingId(), xetra.id());
+
+        assertThat(moved.id()).isEqualTo(fixture.holdingId());
+        assertThat(moved.instrumentId()).isEqualTo(xetra.id());
+        assertThat(moved.quantity()).isEqualByComparingTo("12");
+        assertThat(moved.averageCost()).isEqualByComparingTo("101.5");
+        assertThat(moved.updatedAt()).isEqualTo(NOW);
+        assertThat(fixture.holdings()).containsExactly(moved);
+    }
+
+    @Test
+    void movingToTheSameInstrumentChangesNothing() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+
+        Holding same = fixture.service().changeInstrument(fixture.holdingId(), fixture.instrumentId());
+
+        assertThat(same.updatedAt()).isEqualTo(Instant.EPOCH);
+        assertThat(fixture.holdings()).containsExactly(same);
+    }
+
+    @Test
+    void movingToAnInstrumentTheAccountAlreadyHoldsConflicts() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+        Instrument xetra = fixture.addInstrument("EUR", AssetClass.ETF);
+        fixture.holdings()
+                .add(new Holding(UUID.randomUUID(), fixture.accountId(), xetra.id(), BigDecimal.ONE, null, NOW));
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), xetra.id()))
+                .isInstanceOf(InstrumentAlreadyHeldException.class)
+                .isInstanceOf(DuplicateHoldingException.class);
+    }
+
+    @Test
+    void movingToAnUnknownInstrumentOrHoldingIsNotFound() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), UUID.randomUUID()))
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> fixture.service().changeInstrument(UUID.randomUUID(), fixture.instrumentId()))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void aSavingsLineCannotMoveToANonCashInstrument() {
+        Instrument euros = new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(euros);
+        fixture.holdings()
+                .add(new Holding(fixture.holdingId(), fixture.accountId(), euros.id(), BigDecimal.TEN, null, NOW));
+        Instrument etf = fixture.addInstrument("EUR", AssetClass.ETF);
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), etf.id()))
+                .isInstanceOf(SavingsAccountLineException.class);
+    }
+
     private static final class Fixture {
 
         private final List<Holding> holdings = new ArrayList<>();
@@ -308,6 +369,13 @@ class HoldingServiceTest {
                     averageCost == null ? null : new BigDecimal(averageCost),
                     Instant.EPOCH));
             return fixture;
+        }
+
+        Instrument addInstrument(String currency, AssetClass assetClass) {
+            Instrument instrument = new Instrument(
+                    UUID.randomUUID(), "Other", null, currency, assetClass, PriceSource.MANUAL, null, null);
+            instruments.put(instrument.id(), instrument);
+            return instrument;
         }
 
         UUID accountId() {
