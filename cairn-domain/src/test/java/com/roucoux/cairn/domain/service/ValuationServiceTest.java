@@ -27,6 +27,7 @@ class ValuationServiceTest {
             List.of(),
             List.<ValuedHolding>of(),
             0,
+            0,
             0);
 
     @Test

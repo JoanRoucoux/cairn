@@ -17,13 +17,22 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 class InstrumentResolutionServiceTest {
 
     private static final InstrumentCandidate ETF_CANDIDATE = new InstrumentCandidate(
-            "Amundi MSCI World", PriceSource.YAHOO, "ETF.PA", AssetClass.ETF, "Paris", null, "ETF", BigDecimal.TEN);
+            "Amundi MSCI World",
+            PriceSource.YAHOO,
+            "ETF.PA",
+            AssetClass.ETF,
+            "Paris",
+            null,
+            "ETF",
+            BigDecimal.TEN,
+            "EUR");
     private static final InstrumentCandidate SG_CANDIDATE = new InstrumentCandidate(
             "Societe Generale",
             PriceSource.SG_SIRIUS,
@@ -32,7 +41,8 @@ class InstrumentResolutionServiceTest {
             "Paris",
             null,
             "GLE",
-            BigDecimal.ONE);
+            BigDecimal.ONE,
+            "EUR");
 
     @Test
     void returnsEveryCandidateFoundAcrossSources() {
@@ -75,6 +85,7 @@ class InstrumentResolutionServiceTest {
                 "Paris",
                 "LU1681043599",
                 "CW8.PA",
+                null,
                 null));
         FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> new BigDecimal("559.30"));
 
@@ -92,7 +103,7 @@ class InstrumentResolutionServiceTest {
     @Test
     void aFailedProbeKeepsTheCandidateWithoutAPrice() {
         ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
-                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null));
+                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null, null));
         FetchQuotePort failing = fetcher(PriceSource.YAHOO, instrument -> {
             throw new MarketDataUnavailableException("yahoo down");
         });
@@ -108,7 +119,7 @@ class InstrumentResolutionServiceTest {
     @Test
     void aProbeThatTakesTooLongKeepsTheCandidateWithoutAPrice() {
         ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
-                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null));
+                "Accor", PriceSource.YAHOO, "AC.PA", AssetClass.EQUITY, "Paris", null, "AC.PA", null, null));
         FetchQuotePort slow = fetcher(PriceSource.YAHOO, instrument -> {
             try {
                 Thread.sleep(Duration.ofSeconds(2).toMillis());
@@ -126,7 +137,71 @@ class InstrumentResolutionServiceTest {
                 .satisfies(candidate -> assertThat(candidate.probePrice()).isNull());
     }
 
+    @Test
+    void theProbeQuoteGivesTheCandidateItsCurrency() {
+        ResolveInstrumentPort yahoo = resolver(candidate("AAPL", null));
+        FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> BigDecimal.TEN, "USD");
+
+        assertThat(new InstrumentResolutionService(List.of(yahoo), List.of(quotes)).resolve("aapl"))
+                .singleElement()
+                .satisfies(candidate -> assertThat(candidate.currency()).isEqualTo("USD"));
+    }
+
+    @Test
+    void theProbeInstrumentDoesNotClaimToBeInEuro() {
+        List<String> seen = new CopyOnWriteArrayList<>();
+        ResolveInstrumentPort yahoo = resolver(candidate("AAPL", null));
+        FetchQuotePort quotes = fetcher(
+                PriceSource.YAHOO,
+                instrument -> {
+                    seen.add(instrument.currency());
+                    return BigDecimal.TEN;
+                },
+                "USD");
+
+        new InstrumentResolutionService(List.of(yahoo), List.of(quotes)).resolve("aapl");
+
+        assertThat(seen).isNotEmpty().doesNotContain("EUR");
+    }
+
+    @Test
+    void aFailedProbeLeavesTheCurrencyUnknown() {
+        ResolveInstrumentPort yahoo = resolver(candidate("AC.PA", null));
+        FetchQuotePort failing = fetcher(PriceSource.YAHOO, instrument -> {
+            throw new MarketDataUnavailableException("yahoo down");
+        });
+
+        assertThat(new InstrumentResolutionService(List.of(yahoo), List.of(failing)).resolve("accor"))
+                .singleElement()
+                .satisfies(candidate -> assertThat(candidate.currency()).isNull());
+    }
+
+    @Test
+    void sortsEuroListingsFirstThenUnknownThenOtherCurrenciesKeepingTheSourceOrder() {
+        InstrumentCandidate xetra = candidate("XETRA", "EUR");
+        InstrumentCandidate lse = candidate("LSE", "USD");
+        InstrumentCandidate amsterdam = candidate("AMS", "EUR");
+        InstrumentCandidate unknown = candidate("UNK", null);
+        InstrumentCandidate swiss = candidate("SWX", "CHF");
+
+        List<InstrumentCandidate> sorted = new InstrumentResolutionService(
+                        List.of(resolver(lse, xetra, swiss, unknown, amsterdam)), List.of())
+                .resolve("world");
+
+        assertThat(sorted).containsExactly(xetra, amsterdam, unknown, lse, swiss);
+    }
+
+    private static InstrumentCandidate candidate(String ref, String currency) {
+        return new InstrumentCandidate(
+                ref, PriceSource.YAHOO, ref, AssetClass.ETF, "Exchange", null, ref, null, currency);
+    }
+
     private static FetchQuotePort fetcher(PriceSource source, Function<Instrument, BigDecimal> priceFor) {
+        return fetcher(source, priceFor, "EUR");
+    }
+
+    private static FetchQuotePort fetcher(
+            PriceSource source, Function<Instrument, BigDecimal> priceFor, String currency) {
         return new FetchQuotePort() {
             @Override
             public boolean supports(PriceSource candidate) {
@@ -136,7 +211,7 @@ class InstrumentResolutionServiceTest {
             @Override
             public Quote fetch(Instrument instrument) {
                 return new Quote(
-                        instrument.id(), LocalDate.now(), priceFor.apply(instrument), "EUR", source, Instant.now());
+                        instrument.id(), LocalDate.now(), priceFor.apply(instrument), currency, source, Instant.now());
             }
 
             @Override

@@ -4,11 +4,13 @@ import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException
 import com.roucoux.cairn.domain.exception.business.InvalidTradeException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost) {
+public record Holding(
+        UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost, Instant updatedAt) {
 
     private static final int AVERAGE_COST_SCALE = 6;
 
@@ -17,6 +19,11 @@ public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal qua
         Objects.requireNonNull(accountId, "accountId");
         Objects.requireNonNull(instrumentId, "instrumentId");
         Objects.requireNonNull(quantity, "quantity");
+        Objects.requireNonNull(updatedAt, "updatedAt");
+    }
+
+    public Holding withUpdatedAt(Instant at) {
+        return new Holding(id, accountId, instrumentId, quantity, averageCost, at);
     }
 
     public Optional<BigDecimal> costBasis() {
@@ -32,7 +39,7 @@ public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal qua
                 : quantity.multiply(averageCost)
                         .add(boughtQuantity.multiply(unitPrice))
                         .divide(newQuantity, AVERAGE_COST_SCALE, RoundingMode.HALF_UP);
-        return new Holding(id, accountId, instrumentId, newQuantity, newAverageCost);
+        return new Holding(id, accountId, instrumentId, newQuantity, newAverageCost, updatedAt);
     }
 
     public Optional<Holding> sell(BigDecimal soldQuantity) {
@@ -44,7 +51,8 @@ public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal qua
         if (comparison == 0) {
             return Optional.empty();
         }
-        return Optional.of(new Holding(id, accountId, instrumentId, quantity.subtract(soldQuantity), averageCost));
+        return Optional.of(
+                new Holding(id, accountId, instrumentId, quantity.subtract(soldQuantity), averageCost, updatedAt));
     }
 
     private static void requirePositive(BigDecimal value, String what) {

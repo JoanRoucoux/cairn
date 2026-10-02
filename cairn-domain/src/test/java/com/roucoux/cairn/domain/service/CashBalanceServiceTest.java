@@ -18,6 +18,9 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +29,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CashBalanceServiceTest {
+
+    private static final Instant NOW = Instant.parse("2026-09-12T08:30:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @Test
     void rejectsAnUnknownAccount() {
@@ -54,6 +60,7 @@ class CashBalanceServiceTest {
         assertThat(holding.instrumentId()).isEqualTo(euros.id());
         assertThat(holding.quantity()).isEqualByComparingTo("500");
         assertThat(holding.averageCost()).isEqualByComparingTo("1");
+        assertThat(holding.updatedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -94,6 +101,34 @@ class CashBalanceServiceTest {
     }
 
     @Test
+    void zeroOnASavingsAccountKeepsTheHoldingAtZero() {
+        Fixture fixture = Fixture.withExistingHolding(new BigDecimal("500"), AccountType.SAVINGS);
+
+        fixture.service().setCashBalance(fixture.accountId(), BigDecimal.ZERO);
+
+        assertThat(fixture.deleted()).isEmpty();
+        assertThat(fixture.holdings()).singleElement().satisfies(holding -> {
+            assertThat(holding.id()).isEqualTo(fixture.holdingId());
+            assertThat(holding.quantity()).isEqualByComparingTo("0");
+        });
+    }
+
+    @Test
+    void zeroOnASavingsAccountWithoutABalanceCreatesTheHoldingAtZero() {
+        Fixture fixture = Fixture.withKnownAccount(AccountType.SAVINGS);
+
+        fixture.service().setCashBalance(fixture.accountId(), BigDecimal.ZERO);
+
+        assertThat(fixture.instruments())
+                .singleElement()
+                .satisfies(i -> assertThat(i.isEurCash()).isTrue());
+        assertThat(fixture.holdings()).singleElement().satisfies(holding -> {
+            assertThat(holding.accountId()).isEqualTo(fixture.accountId());
+            assertThat(holding.quantity()).isEqualByComparingTo("0");
+        });
+    }
+
+    @Test
     void zeroWithoutAnExistingHoldingWritesNothing() {
         Fixture fixture = Fixture.withKnownAccount();
 
@@ -122,27 +157,39 @@ class CashBalanceServiceTest {
         private final UUID accountId;
         private UUID holdingId;
 
-        private Fixture(UUID accountId) {
+        private Fixture(UUID accountId, AccountType type) {
             this.accountId = accountId;
-            this.accounts = Map.of(accountId, new Account(accountId, "Fortuneo", AccountType.SAVINGS, "Fortuneo"));
+            this.accounts = Map.of(accountId, new Account(accountId, "Fortuneo", type, "Fortuneo"));
         }
 
         static Fixture withKnownAccount() {
-            return new Fixture(UUID.randomUUID());
+            return withKnownAccount(AccountType.PEA);
+        }
+
+        static Fixture withKnownAccount(AccountType type) {
+            return new Fixture(UUID.randomUUID(), type);
         }
 
         static Fixture withEurosInstrument() {
-            Fixture fixture = withKnownAccount();
+            return withEurosInstrument(AccountType.PEA);
+        }
+
+        static Fixture withEurosInstrument(AccountType type) {
+            Fixture fixture = withKnownAccount(type);
             fixture.instruments.add(new Instrument(
                     UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
             return fixture;
         }
 
         static Fixture withExistingHolding(BigDecimal quantity) {
-            Fixture fixture = withEurosInstrument();
+            return withExistingHolding(quantity, AccountType.PEA);
+        }
+
+        static Fixture withExistingHolding(BigDecimal quantity, AccountType type) {
+            Fixture fixture = withEurosInstrument(type);
             fixture.holdingId = UUID.randomUUID();
-            fixture.holdings.add(
-                    new Holding(fixture.holdingId, fixture.accountId, fixture.eurosId(), quantity, BigDecimal.ONE));
+            fixture.holdings.add(new Holding(
+                    fixture.holdingId, fixture.accountId, fixture.eurosId(), quantity, BigDecimal.ONE, Instant.EPOCH));
             return fixture;
         }
 
@@ -177,7 +224,8 @@ class CashBalanceServiceTest {
                     new InMemorySaveInstrumentPort(),
                     new InMemoryLoadHoldingsPort(),
                     new InMemorySaveHoldingPort(),
-                    new InMemoryDeleteHoldingPort());
+                    new InMemoryDeleteHoldingPort(),
+                    CLOCK);
         }
 
         private final class InMemoryLoadAccountsPort implements LoadAccountsPort {

@@ -12,6 +12,7 @@ import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
+import com.roucoux.cairn.generated.model.PerformanceResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
 import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.RecordQuoteRequest;
@@ -74,6 +75,20 @@ public class PortfolioSteps {
                 .getId();
     }
 
+    @Given("a USD instrument {string} quoted by {word} as {string}")
+    public void aUsdInstrumentQuotedByAs(String name, String priceSource, String sourceRef) {
+        CreateInstrumentRequest request = new CreateInstrumentRequest();
+        request.setName(name);
+        request.setCurrency("USD");
+        request.setAssetClass(AssetClass.EQUITY);
+        request.setPriceSource(PriceSource.valueOf(priceSource));
+        request.setSourceRef(sourceRef);
+        instrumentId = restTemplate
+                .postForEntity("/instruments", request, InstrumentResponse.class)
+                .getBody()
+                .getId();
+    }
+
     @Given("a holding of {int} units bought at {bigdecimal}")
     public void aHoldingOfUnitsBoughtAt(int quantity, BigDecimal averageCost) {
         createHolding(quantity, averageCost);
@@ -90,6 +105,11 @@ public class PortfolioSteps {
         request.setAsOf(LocalDate.parse(asOf));
         request.setPrice(price);
         restTemplate.postForEntity("/instruments/{id}/quotes", request, Void.class, instrumentId);
+    }
+
+    @Given("a quote of {bigdecimal} USD dated {word}")
+    public void aQuoteOfUsdDated(BigDecimal price, String asOf) {
+        aQuoteOfEurDated(price, asOf);
     }
 
     @When("I read the portfolio")
@@ -122,6 +142,45 @@ public class PortfolioSteps {
     @Then("the unvalued count is {int}")
     public void theUnvaluedCountIs(int count) {
         assertThat(portfolio.getUnvaluedCount()).isEqualTo(count);
+    }
+
+    @Then("the non-EUR count is {int}")
+    public void theNonEurCountIs(int count) {
+        assertThat(portfolio.getNonEurCount()).isEqualTo(count);
+    }
+
+    @Then("the portfolio lists the USD holding priced in USD without a value in EUR")
+    public void thePortfolioListsTheUsdHolding() {
+        assertThat(portfolio.getHoldings())
+                .filteredOn(holding -> "USD".equals(holding.getPriceCurrency()))
+                .singleElement()
+                .satisfies(holding -> {
+                    assertThat(holding.getPrice()).isEqualByComparingTo("80");
+                    assertThat(holding.getMarketValueEur()).isNull();
+                    assertThat(holding.getDayChangeEur()).isNull();
+                    assertThat(holding.getDayChangeRatio()).isNull();
+                    assertThat(holding.getUnrealizedGainEur()).isNull();
+                });
+    }
+
+    @Then("the one day performance totals {bigdecimal} EUR")
+    public void theOneDayPerformanceTotals(BigDecimal total) {
+        PerformanceResponse performance = restTemplate
+                .getForEntity("/portfolio/performance?range=1d", PerformanceResponse.class)
+                .getBody();
+        assertThat(performance.getTotal().getValueEur()).isEqualByComparingTo(total);
+    }
+
+    @Then("the asset class allocation excludes {int} unpriced and {int} non-EUR lines")
+    public void theAssetClassAllocationExcludes(int unpriced, int nonEur) {
+        assertThat(classAllocation.getUnvaluedCount()).isEqualTo(unpriced);
+        assertThat(classAllocation.getNonEurCount()).isEqualTo(nonEur);
+    }
+
+    @Then("the account allocation excludes {int} unpriced and {int} non-EUR lines")
+    public void theAccountAllocationExcludes(int unpriced, int nonEur) {
+        assertThat(accountAllocation.getUnvaluedCount()).isEqualTo(unpriced);
+        assertThat(accountAllocation.getNonEurCount()).isEqualTo(nonEur);
     }
 
     @When("I read the allocation by asset class")

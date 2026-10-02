@@ -31,6 +31,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import com.roucoux.cairn.infrastructure.transaction.InstrumentDeletionTransaction;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -143,7 +144,8 @@ class InstrumentControllerTest {
                         "Frankfurt",
                         "FR0000000010",
                         "0P0000000A.F",
-                        new BigDecimal("131.57"))));
+                        new BigDecimal("131.57"),
+                        "USD")));
 
         mockMvc.perform(post("/instruments/resolve")
                         .with(user("joan"))
@@ -155,7 +157,8 @@ class InstrumentControllerTest {
                 .andExpect(jsonPath("$[0].exchange").value("Frankfurt"))
                 .andExpect(jsonPath("$[0].isin").value("FR0000000010"))
                 .andExpect(jsonPath("$[0].symbol").value("0P0000000A.F"))
-                .andExpect(jsonPath("$[0].probePrice").value(131.57));
+                .andExpect(jsonPath("$[0].probePrice").value(131.57))
+                .andExpect(jsonPath("$[0].currency").value("USD"));
     }
 
     @Test
@@ -185,8 +188,20 @@ class InstrumentControllerTest {
         when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
         when(loadHoldings.findByInstrument(INSTRUMENT_ID))
                 .thenReturn(List.of(
-                        new Holding(UUID.randomUUID(), UUID.randomUUID(), INSTRUMENT_ID, BigDecimal.ONE, null),
-                        new Holding(UUID.randomUUID(), UUID.randomUUID(), INSTRUMENT_ID, BigDecimal.TEN, null)));
+                        new Holding(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                INSTRUMENT_ID,
+                                BigDecimal.ONE,
+                                null,
+                                Instant.EPOCH),
+                        new Holding(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                INSTRUMENT_ID,
+                                BigDecimal.TEN,
+                                null,
+                                Instant.EPOCH)));
 
         mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("joan")))
                 .andExpect(status().isOk())

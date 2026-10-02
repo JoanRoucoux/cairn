@@ -25,8 +25,24 @@ public record ValuedHolding(
         Objects.requireNonNull(previousQuote, "previousQuote");
     }
 
+    public boolean isUnpriced() {
+        return quote.isEmpty();
+    }
+
+    public boolean isNonEur() {
+        return quote.isPresent() && !isEur(quote.get());
+    }
+
     public Optional<Money> marketValue() {
-        return quote.map(this::valueAt);
+        return eurQuote().map(this::valueAt);
+    }
+
+    private Optional<Quote> eurQuote() {
+        return quote.filter(ValuedHolding::isEur);
+    }
+
+    public static boolean isEur(Quote quote) {
+        return Money.EUR.equals(quote.currency());
     }
 
     private Money valueAt(Quote quote) {
@@ -35,30 +51,37 @@ public record ValuedHolding(
 
     public Optional<Money> unrealizedGain() {
         if (instrument.isPricedAtPar()) {
-            return quote.map(q -> new Money(BigDecimal.ZERO, q.currency()));
+            return eurQuote().map(q -> new Money(BigDecimal.ZERO, q.currency()));
         }
-        return quote.flatMap(q -> holding.costBasis()
-                .map(cost -> valueAt(q).minus(new Money(holding.quantity().multiply(cost), q.currency()))));
+        return eurQuote()
+                .flatMap(q -> holding.costBasis()
+                        .map(cost ->
+                                valueAt(q).minus(new Money(holding.quantity().multiply(cost), q.currency()))));
     }
 
     public Optional<BigDecimal> unrealizedGainRatio() {
         if (instrument.isPricedAtPar()) {
-            return quote.map(q -> BigDecimal.ZERO);
+            return eurQuote().map(q -> BigDecimal.ZERO);
         }
-        return quote.flatMap(q -> holding.costBasis()
-                .filter(cost -> cost.signum() != 0)
-                .map(cost -> q.price().subtract(cost).divide(cost, RATIO_SCALE, RoundingMode.HALF_UP)));
+        return eurQuote()
+                .flatMap(q -> holding.costBasis()
+                        .filter(cost -> cost.signum() != 0)
+                        .map(cost -> q.price().subtract(cost).divide(cost, RATIO_SCALE, RoundingMode.HALF_UP)));
     }
 
     public Optional<Money> dayChange() {
-        return quote.flatMap(q -> previousClose()
-                .map(previous -> new Money(holding.quantity().multiply(q.price().subtract(previous)), q.currency())));
+        return eurQuote()
+                .flatMap(q -> previousClose()
+                        .map(previous ->
+                                new Money(holding.quantity().multiply(q.price().subtract(previous)), q.currency())));
     }
 
     public Optional<BigDecimal> dayChangeRatio() {
-        return quote.flatMap(q -> previousClose()
-                .filter(previous -> previous.signum() != 0)
-                .map(previous -> q.price().subtract(previous).divide(previous, RATIO_SCALE, RoundingMode.HALF_UP)));
+        return eurQuote()
+                .flatMap(q -> previousClose()
+                        .filter(previous -> previous.signum() != 0)
+                        .map(previous ->
+                                q.price().subtract(previous).divide(previous, RATIO_SCALE, RoundingMode.HALF_UP)));
     }
 
     private Optional<BigDecimal> previousClose() {

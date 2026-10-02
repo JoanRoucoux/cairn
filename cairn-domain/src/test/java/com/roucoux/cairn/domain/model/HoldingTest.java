@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
 import com.roucoux.cairn.domain.exception.business.InvalidTradeException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -16,15 +17,16 @@ class HoldingTest {
 
     @Test
     void exposesItsCostBasisWhenKnown() {
-        Holding holding =
-                new Holding(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, BigDecimal.ONE);
+        Holding holding = new Holding(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, BigDecimal.ONE, Instant.EPOCH);
 
         assertThat(holding.costBasis()).contains(BigDecimal.ONE);
     }
 
     @Test
     void hasNoCostBasisWhenUnknown() {
-        Holding holding = new Holding(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, null, Instant.EPOCH);
 
         assertThat(holding.costBasis()).isEmpty();
     }
@@ -35,7 +37,8 @@ class HoldingTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 new BigDecimal(quantity),
-                averageCost == null ? null : new BigDecimal(averageCost));
+                averageCost == null ? null : new BigDecimal(averageCost),
+                Instant.EPOCH);
     }
 
     @Test

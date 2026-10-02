@@ -39,6 +39,7 @@ public class PortfolioRestMapper {
         });
         response.setStaleCount(portfolio.staleCount());
         response.setUnvaluedCount(portfolio.unvaluedCount());
+        response.setNonEurCount(portfolio.nonEurCount());
         response.setGeneratedAt(OffsetDateTime.now(clock));
         response.setByAssetClass(
                 portfolio.byAssetClass().stream().map(this::toAllocation).toList());

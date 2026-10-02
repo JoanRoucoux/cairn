@@ -114,7 +114,8 @@ class SnapshotJobIT {
                 PriceSource.YAHOO,
                 "ETF.PA",
                 null));
-        holdings.save(new Holding(UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal("10"), null));
+        holdings.save(new Holding(
+                UUID.randomUUID(), account.id(), instrument.id(), new BigDecimal("10"), null, Instant.EPOCH));
         quotes.upsert(new Quote(
                 instrument.id(), LocalDate.now(), new BigDecimal("100.00"), "EUR", PriceSource.YAHOO, Instant.now()));
 

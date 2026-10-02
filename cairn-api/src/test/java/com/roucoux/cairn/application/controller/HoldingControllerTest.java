@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,6 +17,7 @@ import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -58,8 +60,8 @@ class HoldingControllerTest {
     private static final String VALID_BODY = """
             {"accountId":"%s","instrumentId":"%s","quantity":4,"averageCost":43.64}
             """.formatted(ACCOUNT_ID, INSTRUMENT_ID);
-    private static final Holding A_HOLDING =
-            new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), new BigDecimal("43.64"));
+    private static final Holding A_HOLDING = new Holding(
+            HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), new BigDecimal("43.64"), Instant.EPOCH);
 
     @Autowired
     private MockMvc mockMvc;
@@ -104,7 +106,10 @@ class HoldingControllerTest {
                 .andExpect(jsonPath("$.priceFetchedAt").value("2026-08-26T20:00:00Z"))
                 .andExpect(jsonPath("$.priceSource").value("YAHOO"))
                 .andExpect(jsonPath("$.stale").value(false))
-                .andExpect(jsonPath("$.marketValueEur").exists());
+                .andExpect(jsonPath("$.marketValueEur").doesNotExist())
+                .andExpect(jsonPath("$.dayChangeEur").doesNotExist())
+                .andExpect(jsonPath("$.dayChangeRatio").doesNotExist())
+                .andExpect(jsonPath("$.unrealizedGainEur").doesNotExist());
     }
 
     @Test
@@ -131,8 +136,28 @@ class HoldingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].accountName").value("CTO Boursorama"))
                 .andExpect(jsonPath("$[0].price").value(123.45))
-                .andExpect(jsonPath("$[0].marketValueEur").exists())
+                .andExpect(jsonPath("$[0].priceCurrency").value("USD"))
+                .andExpect(jsonPath("$[0].marketValueEur").doesNotExist())
+                .andExpect(jsonPath("$[0].dayChangeEur").doesNotExist())
+                .andExpect(jsonPath("$[0].dayChangeRatio").doesNotExist())
+                .andExpect(jsonPath("$[0].unrealizedGainEur").doesNotExist())
                 .andExpect(jsonPath("$[0].stale").value(false));
+    }
+
+    @Test
+    void listsAnEuroHoldingWithItsValueInEuro() throws Exception {
+        Holding held = new Holding(
+                HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, BigDecimal.TEN, new BigDecimal("100"), Instant.EPOCH);
+        when(loadHoldings.findAll()).thenReturn(List.of(held));
+        when(valueHolding.value(held)).thenReturn(Optional.of(aQuotedHolding(held, "EUR")));
+
+        mockMvc.perform(get("/holdings").with(user("joan")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].priceCurrency").value("EUR"))
+                .andExpect(jsonPath("$[0].marketValueEur").value(1234.5))
+                .andExpect(jsonPath("$[0].dayChangeEur").value(10.0))
+                .andExpect(jsonPath("$[0].dayChangeRatio").exists())
+                .andExpect(jsonPath("$[0].unrealizedGainEur").value(234.5));
     }
 
     @Test
@@ -160,7 +185,8 @@ class HoldingControllerTest {
 
     @Test
     void reportsAnAbsentAverageCostAsNullNotZero() throws Exception {
-        Holding holdingWithoutCostBasis = new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), null);
+        Holding holdingWithoutCostBasis =
+                new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), null, Instant.EPOCH);
         when(manageHolding.create(any(), any(), any(), any())).thenReturn(holdingWithoutCostBasis);
         when(valueHolding.value(holdingWithoutCostBasis))
                 .thenReturn(Optional.of(aValuedHolding(holdingWithoutCostBasis)));
@@ -172,6 +198,19 @@ class HoldingControllerTest {
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.averageCost").doesNotExist());
+    }
+
+    @Test
+    void reportsALineOnASavingsAccountAs422() throws Exception {
+        when(manageHolding.create(any(), any(), any(), any())).thenThrow(new SavingsAccountLineException());
+
+        mockMvc.perform(post("/holdings")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
     }
 
     @Test
@@ -207,7 +246,12 @@ class HoldingControllerTest {
     void buyingAnswersTheUpdatedHolding() throws Exception {
         UUID id = UUID.randomUUID();
         Holding bought = new Holding(
-                id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("540"), new BigDecimal("24.488889"));
+                id,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new BigDecimal("540"),
+                new BigDecimal("24.488889"),
+                Instant.EPOCH);
         when(manageHolding.buy(id, new BigDecimal("40"), new BigDecimal("29.10")))
                 .thenReturn(bought);
 
@@ -222,10 +266,59 @@ class HoldingControllerTest {
     }
 
     @Test
+    void changingTheInstrumentAnswersTheMovedHolding() throws Exception {
+        UUID target = UUID.randomUUID();
+        Holding moved = new Holding(
+                HOLDING_ID, ACCOUNT_ID, target, new BigDecimal("12"), new BigDecimal("101.5"), Instant.EPOCH);
+        when(manageHolding.changeInstrument(HOLDING_ID, target)).thenReturn(moved);
+
+        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"instrumentId\":\"" + target + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(HOLDING_ID.toString()))
+                .andExpect(jsonPath("$.instrumentId").value(target.toString()))
+                .andExpect(jsonPath("$.quantity").value(12));
+    }
+
+    @Test
+    void changingToAHeldInstrumentIs422() throws Exception {
+        when(manageHolding.changeInstrument(any(), any()))
+                .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
+
+        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void changingToAnUnknownInstrumentIs404() throws Exception {
+        when(manageHolding.changeInstrument(any(), any()))
+                .thenThrow(new NotFoundException("instrument", INSTRUMENT_ID));
+
+        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void sellingPartAnswersTheRemainder() throws Exception {
         UUID id = UUID.randomUUID();
-        Holding remaining =
-                new Holding(id, UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("400"), new BigDecimal("24.12"));
+        Holding remaining = new Holding(
+                id,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new BigDecimal("400"),
+                new BigDecimal("24.12"),
+                Instant.EPOCH);
         when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
@@ -274,6 +367,10 @@ class HoldingControllerTest {
     }
 
     private static ValuedHolding aValuedHolding(Holding holding) {
+        return aQuotedHolding(holding, "USD");
+    }
+
+    private static ValuedHolding aQuotedHolding(Holding holding, String currency) {
         Instrument instrument = new Instrument(
                 INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
         Account account = new Account(ACCOUNT_ID, "CTO Boursorama", AccountType.CTO, "Boursorama");
@@ -281,10 +378,17 @@ class HoldingControllerTest {
                 INSTRUMENT_ID,
                 LocalDate.of(2026, 8, 26),
                 new BigDecimal("123.45"),
-                "USD",
+                currency,
                 PriceSource.YAHOO,
                 Instant.parse("2026-08-26T20:00:00Z"));
-        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
+        Quote previous = new Quote(
+                INSTRUMENT_ID,
+                LocalDate.of(2026, 8, 25),
+                new BigDecimal("122.45"),
+                currency,
+                PriceSource.YAHOO,
+                Instant.parse("2026-08-25T20:00:00Z"));
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.of(previous));
     }
 
     private static ValuedHolding aValuedHoldingWithoutQuote(Holding holding) {

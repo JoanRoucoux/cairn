@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,10 +49,24 @@ class HoldingPersistenceAdapterIT {
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
 
-        Holding saved = holdings.save(
-                new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00005752"), null));
+        Holding saved = holdings.save(new Holding(
+                UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00005752"), null, Instant.EPOCH));
 
         assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00005752");
+    }
+
+    @Test
+    void keepsTheDateTheHoldingWasWritten() {
+        Account account = accounts.save(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Fortuneo"));
+        Instrument euros = instruments.save(new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
+        Instant writtenAt = Instant.parse("2026-09-12T08:30:00Z");
+
+        Holding saved = holdings.save(new Holding(
+                UUID.randomUUID(), account.id(), euros.id(), new BigDecimal("1500"), BigDecimal.ONE, writtenAt));
+
+        assertThat(saved.updatedAt()).isEqualTo(writtenAt);
+        assertThat(holdings.findById(saved.id()).orElseThrow().updatedAt()).isEqualTo(writtenAt);
     }
 
     @Test
@@ -109,6 +124,6 @@ class HoldingPersistenceAdapterIT {
         Account account = accounts.save(new Account(UUID.randomUUID(), "Binance", AccountType.CRYPTO, "Binance"));
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
-        return holdings.save(new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), quantity, null));
+        return holdings.save(new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), quantity, null, Instant.EPOCH));
     }
 }

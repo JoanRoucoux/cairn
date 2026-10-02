@@ -3,6 +3,8 @@ package com.roucoux.cairn.domain.service;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.model.AccountType;
+import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
@@ -10,6 +12,7 @@ import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.in.ImportPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
@@ -18,6 +21,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +43,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     private final ResolveInstrumentUseCase resolveInstrument;
     private final LoadHoldingsPort loadHoldings;
     private final SaveHoldingPort saveHolding;
+    private final Clock clock;
 
     public PortfolioImportService(
             LoadAccountsPort loadAccounts,
@@ -47,7 +52,8 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             SaveInstrumentPort saveInstrument,
             ResolveInstrumentUseCase resolveInstrument,
             LoadHoldingsPort loadHoldings,
-            SaveHoldingPort saveHolding) {
+            SaveHoldingPort saveHolding,
+            Clock clock) {
         this.loadAccounts = loadAccounts;
         this.saveAccount = saveAccount;
         this.loadInstruments = loadInstruments;
@@ -55,6 +61,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         this.resolveInstrument = resolveInstrument;
         this.loadHoldings = loadHoldings;
         this.saveHolding = saveHolding;
+        this.clock = clock;
     }
 
     @Override
@@ -64,7 +71,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         Map<String, Instrument> instrumentsByRef = new HashMap<>();
         loadInstruments.findAll().forEach(instrument -> index(instrumentsByRef, instrument));
 
-        Map<String, InstrumentCandidate> candidates = validate(rows, instrumentsByRef);
+        Map<String, InstrumentCandidate> candidates = validate(rows, accountsByName, instrumentsByRef);
 
         int accountsCreated = 0;
         int instrumentsCreated = 0;
@@ -82,14 +89,18 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
 
             Instrument instrument = instrumentsByRef.get(row.isinOrTicker());
             if (instrument == null) {
-                instrument = saveInstrument.save(from(row, candidates.get(row.isinOrTicker())));
+                instrument = saveInstrument.save(
+                        account.type() == AccountType.SAVINGS
+                                ? eurCash()
+                                : from(row, candidates.get(row.isinOrTicker())));
                 index(instrumentsByRef, instrument);
                 instrumentsCreated++;
             }
 
             Optional<Holding> existing = loadHoldings.findByAccountAndInstrument(account.id(), instrument.id());
             UUID holdingId = existing.map(Holding::id).orElseGet(UUID::randomUUID);
-            saveHolding.save(new Holding(holdingId, account.id(), instrument.id(), row.quantity(), row.averageCost()));
+            saveHolding.save(new Holding(
+                    holdingId, account.id(), instrument.id(), row.quantity(), row.averageCost(), clock.instant()));
             if (existing.isPresent()) {
                 holdingsUpdated++;
             } else {
@@ -100,7 +111,8 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return new ImportReport(accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated);
     }
 
-    private Map<String, InstrumentCandidate> validate(List<ImportRow> rows, Map<String, Instrument> known) {
+    private Map<String, InstrumentCandidate> validate(
+            List<ImportRow> rows, Map<String, Account> accountsByName, Map<String, Instrument> known) {
         List<ImportError> errors = new ArrayList<>();
         Map<String, InstrumentCandidate> candidates = new HashMap<>();
 
@@ -110,11 +122,22 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 errors.add(new ImportError(index, ImportErrorCode.ZERO_QUANTITY, null));
             }
             String ref = row.isinOrTicker();
+            if (isSavings(row, accountsByName)) {
+                if (!EUR.equals(ref)) {
+                    errors.add(new ImportError(index, ImportErrorCode.SAVINGS_ACCOUNT_LINE, ref));
+                }
+                continue;
+            }
             if (known.containsKey(ref) || candidates.containsKey(ref)) {
                 continue;
             }
             try {
-                candidates.put(ref, resolveInstrument.resolve(ref).getFirst());
+                Optional<InstrumentCandidate> chosen = choose(resolveInstrument.resolve(ref));
+                if (chosen.isEmpty()) {
+                    errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
+                } else {
+                    candidates.put(ref, chosen.get());
+                }
             } catch (UnknownInstrumentException unknown) {
                 errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
             }
@@ -126,6 +149,24 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return candidates;
     }
 
+    private static Optional<InstrumentCandidate> choose(List<InstrumentCandidate> candidates) {
+        return candidates.stream()
+                .filter(candidate -> EUR.equals(candidate.currency()))
+                .findFirst()
+                .or(() -> candidates.stream()
+                        .filter(candidate -> candidate.currency() == null)
+                        .findFirst());
+    }
+
+    private static boolean isSavings(ImportRow row, Map<String, Account> accountsByName) {
+        Account existing = accountsByName.get(row.accountName());
+        return (existing == null ? row.accountType() : existing.type()) == AccountType.SAVINGS;
+    }
+
+    private static Instrument eurCash() {
+        return new Instrument(UUID.randomUUID(), "Euros", null, EUR, AssetClass.CASH, PriceSource.MANUAL, EUR, null);
+    }
+
     private static Instrument from(ImportRow row, InstrumentCandidate candidate) {
         String name = row.instrumentName() == null || row.instrumentName().isBlank()
                 ? candidate.name()
@@ -135,7 +176,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 name,
                 isin(row.isinOrTicker()),
                 candidate.symbol(),
-                EUR,
+                candidate.currency() == null ? EUR : candidate.currency(),
                 candidate.assetClass(),
                 candidate.source(),
                 candidate.sourceRef(),

@@ -122,6 +122,7 @@ public class PerformanceService implements GetPerformanceUseCase {
         }
         Quote base = start.baseQuotes().get(line.instrument().id());
         return Optional.ofNullable(base)
+                .filter(ValuedHolding::isEur)
                 .map(quote -> new Money(line.holding().quantity().multiply(quote.price()), quote.currency()));
     }
 

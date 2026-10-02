@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.out.SaveSnapshotPort;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -94,6 +95,18 @@ class SnapshotServiceTest {
     }
 
     @Test
+    void leavesALineQuotedInAnotherCurrencyOutOfTheVentilationsAndTheTotal() {
+        SnapshotService service =
+                serviceWith(List.of(valuedLine(AccountType.CTO, AssetClass.EQUITY, "100"), usdLine()));
+
+        Snapshot snapshot = service.compute();
+
+        assertThat(snapshot.totalEur()).isEqualByComparingTo("100");
+        assertThat(snapshot.byAccountType()).containsOnlyKeys("CTO");
+        assertThat(snapshot.byAssetClass()).containsOnlyKeys("EQUITY");
+    }
+
+    @Test
     void handsTheComputedSnapshotToTheSavePort() {
         RecordingSaveSnapshotPort savePort = new RecordingSaveSnapshotPort();
         SnapshotService service =
@@ -114,7 +127,8 @@ class SnapshotServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", accountType, "Test institution");
         Instrument instrument =
                 new Instrument(instrumentId, "Test", null, "EUR", assetClass, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 9, 24),
@@ -125,12 +139,30 @@ class SnapshotServiceTest {
         return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 
+    private static ValuedHolding usdLine() {
+        UUID instrumentId = UUID.randomUUID();
+        Account account = new Account(UUID.randomUUID(), "Test", AccountType.PEA, "Test institution");
+        Instrument instrument =
+                new Instrument(instrumentId, "Test", null, "USD", AssetClass.ETF, PriceSource.YAHOO, "TEST3", null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
+        Quote quote = new Quote(
+                instrumentId,
+                LocalDate.of(2026, 9, 24),
+                new BigDecimal("77"),
+                "USD",
+                PriceSource.YAHOO,
+                fixedClock().instant());
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
+    }
+
     private static ValuedHolding unvaluedLine() {
         UUID instrumentId = UUID.randomUUID();
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test institution");
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST2.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 
@@ -153,10 +185,8 @@ class SnapshotServiceTest {
     private static SnapshotService serviceWith(Clock clock, List<ValuedHolding> lines, SaveSnapshotPort savePort) {
         Money total =
                 lines.stream().flatMap(line -> line.marketValue().stream()).reduce(Money.zeroEur(), Money::plus);
-        GetPortfolioUseCase getPortfolio = () -> new Portfolio(
-                total, Money.zeroEur(), Optional.empty(), List.of(), List.of(), lines, 0, (int) lines.stream()
-                        .filter(line -> line.marketValue().isEmpty())
-                        .count());
+        GetPortfolioUseCase getPortfolio =
+                () -> new Portfolio(total, Money.zeroEur(), Optional.empty(), List.of(), List.of(), lines, 0, 0, 0);
         return new SnapshotService(getPortfolio, savePort, clock);
     }
 

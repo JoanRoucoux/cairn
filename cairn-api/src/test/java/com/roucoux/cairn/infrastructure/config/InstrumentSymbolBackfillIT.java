@@ -45,6 +45,6 @@ class InstrumentSymbolBackfillIT {
                 .containsEntry("Global Growth Tracker", "GGT.PA")
                 .containsEntry("Northwind Traders", "NWT.PA")
                 .containsEntry("Bitcoin", null)
-                .containsEntry("Livret A", null);
+                .containsEntry("Euros", null);
     }
 }

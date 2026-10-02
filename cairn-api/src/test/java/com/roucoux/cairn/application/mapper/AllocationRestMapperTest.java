@@ -26,11 +26,15 @@ class AllocationRestMapperTest {
         AssetClassBreakdown breakdown = new AssetClassBreakdown(
                 Money.eur(new BigDecimal("1000.456")),
                 List.of(new AssetClassAllocation(
-                        AssetClass.ETF, Money.eur(new BigDecimal("800.4549")), new BigDecimal("0.80012345678"), 3)));
+                        AssetClass.ETF, Money.eur(new BigDecimal("800.4549")), new BigDecimal("0.80012345678"), 3)),
+                2,
+                1);
 
         AssetClassAllocationResponse response = mapper.toResponse(breakdown);
 
         assertThat(response.getTotalEur()).isEqualByComparingTo("1000.46");
+        assertThat(response.getUnvaluedCount()).isEqualTo(2);
+        assertThat(response.getNonEurCount()).isEqualTo(1);
         assertThat(response.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getAssetClass().getValue()).isEqualTo("ETF");
             assertThat(item.getValueEur()).isEqualByComparingTo("800.45");
@@ -44,9 +48,14 @@ class AllocationRestMapperTest {
         Account account = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
         AccountBreakdown breakdown = new AccountBreakdown(
                 Money.eur(new BigDecimal("1000")),
-                List.of(new AccountAllocation(account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2)));
+                List.of(new AccountAllocation(account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2)),
+                3,
+                4);
 
         AccountAllocationResponse response = mapper.toResponse(breakdown);
+
+        assertThat(response.getUnvaluedCount()).isEqualTo(3);
+        assertThat(response.getNonEurCount()).isEqualTo(4);
 
         assertThat(response.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getAccount().getId()).isEqualTo(account.id());
@@ -61,7 +70,7 @@ class AllocationRestMapperTest {
 
     @Test
     void mapsAnEmptyBreakdownToAnEmptyList() {
-        AssetClassBreakdown breakdown = new AssetClassBreakdown(Money.zeroEur(), List.of());
+        AssetClassBreakdown breakdown = new AssetClassBreakdown(Money.zeroEur(), List.of(), 0, 0);
 
         assertThat(mapper.toResponse(breakdown).getItems()).isEmpty();
     }

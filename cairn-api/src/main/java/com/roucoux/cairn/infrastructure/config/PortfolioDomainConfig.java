@@ -43,7 +43,8 @@ class PortfolioDomainConfig {
             SaveInstrumentPort saveInstrument,
             ResolveInstrumentUseCase resolveInstrument,
             LoadHoldingsPort loadHoldings,
-            SaveHoldingPort saveHolding) {
+            SaveHoldingPort saveHolding,
+            Clock clock) {
         return new PortfolioImportService(
                 loadAccounts,
                 saveAccount,
@@ -51,7 +52,8 @@ class PortfolioDomainConfig {
                 saveInstrument,
                 resolveInstrument,
                 loadHoldings,
-                saveHolding);
+                saveHolding,
+                clock);
     }
 
     @Bean

@@ -24,6 +24,9 @@ import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +35,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class PortfolioImportServiceTest {
+
+    private static final Instant NOW = Instant.parse("2026-09-12T08:30:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     private final List<Account> accounts = new ArrayList<>();
     private final List<Instrument> instruments = new ArrayList<>();
@@ -53,6 +59,46 @@ class PortfolioImportServiceTest {
         assertThat(instruments)
                 .singleElement()
                 .satisfies(instrument -> assertThat(instrument.symbol()).isEqualTo("GGT"));
+    }
+
+    @Test
+    void picksTheFirstEuroListingAndRecordsItsCurrency() {
+        PortfolioImportService service = serviceResolvingTo(
+                aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.DE", "EUR"), aCandidateIn("GGT.AS", "EUR"));
+
+        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+        assertThat(instruments).singleElement().satisfies(instrument -> {
+            assertThat(instrument.sourceRef()).isEqualTo("GGT.DE");
+            assertThat(instrument.currency()).isEqualTo("EUR");
+        });
+    }
+
+    @Test
+    void fallsBackToAnUnknownCurrencyListingWhenNoneIsEuro() {
+        PortfolioImportService service = serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.X", null));
+
+        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+        assertThat(instruments).singleElement().satisfies(instrument -> {
+            assertThat(instrument.sourceRef()).isEqualTo("GGT.X");
+            assertThat(instrument.currency()).isEqualTo("EUR");
+        });
+    }
+
+    @Test
+    void rejectsTheRowWhenEveryListingIsInAnotherCurrency() {
+        PortfolioImportService service =
+                serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.SW", "CHF"));
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20")))))
+                .isInstanceOf(PortfolioImportRejectedException.class)
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .extracting(ImportError::rowIndex, ImportError::code)
+                .containsExactly(tuple(0, ImportErrorCode.UNRESOLVED_INSTRUMENT));
+        assertThat(instruments).isEmpty();
     }
 
     @Test
@@ -94,6 +140,83 @@ class PortfolioImportServiceTest {
         assertThat(accounts).isEmpty();
         assertThat(instruments).isEmpty();
         assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void reportsALineOtherThanTheEuroCashBalanceOnASavingsAccountAsARowErrorAndWritesNothing() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow savingsLine = new ImportRow(
+                "Livret A",
+                AccountType.SAVINGS,
+                "Fortuneo",
+                "Global Growth Tracker",
+                "LU0000000001",
+                BigDecimal.TEN,
+                null);
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(BigDecimal.ZERO, null), savingsLine)))
+                .isInstanceOf(PortfolioImportRejectedException.class)
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .extracting(ImportError::rowIndex, ImportError::code, ImportError::value)
+                .containsExactly(
+                        tuple(0, ImportErrorCode.ZERO_QUANTITY, null),
+                        tuple(1, ImportErrorCode.SAVINGS_ACCOUNT_LINE, "LU0000000001"));
+
+        assertThat(accounts).isEmpty();
+        assertThat(instruments).isEmpty();
+        assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void theTypeOfAnExistingAccountWinsOverTheRowsWhenRefusingASavingsLine() {
+        accounts.add(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Fortuneo"));
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow row = new ImportRow(
+                "Livret A", AccountType.PEA, "Fortuneo", "Global Growth Tracker", "LU0000000001", BigDecimal.TEN, null);
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(row)))
+                .isInstanceOf(PortfolioImportRejectedException.class);
+        assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void acceptsTheEuroCashBalanceOnASavingsAccountWhenTheEurosInstrumentExists() {
+        instruments.add(new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow row =
+                new ImportRow("Livret A", AccountType.SAVINGS, "Fortuneo", "Euros", "EUR", new BigDecimal("500"), null);
+
+        ImportReport report = service.importPortfolio(List.of(row));
+
+        assertThat(report.holdingsCreated()).isEqualTo(1);
+        assertThat(report.instrumentsCreated()).isZero();
+        assertThat(holdings).singleElement().satisfies(h -> {
+            assertThat(h.quantity()).isEqualByComparingTo("500");
+            assertThat(h.updatedAt()).isEqualTo(NOW);
+        });
+    }
+
+    @Test
+    void createsTheEuroCashInstrumentWhenASavingsBalanceIsImportedBeforeAnyExists() {
+        PortfolioImportService service = serviceResolving(query -> {
+            throw new UnknownInstrumentException(query);
+        });
+        ImportRow row =
+                new ImportRow("Livret A", AccountType.SAVINGS, "Fortuneo", "Euros", "EUR", new BigDecimal("500"), null);
+
+        ImportReport report = service.importPortfolio(List.of(row));
+
+        assertThat(report.instrumentsCreated()).isEqualTo(1);
+        assertThat(instruments).singleElement().satisfies(instrument -> {
+            assertThat(instrument.isEurCash()).isTrue();
+            assertThat(instrument.name()).isEqualTo("Euros");
+        });
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(h -> assertThat(h.quantity()).isEqualByComparingTo("500"));
     }
 
     private PortfolioImportService serviceResolvingTo(InstrumentCandidate... candidates) {
@@ -185,7 +308,8 @@ class PortfolioImportServiceTest {
                     holdings.removeIf(existing -> existing.id().equals(holding.id()));
                     holdings.add(holding);
                     return holding;
-                });
+                },
+                CLOCK);
     }
 
     private static ImportRow aRow(BigDecimal quantity, BigDecimal averageCost) {
@@ -213,6 +337,20 @@ class PortfolioImportServiceTest {
                 "Paris",
                 null,
                 "GGT",
-                new BigDecimal("22"));
+                new BigDecimal("22"),
+                "EUR");
+    }
+
+    private static InstrumentCandidate aCandidateIn(String ref, String currency) {
+        return new InstrumentCandidate(
+                "Global Growth Tracker",
+                PriceSource.YAHOO,
+                ref,
+                AssetClass.ETF,
+                "Exchange",
+                null,
+                "GGT",
+                new BigDecimal("22"),
+                currency);
     }
 }

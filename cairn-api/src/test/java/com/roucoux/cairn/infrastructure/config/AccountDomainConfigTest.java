@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,8 @@ class AccountDomainConfigTest {
     void wiresTheAccountServiceThroughSoDeletingAnAccountRemovesItsEurCashHolding() {
         List<Account> accounts = new ArrayList<>(List.of(ACCOUNT));
         List<UUID> deletedAccountIds = new ArrayList<>();
-        Holding cash = new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new java.math.BigDecimal("1500"), null);
+        Holding cash = new Holding(
+                UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new java.math.BigDecimal("1500"), null, Instant.EPOCH);
         List<Holding> holdings = new ArrayList<>(List.of(cash));
         List<UUID> deletedHoldingIds = new ArrayList<>();
 
@@ -118,8 +120,8 @@ class AccountDomainConfigTest {
     @Test
     void wiresTheAccountServiceThroughSoARemainingLineRefusesTheDeletion() {
         List<Account> accounts = new ArrayList<>(List.of(ACCOUNT));
-        Holding line =
-                new Holding(UUID.randomUUID(), ACCOUNT.id(), UUID.randomUUID(), new java.math.BigDecimal("4"), null);
+        Holding line = new Holding(
+                UUID.randomUUID(), ACCOUNT.id(), UUID.randomUUID(), new java.math.BigDecimal("4"), null, Instant.EPOCH);
         List<Holding> holdings = new ArrayList<>(List.of(line));
 
         LoadAccountsPort loadAccounts = new LoadAccountsPort() {

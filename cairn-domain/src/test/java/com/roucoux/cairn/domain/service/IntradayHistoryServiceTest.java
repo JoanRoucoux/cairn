@@ -30,6 +30,7 @@ class IntradayHistoryServiceTest {
             List.<Allocation>of(),
             List.of(),
             0,
+            0,
             0);
 
     @Test

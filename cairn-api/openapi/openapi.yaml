@@ -47,12 +47,6 @@ paths:
                 $ref: '#/components/schemas/PortfolioResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '422':
-          description: A holding is priced in a currency other than EUR
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
   /portfolio/allocation/classes:
     get:
       tags: [Portfolio]
@@ -60,8 +54,9 @@ paths:
       summary: Get the portfolio's breakdown by asset class
       description: >-
         The same breakdown as `PortfolioResponse.byAssetClass`, served on its own so the ring that
-        shows it loads and fails independently. Holdings with no quote yet are left out of the
-        values and the shares, exactly as in `GET /portfolio`, but still count in the line counts.
+        shows it loads and fails independently. Holdings with no quote yet and lines quoted in another
+        currency than EUR are left out of the values and the shares, exactly as in `GET /portfolio`,
+        but still count in the line counts.
       responses:
         '200':
           description: The breakdown by asset class, largest first
@@ -71,12 +66,6 @@ paths:
                 $ref: '#/components/schemas/AssetClassAllocationResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '422':
-          description: A holding is priced in a currency other than EUR
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
   /portfolio/allocation/accounts:
     get:
       tags: [Portfolio]
@@ -85,8 +74,9 @@ paths:
       description: >-
         The same breakdown as `PortfolioResponse.byAccount`, served on its own so the ring that
         shows it loads and fails independently, with each account carried whole so a consumer
-        needs no second call to name it. Holdings with no quote yet are left out of the values and
-        the shares, exactly as in `GET /portfolio`, but still count in the line counts.
+        needs no second call to name it. Holdings with no quote yet and lines quoted in another currency
+        than EUR are left out of the values and the shares, exactly as in `GET /portfolio`, but
+        still count in the line counts.
       responses:
         '200':
           description: The breakdown by account, largest first
@@ -96,12 +86,6 @@ paths:
                 $ref: '#/components/schemas/AccountAllocationResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '422':
-          description: A holding is priced in a currency other than EUR
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
   /portfolio/export:
     get:
       tags: [Portfolio]
@@ -164,7 +148,10 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '422':
-          description: Nothing was written; every refused row is listed
+          description: >-
+            Nothing was written; every refused row is listed, a line other than the EUR cash
+            balance on a savings account included (`SAVINGS_ACCOUNT_LINE`: a savings account
+            holds one balance, not lines)
           content:
             application/problem+json:
               schema:
@@ -199,12 +186,6 @@ paths:
           description: Unknown range
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '422':
-          description: A holding is priced in a currency other than EUR
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
   /portfolio/import/template:
     get:
       tags: [Portfolio]
@@ -288,7 +269,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '422':
-          description: The account already holds this instrument, or the quantity is zero
+          description: >-
+            The account already holds this instrument, the quantity is zero, or the account is a
+            savings account and the instrument is not the EUR cash balance (a savings account holds
+            one balance, not lines)
           content:
             application/problem+json:
               schema:
@@ -306,7 +290,7 @@ paths:
       tags: [Holding]
       operationId: updateHolding
       summary: Update a holding
-      description: Replaces the holding's quantity and cost basis. The account and instrument cannot be changed.
+      description: Replaces the holding's quantity and cost basis. The account cannot be changed, and the instrument only through `PUT /holdings/{id}/instrument`.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -361,6 +345,60 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           description: Unknown holding
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /holdings/{id}/instrument:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The holding's id.
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Holding]
+      operationId: changeHoldingInstrument
+      summary: Move a holding to another instrument
+      description: >-
+        Points the holding at another instrument (typically the EUR listing of a line quoted in
+        another currency), keeping its id, quantity and average cost. Moving to the instrument the
+        holding already has changes nothing. The previous instrument stays in the catalogue. A
+        savings account only accepts the EUR cash balance.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeHoldingInstrumentRequest'
+            example:
+              instrumentId: 7c1d2b9e-3f4a-4e5b-8c6d-0a1b2c3d4e5f
+      responses:
+        '200':
+          description: The holding on its new instrument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown holding or instrument
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: The account already holds the target instrument, or a savings account would hold a non-cash instrument
           content:
             application/problem+json:
               schema:
@@ -580,14 +618,19 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: The account holds lines other than its EUR cash balance and cannot become a savings account
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     delete:
       tags: [Account]
       operationId: deleteAccount
       summary: Delete an account
       description: >-
         Deletes an account that holds nothing but its EUR cash balance, which is deleted with it.
-        An account that still holds any other holding, a savings booklet included, is refused:
-        sell or delete its holdings first.
+        An account that still holds any other holding is refused: sell or delete its holdings first.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -626,7 +669,8 @@ paths:
       description: >-
         Creates, updates or removes the account's single EUR cash holding so its balance matches
         the given amount: a positive amount upserts the cash holding, and a zero amount deletes it
-        if one exists. There is at most one EUR cash holding per account.
+        if one exists, except on a savings account, where zero keeps the holding at zero so the
+        balance stays set. There is at most one EUR cash holding per account.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -1183,11 +1227,11 @@ components:
         detail:
           type: string
           description: A human-readable explanation specific to this occurrence of the problem.
-          example: A holding is priced in a currency other than EUR.
+          example: account 6f1c2d9e-4b7a-4c1e-9a53-0d2f8a1b7e44 already holds instrument 3b9d7c10-52e8-4f6a-8c2b-91a4d0e5f7a2
         instance:
           type: string
           description: A URI reference identifying this specific occurrence of the problem.
-          example: /portfolio
+          example: /holdings
     AccountType:
       type: string
       description: >-
@@ -1221,7 +1265,7 @@ components:
         account and the full list of holdings. Returned by `GET /portfolio`.
       type: object
       required:
-        [totalEur, dayChangeEur, staleCount, unvaluedCount, generatedAt, byAssetClass, byAccount, holdings]
+        [totalEur, dayChangeEur, staleCount, unvaluedCount, nonEurCount, generatedAt, byAssetClass, byAccount, holdings]
       properties:
         totalEur:
           type: number
@@ -1256,6 +1300,12 @@ components:
             The number of holdings with no quote yet. Excluded from totalEur, the allocations and
             the unrealized gain until a quote is fetched.
           example: 0
+        nonEurCount:
+          type: integer
+          description: >-
+            The number of holdings quoted in another currency, excluded from every total, the
+            allocations and the unrealized gain.
+          example: 0
         generatedAt:
           type: string
           format: date-time
@@ -1273,7 +1323,9 @@ components:
             $ref: '#/components/schemas/AllocationResponse'
         holdings:
           type: array
-          description: Every valued holding making up the portfolio.
+          description: >-
+            Every holding making up the portfolio, those with no quote yet and those quoted in another
+            currency included.
           items:
             $ref: '#/components/schemas/HoldingResponse'
     PerformanceResponse:
@@ -1416,6 +1468,7 @@ components:
             - NOT_A_NUMBER
             - ZERO_QUANTITY
             - UNRESOLVED_INSTRUMENT
+            - SAVINGS_ACCOUNT_LINE
         value:
           type: string
           description: The offending token, absent when the failure has none
@@ -1466,12 +1519,20 @@ components:
       description: >-
         The portfolio's breakdown by asset class. Returned by `GET /portfolio/allocation/classes`.
       type: object
-      required: [totalEur, items]
+      required: [totalEur, unvaluedCount, nonEurCount, items]
       properties:
         totalEur:
           type: number
           description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
           example: 184320.75
+        unvaluedCount:
+          type: integer
+          description: The number of holdings with no quote yet, excluded from every value and share.
+          example: 0
+        nonEurCount:
+          type: integer
+          description: The number of holdings quoted in another currency, excluded from every value and share.
+          example: 0
         items:
           type: array
           description: Sorted by valueEur, descending. Empty when no holding is valued.
@@ -1496,18 +1557,26 @@ components:
           example: 0.4991
         lineCount:
           type: integer
-          description: The number of holdings in this slice, those with no quote yet included.
+          description: The number of holdings in this slice, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 6
     AccountAllocationResponse:
       description: >-
         The portfolio's breakdown by account. Returned by `GET /portfolio/allocation/accounts`.
       type: object
-      required: [totalEur, items]
+      required: [totalEur, unvaluedCount, nonEurCount, items]
       properties:
         totalEur:
           type: number
           description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
           example: 184320.75
+        unvaluedCount:
+          type: integer
+          description: The number of holdings with no quote yet, excluded from every value and share.
+          example: 0
+        nonEurCount:
+          type: integer
+          description: The number of holdings quoted in another currency, excluded from every value and share.
+          example: 0
         items:
           type: array
           description: Sorted by valueEur, descending. Empty when no holding is valued.
@@ -1532,7 +1601,7 @@ components:
           example: 0.3326
         lineCount:
           type: integer
-          description: The number of holdings in this account, those with no quote yet included.
+          description: The number of holdings in this account, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 4
     CreateHoldingRequest:
       description: The body of `POST /holdings`, a new position of an instrument in an account.
@@ -1572,6 +1641,15 @@ components:
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
           example: 27.10
+    ChangeHoldingInstrumentRequest:
+      description: The body of `PUT /holdings/{id}/instrument`.
+      type: object
+      required: [instrumentId]
+      properties:
+        instrumentId:
+          type: string
+          format: uuid
+          description: The instrument the holding moves to.
     BuyHoldingRequest:
       description: The body of `POST /holdings/{id}/buy`.
       type: object
@@ -1612,6 +1690,7 @@ components:
         - priceSource
         - stale
         - accountCash
+        - updatedAt
       properties:
         id:
           type: string
@@ -1685,6 +1764,11 @@ components:
           nullable: true
           description: When the latest quote was fetched or entered; absent when there is no quote or the value is computed at par.
           example: 2026-09-25T15:35:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the holding was last written. On a savings account's cash line this is the date of its balance.
+          example: 2026-09-12T08:30:00Z
         priceSource:
           description: Where the instrument's price comes from.
           allOf:
@@ -1693,7 +1777,7 @@ components:
           type: boolean
           description: >-
             True for the account's EUR cash balance, the holding `PUT /accounts/{id}/cash` sets; false
-            for every other holding, a savings booklet such as a Livret A included.
+            for every other holding.
           example: false
         stale:
           type: boolean
@@ -1706,27 +1790,35 @@ components:
         marketValueEur:
           type: number
           nullable: true
-          description: Absent when the instrument has no quote yet. Never 0.
+          description: Absent when the instrument has no quote yet or is quoted in another currency. Never 0.
           example: 337.20
         unrealizedGainEur:
           type: number
           nullable: true
-          description: Market value minus cost basis. Absent when either is unknown.
+          description: >-
+            Market value minus cost basis. Absent when either is unknown or the instrument is quoted in
+            another currency.
           example: 17.40
         unrealizedGainRatio:
           type: number
           nullable: true
-          description: Unrealized gain as a fraction of the cost basis. Absent when the cost basis is zero or unknown.
+          description: >-
+            Unrealized gain as a fraction of the cost basis. Absent when the cost basis is zero or unknown,
+            or the instrument is quoted in another currency.
           example: 0.0653
         dayChangeEur:
           type: number
           nullable: true
-          description: Value change since the previous close. Absent when there is no previous quote to compare with.
+          description: >-
+            Value change since the previous close. Absent when there is no previous quote to compare with
+            or the instrument is quoted in another currency.
           example: 4.20
         dayChangeRatio:
           type: number
           nullable: true
-          description: Day change as a fraction of the previous close's value. Absent when the previous value is zero.
+          description: >-
+            Day change as a fraction of the previous close's value. Absent when the previous value is zero
+            or the instrument is quoted in another currency.
           example: 0.0125
     AccountResponse:
       description: An account (envelope) holdings live in, as returned by the account endpoints.
@@ -1791,7 +1883,7 @@ components:
       properties:
         amount:
           type: number
-          description: The desired EUR cash balance. Must not be negative; zero removes the cash holding.
+          description: The desired EUR cash balance. Must not be negative. Zero removes the cash holding of a securities account and keeps it at zero on a savings account, whose balance is never absent once set.
           example: 1500.00
     InstrumentResponse:
       description: >-
@@ -2024,6 +2116,14 @@ components:
             The live price fetched from this source while resolving, as a sanity check. Null when
             the probe failed or timed out.
           example: 28.10
+        currency:
+          type: string
+          nullable: true
+          description: >-
+            The currency the probe quote is expressed in (ISO 4217). Null when the probe failed or
+            timed out, in which case the candidate stays selectable. Candidates are sorted EUR first,
+            then unknown, then other currencies, in the source's order within each group.
+          example: EUR
     QuoteResponse:
       description: >-
         One recorded price point for an instrument. Returned by `GET /instruments/{id}/quotes` and

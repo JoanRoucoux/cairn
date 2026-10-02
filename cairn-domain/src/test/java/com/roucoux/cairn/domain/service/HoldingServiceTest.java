@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
@@ -19,6 +20,9 @@ import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +33,9 @@ import org.junit.jupiter.api.Test;
 
 class HoldingServiceTest {
 
+    private static final Instant NOW = Instant.parse("2026-09-12T08:30:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+
     @Test
     void createsAHolding() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
@@ -38,6 +45,7 @@ class HoldingServiceTest {
 
         assertThat(created.quantity()).isEqualByComparingTo("4");
         assertThat(created.averageCost()).isEqualByComparingTo("43.64");
+        assertThat(created.updatedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -48,6 +56,39 @@ class HoldingServiceTest {
                 fixture.service().create(fixture.accountId(), fixture.instrumentId(), new BigDecimal("296"), null);
 
         assertThat(created.averageCost()).isNull();
+    }
+
+    @Test
+    void aSavingsAccountRefusesALineThatIsNotTheEuroCashBalance() {
+        Instrument etf = new Instrument(
+                UUID.randomUUID(), "ETF", "FR0011871128", "EUR", AssetClass.ETF, PriceSource.YAHOO, "E.PA", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(etf);
+
+        assertThatThrownBy(() -> fixture.service().create(fixture.accountId(), etf.id(), BigDecimal.ONE, null))
+                .isInstanceOf(SavingsAccountLineException.class)
+                .hasMessage("A savings account holds one balance, not lines");
+        assertThat(fixture.holdings()).isEmpty();
+    }
+
+    @Test
+    void aSavingsAccountRefusesABookletInstrumentToo() {
+        Instrument booklet = new Instrument(
+                UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(booklet);
+
+        assertThatThrownBy(() -> fixture.service().create(fixture.accountId(), booklet.id(), BigDecimal.ONE, null))
+                .isInstanceOf(SavingsAccountLineException.class);
+    }
+
+    @Test
+    void aSavingsAccountAcceptsItsEuroCashBalance() {
+        Instrument euros = new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(euros);
+
+        Holding created = fixture.service().create(fixture.accountId(), euros.id(), new BigDecimal("1500"), null);
+
+        assertThat(created.quantity()).isEqualByComparingTo("1500");
     }
 
     @Test
@@ -93,6 +134,7 @@ class HoldingServiceTest {
         Holding updated = fixture.service().update(fixture.holdingId(), new BigDecimal("31"), new BigDecimal("394.25"));
 
         assertThat(updated.quantity()).isEqualByComparingTo("31");
+        assertThat(updated.updatedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -135,6 +177,7 @@ class HoldingServiceTest {
         Holding bought = fixture.service().buy(fixture.holdingId(), new BigDecimal("40"), new BigDecimal("29.10"));
 
         assertThat(bought.averageCost()).isEqualByComparingTo("24.488889");
+        assertThat(bought.updatedAt()).isEqualTo(NOW);
         assertThat(fixture.holdings())
                 .singleElement()
                 .satisfies(saved -> assertThat(saved.quantity()).isEqualByComparingTo("540"));
@@ -182,6 +225,65 @@ class HoldingServiceTest {
                 .isInstanceOf(CashHoldingTradeException.class);
     }
 
+    @Test
+    void movesAHoldingToAnotherInstrumentKeepingQuantityCostAndId() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+        Instrument xetra = fixture.addInstrument("EUR", AssetClass.ETF);
+
+        Holding moved = fixture.service().changeInstrument(fixture.holdingId(), xetra.id());
+
+        assertThat(moved.id()).isEqualTo(fixture.holdingId());
+        assertThat(moved.instrumentId()).isEqualTo(xetra.id());
+        assertThat(moved.quantity()).isEqualByComparingTo("12");
+        assertThat(moved.averageCost()).isEqualByComparingTo("101.5");
+        assertThat(moved.updatedAt()).isEqualTo(NOW);
+        assertThat(fixture.holdings()).containsExactly(moved);
+    }
+
+    @Test
+    void movingToTheSameInstrumentChangesNothing() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+
+        Holding same = fixture.service().changeInstrument(fixture.holdingId(), fixture.instrumentId());
+
+        assertThat(same.updatedAt()).isEqualTo(Instant.EPOCH);
+        assertThat(fixture.holdings()).containsExactly(same);
+    }
+
+    @Test
+    void movingToAnInstrumentTheAccountAlreadyHoldsConflicts() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+        Instrument xetra = fixture.addInstrument("EUR", AssetClass.ETF);
+        fixture.holdings()
+                .add(new Holding(UUID.randomUUID(), fixture.accountId(), xetra.id(), BigDecimal.ONE, null, NOW));
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), xetra.id()))
+                .isInstanceOf(DuplicateHoldingException.class);
+    }
+
+    @Test
+    void movingToAnUnknownInstrumentOrHoldingIsNotFound() {
+        Fixture fixture = Fixture.withHolding("12", "101.5");
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), UUID.randomUUID()))
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> fixture.service().changeInstrument(UUID.randomUUID(), fixture.instrumentId()))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void aSavingsLineCannotMoveToANonCashInstrument() {
+        Instrument euros = new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(euros);
+        fixture.holdings()
+                .add(new Holding(fixture.holdingId(), fixture.accountId(), euros.id(), BigDecimal.TEN, null, NOW));
+        Instrument etf = fixture.addInstrument("EUR", AssetClass.ETF);
+
+        assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), etf.id()))
+                .isInstanceOf(SavingsAccountLineException.class);
+    }
+
     private static final class Fixture {
 
         private final List<Holding> holdings = new ArrayList<>();
@@ -193,10 +295,14 @@ class HoldingServiceTest {
         private final UUID holdingId;
 
         private Fixture(UUID accountId, UUID instrumentId, UUID holdingId) {
+            this(accountId, instrumentId, holdingId, AccountType.PEA);
+        }
+
+        private Fixture(UUID accountId, UUID instrumentId, UUID holdingId, AccountType type) {
             this.accountId = accountId;
             this.instrumentId = instrumentId;
             this.holdingId = holdingId;
-            this.accounts = Map.of(accountId, new Account(accountId, "Livret A", AccountType.SAVINGS, "Bank"));
+            this.accounts = Map.of(accountId, new Account(accountId, "Account", type, "Bank"));
             this.instruments = new HashMap<>();
             this.instruments.put(
                     instrumentId,
@@ -211,14 +317,20 @@ class HoldingServiceTest {
                             null));
         }
 
+        static Fixture withSavingsAccountAndInstrument(Instrument instrument) {
+            Fixture fixture = new Fixture(UUID.randomUUID(), instrument.id(), UUID.randomUUID(), AccountType.SAVINGS);
+            fixture.instruments.put(instrument.id(), instrument);
+            return fixture;
+        }
+
         static Fixture withKnownAccountAndInstrument() {
             return new Fixture(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         }
 
         static Fixture withExistingHolding() {
             Fixture fixture = withKnownAccountAndInstrument();
-            fixture.holdings.add(
-                    new Holding(fixture.holdingId, fixture.accountId, fixture.instrumentId, BigDecimal.ONE, null));
+            fixture.holdings.add(new Holding(
+                    fixture.holdingId, fixture.accountId, fixture.instrumentId, BigDecimal.ONE, null, Instant.EPOCH));
             return fixture;
         }
 
@@ -240,7 +352,8 @@ class HoldingServiceTest {
                     fixture.accountId,
                     fixture.instrumentId,
                     new BigDecimal("20000"),
-                    BigDecimal.ONE));
+                    BigDecimal.ONE,
+                    Instant.EPOCH));
             return fixture;
         }
 
@@ -251,8 +364,16 @@ class HoldingServiceTest {
                     fixture.accountId,
                     fixture.instrumentId,
                     new BigDecimal(quantity),
-                    averageCost == null ? null : new BigDecimal(averageCost)));
+                    averageCost == null ? null : new BigDecimal(averageCost),
+                    Instant.EPOCH));
             return fixture;
+        }
+
+        Instrument addInstrument(String currency, AssetClass assetClass) {
+            Instrument instrument = new Instrument(
+                    UUID.randomUUID(), "Other", null, currency, assetClass, PriceSource.MANUAL, null, null);
+            instruments.put(instrument.id(), instrument);
+            return instrument;
         }
 
         UUID accountId() {
@@ -281,7 +402,8 @@ class HoldingServiceTest {
                     new InMemorySaveHoldingPort(),
                     new InMemoryDeleteHoldingPort(),
                     new InMemoryLoadAccountsPort(),
-                    new InMemoryLoadInstrumentsPort());
+                    new InMemoryLoadInstrumentsPort(),
+                    CLOCK);
         }
 
         private final class InMemoryLoadHoldingsPort implements LoadHoldingsPort {

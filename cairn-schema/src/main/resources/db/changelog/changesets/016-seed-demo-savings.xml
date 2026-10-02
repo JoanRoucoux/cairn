@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="016-seed-demo-savings" author="cairn" context="demo">
+
+        <sql>
+            INSERT INTO instruments (id, name, currency, asset_class, price_source, source_ref, created_at)
+            SELECT '99999999-9999-9999-9999-999999999915', 'Euros', 'EUR', 'CASH', 'MANUAL', 'EUR', now()
+             WHERE NOT EXISTS (
+                SELECT 1 FROM instruments WHERE price_source = 'MANUAL' AND source_ref = 'EUR');
+        </sql>
+
+        <update tableName="accounts">
+            <column name="name" value="Livret A"/>
+            <column name="institution" value="Fortuneo"/>
+            <where>id = '99999999-9999-9999-9999-999999999903'</where>
+        </update>
+        <insert tableName="accounts">
+            <column name="id" value="99999999-9999-9999-9999-999999999904"/>
+            <column name="name" value="LDDS"/>
+            <column name="type" value="SAVINGS"/>
+            <column name="institution" value="Fortuneo"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+
+        <sql>
+            UPDATE holdings
+               SET instrument_id = (SELECT id FROM instruments WHERE price_source = 'MANUAL' AND source_ref = 'EUR')
+             WHERE id = '99999999-9999-9999-9999-999999999924'
+               AND NOT EXISTS (
+                   SELECT 1 FROM holdings
+                    WHERE account_id = '99999999-9999-9999-9999-999999999903'
+                      AND instrument_id = (SELECT id FROM instruments WHERE price_source = 'MANUAL' AND source_ref = 'EUR'));
+
+            DELETE FROM holdings
+             WHERE id = '99999999-9999-9999-9999-999999999924'
+               AND instrument_id = '99999999-9999-9999-9999-999999999914';
+
+            INSERT INTO holdings (id, account_id, instrument_id, quantity, average_cost, updated_at)
+            SELECT '99999999-9999-9999-9999-999999999925', '99999999-9999-9999-9999-999999999904', id, 500, 1, now()
+              FROM instruments WHERE price_source = 'MANUAL' AND source_ref = 'EUR';
+        </sql>
+
+        <delete tableName="quotes">
+            <where>instrument_id = '99999999-9999-9999-9999-999999999914'</where>
+        </delete>
+        <delete tableName="instruments">
+            <where>id = '99999999-9999-9999-9999-999999999914'</where>
+        </delete>
+
+    </changeSet>
+
+</databaseChangeLog>

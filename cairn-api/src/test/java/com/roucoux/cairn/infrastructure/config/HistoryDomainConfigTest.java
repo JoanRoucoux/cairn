@@ -44,8 +44,8 @@ class HistoryDomainConfigTest {
         LoadHoldingsPort loadHoldings = new LoadHoldingsPort() {
             @Override
             public List<Holding> findAll() {
-                return List.of(
-                        new Holding(UUID.randomUUID(), UUID.randomUUID(), CASH_ID, new BigDecimal("1000"), null));
+                return List.of(new Holding(
+                        UUID.randomUUID(), UUID.randomUUID(), CASH_ID, new BigDecimal("1000"), null, Instant.EPOCH));
             }
 
             @Override
@@ -140,6 +140,7 @@ class HistoryDomainConfigTest {
                 List.<Allocation>of(),
                 List.<Allocation>of(),
                 List.of(),
+                0,
                 0,
                 0);
         Clock clock = Clock.fixed(pastDay.plusDays(4).atStartOfDay(paris).toInstant(), paris);

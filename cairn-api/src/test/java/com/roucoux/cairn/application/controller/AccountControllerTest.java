@@ -18,6 +18,7 @@ import com.roucoux.cairn.application.mapper.AccountRestMapper;
 import com.roucoux.cairn.domain.exception.business.AccountNotEmptyException;
 import com.roucoux.cairn.domain.exception.business.NegativeCashBalanceException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.port.in.ManageAccountUseCase;
@@ -104,6 +105,21 @@ class AccountControllerTest {
                         .content("{\"name\":\"Saxo Investor\",\"type\":\"PEA\",\"institution\":\"Saxo Bank\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Saxo Investor"));
+    }
+
+    @Test
+    void turningAnAccountHoldingSecuritiesIntoSavingsIsRefused() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(manageAccount.update(id, "Saxo", AccountType.SAVINGS, "Saxo"))
+                .thenThrow(new SavingsAccountLineException());
+
+        mockMvc.perform(put("/accounts/{id}", id)
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"Saxo\",\"type\":\"SAVINGS\",\"institution\":\"Saxo\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
     }
 
     @Test

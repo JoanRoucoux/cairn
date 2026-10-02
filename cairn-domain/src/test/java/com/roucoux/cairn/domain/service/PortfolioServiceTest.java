@@ -1,10 +1,8 @@
 package com.roucoux.cairn.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-import com.roucoux.cairn.domain.exception.business.NonEurHoldingException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.Allocation;
@@ -20,6 +18,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -97,15 +96,35 @@ class PortfolioServiceTest {
     }
 
     @Test
-    void rejectsANonEurHoldingInsteadOfCrashingTheWholePortfolio() {
-        Line eurLine = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
+    void aLineQuotedInAnotherCurrencyIsExcludedFromEveryTotalAndCounted() {
+        Line eurLine =
+                holding(new BigDecimal("10"), new BigDecimal("40.00"), AssetClass.EQUITY, new BigDecimal("50.00"));
         Line usdLine = nonEurLine("US0000000001", "USD");
         PortfolioService service = serviceWith(List.of(eurLine, usdLine));
 
-        assertThatThrownBy(service::get)
-                .isInstanceOf(NonEurHoldingException.class)
-                .hasMessageContaining("US0000000001")
-                .hasMessageContaining("USD");
+        Portfolio portfolio = service.get();
+
+        assertThat(portfolio.total().amount()).isEqualByComparingTo("500");
+        assertThat(portfolio.unrealizedGain().orElseThrow().amount()).isEqualByComparingTo("100");
+        assertThat(portfolio.byAssetClass()).singleElement().satisfies(allocation -> {
+            assertThat(allocation.value().amount()).isEqualByComparingTo("500");
+            assertThat(allocation.share()).isEqualByComparingTo("1");
+        });
+        assertThat(portfolio.nonEurCount()).isEqualTo(1);
+        assertThat(portfolio.unvaluedCount()).isZero();
+        assertThat(portfolio.holdings()).hasSize(2);
+    }
+
+    @Test
+    void countsUnpricedAndNonEurLinesSeparately() {
+        Line eurLine = holding(new BigDecimal("10"), null, AssetClass.EQUITY, new BigDecimal("50.00"));
+        PortfolioService service =
+                serviceWith(List.of(eurLine, unvaluedLine(AssetClass.EQUITY), nonEurLine("US0000000001", "USD")));
+
+        Portfolio portfolio = service.get();
+
+        assertThat(portfolio.unvaluedCount()).isEqualTo(1);
+        assertThat(portfolio.nonEurCount()).isEqualTo(1);
     }
 
     private static Line nonEurLine(String isin, String currency) {
@@ -113,7 +132,8 @@ class PortfolioServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
         Instrument instrument = new Instrument(
                 instrumentId, "Test", isin, currency, AssetClass.EQUITY, PriceSource.YAHOO, "TEST", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId, LocalDate.of(2026, 8, 21), BigDecimal.TEN, currency, PriceSource.YAHOO, CLOCK.instant());
         return new Line(holding, instrument, account, quote);
@@ -134,7 +154,8 @@ class PortfolioServiceTest {
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
         Instrument instrument =
                 new Instrument(instrumentId, "Test", null, "EUR", assetClass, PriceSource.YAHOO, "TEST.PA", null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         return new Line(holding, instrument, account, null);
     }
 
@@ -145,7 +166,8 @@ class PortfolioServiceTest {
         PriceSource source = assetClass == AssetClass.CASH ? PriceSource.MANUAL : PriceSource.YAHOO;
         String ref = source == PriceSource.MANUAL ? null : "TEST.PA";
         Instrument instrument = new Instrument(instrumentId, "Test", null, "EUR", assetClass, source, ref, null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, quantity, averageCost);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, quantity, averageCost, Instant.EPOCH);
         Quote quote = new Quote(instrumentId, asOf, price, "EUR", source, CLOCK.instant());
         return new Line(holding, instrument, account, quote);
     }
@@ -334,7 +356,8 @@ class PortfolioServiceTest {
                 account.id(),
                 instrumentId,
                 new BigDecimal(quantity),
-                averageCost == null ? null : new BigDecimal(averageCost));
+                averageCost == null ? null : new BigDecimal(averageCost),
+                Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal(price), "EUR", source, CLOCK.instant());
         return new Line(holding, instrument, account, quote);
@@ -344,8 +367,8 @@ class PortfolioServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
                 new Instrument(instrumentId, name, null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
-        Holding holding =
-                new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), BigDecimal.ONE);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), BigDecimal.ONE, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId, LocalDate.of(2026, 8, 21), BigDecimal.ONE, "EUR", PriceSource.MANUAL, CLOCK.instant());
         return new Line(holding, instrument, account, quote);
@@ -355,7 +378,8 @@ class PortfolioServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument = new Instrument(
                 instrumentId, name, null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, sourceRef, null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 8, 21),
@@ -371,7 +395,8 @@ class PortfolioServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
                 new Instrument(instrumentId, name, isin, "EUR", AssetClass.FUND, PriceSource.YAHOO, sourceRef, null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 8, 21),
@@ -386,7 +411,8 @@ class PortfolioServiceTest {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =
                 new Instrument(instrumentId, name, isin, "EUR", AssetClass.FUND, PriceSource.SG_SIRIUS, isin, null);
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null);
+        Holding holding = new Holding(
+                UUID.randomUUID(), account.id(), instrumentId, new BigDecimal(quantity), null, Instant.EPOCH);
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 8, 21),

@@ -35,6 +35,7 @@ public class HoldingRestMapper {
         response.setQuantity(holding.quantity());
         holding.costBasis().ifPresent(cost -> response.setAverageCost(scaledAmount(cost)));
         response.setAccountCash(false);
+        response.setUpdatedAt(holding.updatedAt().atOffset(ZoneOffset.UTC));
         return response;
     }
 
@@ -64,6 +65,7 @@ public class HoldingRestMapper {
             }
         });
         response.setPriceSource(PriceSource.valueOf(instrument.priceSource().name()));
+        response.setUpdatedAt(holding.updatedAt().atOffset(ZoneOffset.UTC));
         response.setStale(line.isStale(clock));
         response.setAccountCash(instrument.isEurCash());
         line.marketValue().ifPresent(marketValue -> response.setMarketValueEur(amount(marketValue)));

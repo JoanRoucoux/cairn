@@ -89,7 +89,8 @@ class ValuedHoldingStalenessTest {
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
 
         assertThat(new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty()).isStale(CLOCK))
                 .isFalse();
@@ -101,7 +102,8 @@ class ValuedHoldingStalenessTest {
         String ref = source == PriceSource.MANUAL ? null : "TEST.PA";
         Instrument instrument = new Instrument(instrumentId, "Test", null, "EUR", assetClass, source, ref, null);
         Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
-        Holding holding = new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null);
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
         Quote quote = new Quote(instrumentId, asOf, BigDecimal.TEN, "EUR", source, fetchedAt);
         return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }

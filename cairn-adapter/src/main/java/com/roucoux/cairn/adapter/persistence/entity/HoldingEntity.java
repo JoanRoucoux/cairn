@@ -40,11 +40,11 @@ public class HoldingEntity {
         entity.instrumentId = holding.instrumentId();
         entity.quantity = holding.quantity();
         entity.averageCost = holding.averageCost();
-        entity.updatedAt = Instant.now();
+        entity.updatedAt = holding.updatedAt();
         return entity;
     }
 
     public Holding toDomain() {
-        return new Holding(id, accountId, instrumentId, quantity, averageCost);
+        return new Holding(id, accountId, instrumentId, quantity, averageCost, updatedAt);
     }
 }

@@ -21,6 +21,7 @@ import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -99,7 +100,8 @@ class PortfolioDomainConfigTest {
                 return Map.of();
             }
         };
-        Holding cash = new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new BigDecimal("20000"), null);
+        Holding cash =
+                new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new BigDecimal("20000"), null, Instant.EPOCH);
         LoadHoldingsPort loadHoldings = new LoadHoldingsPort() {
             @Override
             public List<Holding> findAll() {

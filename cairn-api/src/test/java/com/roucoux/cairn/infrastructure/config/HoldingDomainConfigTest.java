@@ -94,7 +94,8 @@ class HoldingDomainConfigTest {
                 return Map.of();
             }
         };
-        Holding cash = new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new BigDecimal("20000"), null);
+        Holding cash =
+                new Holding(UUID.randomUUID(), ACCOUNT.id(), EUROS.id(), new BigDecimal("20000"), null, Instant.EPOCH);
 
         ValueHoldingUseCase useCase =
                 new HoldingDomainConfig().valueHoldingUseCase(loadInstruments, loadAccounts, loadQuotes, CLOCK);
@@ -170,7 +171,7 @@ class HoldingDomainConfigTest {
 
         com.roucoux.cairn.domain.port.in.SetCashBalanceUseCase useCase = new HoldingDomainConfig()
                 .setCashBalanceUseCase(
-                        loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding);
+                        loadAccounts, loadInstruments, saveInstrument, loadHoldings, saveHolding, deleteHolding, CLOCK);
         useCase.setCashBalance(ACCOUNT.id(), new BigDecimal("732.40"));
 
         assertThat(saved).hasSize(1);
