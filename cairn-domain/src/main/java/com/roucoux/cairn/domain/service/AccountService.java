@@ -2,6 +2,7 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.AccountNotEmptyException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.Holding;
@@ -48,6 +49,10 @@ public class AccountService implements ManageAccountUseCase {
     @Override
     public Account update(UUID id, String name, AccountType type, String institution) {
         loadAccounts.findById(id).orElseThrow(() -> new NotFoundException("account", id));
+        if (type == AccountType.SAVINGS
+                && loadHoldings.findByAccount(id).stream().anyMatch(holding -> !isEurCash(holding))) {
+            throw new SavingsAccountLineException();
+        }
         return saveAccount.save(new Account(id, name, type, institution));
     }
 

@@ -54,8 +54,9 @@ paths:
       summary: Get the portfolio's breakdown by asset class
       description: >-
         The same breakdown as `PortfolioResponse.byAssetClass`, served on its own so the ring that
-        shows it loads and fails independently. Holdings with no quote yet are left out of the
-        values and the shares, exactly as in `GET /portfolio`, but still count in the line counts.
+        shows it loads and fails independently. Holdings with no quote yet and lines quoted in another
+        currency than EUR are left out of the values and the shares, exactly as in `GET /portfolio`,
+        but still count in the line counts.
       responses:
         '200':
           description: The breakdown by asset class, largest first
@@ -73,8 +74,9 @@ paths:
       description: >-
         The same breakdown as `PortfolioResponse.byAccount`, served on its own so the ring that
         shows it loads and fails independently, with each account carried whole so a consumer
-        needs no second call to name it. Holdings with no quote yet are left out of the values and
-        the shares, exactly as in `GET /portfolio`, but still count in the line counts.
+        needs no second call to name it. Holdings with no quote yet and lines quoted in another currency
+        than EUR are left out of the values and the shares, exactly as in `GET /portfolio`, but
+        still count in the line counts.
       responses:
         '200':
           description: The breakdown by account, largest first
@@ -612,6 +614,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
           description: Another account already has this name
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: The account holds lines other than its EUR cash balance and cannot become a savings account
           content:
             application/problem+json:
               schema:
@@ -1549,7 +1557,7 @@ components:
           example: 0.4991
         lineCount:
           type: integer
-          description: The number of holdings in this slice, those with no quote yet included.
+          description: The number of holdings in this slice, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 6
     AccountAllocationResponse:
       description: >-
@@ -1593,7 +1601,7 @@ components:
           example: 0.3326
         lineCount:
           type: integer
-          description: The number of holdings in this account, those with no quote yet included.
+          description: The number of holdings in this account, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 4
     CreateHoldingRequest:
       description: The body of `POST /holdings`, a new position of an instrument in an account.

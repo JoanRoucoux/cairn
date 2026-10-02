@@ -111,9 +111,9 @@ public class AccountSteps {
         assertThat(account.getInstitution()).isEqualTo(institution);
     }
 
-    @Then("the update answers 409")
-    public void theUpdateAnswers409() {
-        assertThat(updateResponse.getStatusCode().value()).isEqualTo(409);
+    @Then("the update answers {int}")
+    public void theUpdateAnswers(int status) {
+        assertThat(updateResponse.getStatusCode().value()).isEqualTo(status);
     }
 
     @Then("the deletion answers {int}")

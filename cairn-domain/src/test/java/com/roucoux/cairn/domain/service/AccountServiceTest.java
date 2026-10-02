@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roucoux.cairn.domain.exception.business.AccountNotEmptyException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -46,6 +47,29 @@ class AccountServiceTest {
         Account updated = fixture.service().update(id, "Saxo Investor", AccountType.PEA, "Saxo Bank");
 
         assertThat(updated).isEqualTo(new Account(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"));
+    }
+
+    @Test
+    void refusesToTurnAnAccountHoldingSecuritiesIntoASavingsAccount() {
+        Fixture fixture = new Fixture();
+        UUID id = fixture.account("Saxo", AccountType.CTO);
+        fixture.holding(id, fixture.eurCash(), "100");
+        fixture.holding(id, fixture.livretA(), "200");
+
+        assertThatThrownBy(() -> fixture.service().update(id, "Saxo", AccountType.SAVINGS, "Saxo"))
+                .isInstanceOf(SavingsAccountLineException.class);
+        assertThat(fixture.accounts.get(id).type()).isEqualTo(AccountType.CTO);
+    }
+
+    @Test
+    void turnsAnAccountHoldingOnlyEuroCashIntoASavingsAccount() {
+        Fixture fixture = new Fixture();
+        UUID id = fixture.account("Saxo", AccountType.CTO);
+        fixture.holding(id, fixture.eurCash(), "100");
+
+        Account updated = fixture.service().update(id, "Saxo", AccountType.SAVINGS, "Saxo");
+
+        assertThat(updated.type()).isEqualTo(AccountType.SAVINGS);
     }
 
     @Test

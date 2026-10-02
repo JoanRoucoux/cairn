@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.List;
 import liquibase.Contexts;
 import liquibase.LabelExpression;
 import liquibase.Liquibase;
+import liquibase.changelog.ChangeSet;
 import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
 import liquibase.resource.ClassLoaderResourceAccessor;
@@ -32,9 +34,10 @@ class DemoSavingsSeedOverExistingEurosIT {
                     new ClassLoaderResourceAccessor(),
                     DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection)));
             Contexts demo = new Contexts("demo");
-            int pending =
-                    liquibase.listUnrunChangeSets(demo, new LabelExpression()).size();
-            liquibase.update(pending - 1, "demo");
+            List<ChangeSet> pending = liquibase.listUnrunChangeSets(demo, new LabelExpression());
+            int beforeSavingsSeed =
+                    pending.stream().map(ChangeSet::getId).toList().indexOf("016-seed-demo-savings");
+            liquibase.update(beforeSavingsSeed, "demo");
             JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
             jdbc.update("""
                     insert into instruments (id, name, currency, asset_class, price_source, source_ref, created_at)

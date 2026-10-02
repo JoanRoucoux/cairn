@@ -24,3 +24,9 @@ Feature: Managing accounts
     When I delete it
     Then the deletion answers 422
     And the accounts still list "Fortuneo"
+
+  Scenario: an account holding a line cannot become a savings account
+    Given an account named "Fortuneo" of type CTO
+    And it holds 20000 units of a manual cash instrument "Livret A"
+    When I update it to "Fortuneo" of type SAVINGS at "Fortuneo"
+    Then the update answers 422
