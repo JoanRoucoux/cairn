@@ -144,7 +144,8 @@ class InstrumentControllerTest {
                         "Frankfurt",
                         "FR0000000010",
                         "0P0000000A.F",
-                        new BigDecimal("131.57"))));
+                        new BigDecimal("131.57"),
+                        "USD")));
 
         mockMvc.perform(post("/instruments/resolve")
                         .with(user("joan"))
@@ -156,7 +157,8 @@ class InstrumentControllerTest {
                 .andExpect(jsonPath("$[0].exchange").value("Frankfurt"))
                 .andExpect(jsonPath("$[0].isin").value("FR0000000010"))
                 .andExpect(jsonPath("$[0].symbol").value("0P0000000A.F"))
-                .andExpect(jsonPath("$[0].probePrice").value(131.57));
+                .andExpect(jsonPath("$[0].probePrice").value(131.57))
+                .andExpect(jsonPath("$[0].currency").value("USD"));
     }
 
     @Test

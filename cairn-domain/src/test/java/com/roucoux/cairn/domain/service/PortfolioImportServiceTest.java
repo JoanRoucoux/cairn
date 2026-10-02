@@ -62,6 +62,46 @@ class PortfolioImportServiceTest {
     }
 
     @Test
+    void picksTheFirstEuroListingAndRecordsItsCurrency() {
+        PortfolioImportService service = serviceResolvingTo(
+                aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.DE", "EUR"), aCandidateIn("GGT.AS", "EUR"));
+
+        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+        assertThat(instruments).singleElement().satisfies(instrument -> {
+            assertThat(instrument.sourceRef()).isEqualTo("GGT.DE");
+            assertThat(instrument.currency()).isEqualTo("EUR");
+        });
+    }
+
+    @Test
+    void fallsBackToAnUnknownCurrencyListingWhenNoneIsEuro() {
+        PortfolioImportService service = serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.X", null));
+
+        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+        assertThat(instruments).singleElement().satisfies(instrument -> {
+            assertThat(instrument.sourceRef()).isEqualTo("GGT.X");
+            assertThat(instrument.currency()).isEqualTo("EUR");
+        });
+    }
+
+    @Test
+    void rejectsTheRowWhenEveryListingIsInAnotherCurrency() {
+        PortfolioImportService service =
+                serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.SW", "CHF"));
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20")))))
+                .isInstanceOf(PortfolioImportRejectedException.class)
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .extracting(ImportError::rowIndex, ImportError::code)
+                .containsExactly(tuple(0, ImportErrorCode.UNRESOLVED_INSTRUMENT));
+        assertThat(instruments).isEmpty();
+    }
+
+    @Test
     void updatesTheHoldingInPlaceWhenTheSameFileIsReplayed() {
         PortfolioImportService service = serviceResolvingTo(aCandidate());
         service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
@@ -297,6 +337,20 @@ class PortfolioImportServiceTest {
                 "Paris",
                 null,
                 "GGT",
-                new BigDecimal("22"));
+                new BigDecimal("22"),
+                "EUR");
+    }
+
+    private static InstrumentCandidate aCandidateIn(String ref, String currency) {
+        return new InstrumentCandidate(
+                "Global Growth Tracker",
+                PriceSource.YAHOO,
+                ref,
+                AssetClass.ETF,
+                "Exchange",
+                null,
+                "GGT",
+                new BigDecimal("22"),
+                currency);
     }
 }

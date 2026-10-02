@@ -10,4 +10,5 @@ public record InstrumentCandidate(
         String exchange,
         String isin,
         String symbol,
-        BigDecimal probePrice) {}
+        BigDecimal probePrice,
+        String currency) {}

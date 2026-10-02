@@ -62,6 +62,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
                 quote.exchDisp(),
                 isin,
                 quote.symbol(),
+                null,
                 null);
     }
 

@@ -4,12 +4,13 @@ import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeoutException;
 
 public class InstrumentResolutionService implements ResolveInstrumentUseCase {
 
+    private static final String UNKNOWN_CURRENCY = "XXX";
     private static final Duration DEFAULT_PROBE_TIMEOUT = Duration.ofSeconds(4);
 
     private final List<ResolveInstrumentPort> resolvers;
@@ -54,7 +56,9 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
             for (int i = 0; i < probes.size(); i++) {
                 probed.add(await(probes.get(i), candidates.get(i)));
             }
-            return probed;
+            return probed.stream()
+                    .sorted(Comparator.comparingInt(InstrumentResolutionService::currencyRank))
+                    .toList();
         }
     }
 
@@ -74,7 +78,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
                 UUID.randomUUID(),
                 candidate.name(),
                 null,
-                "EUR",
+                UNKNOWN_CURRENCY,
                 candidate.assetClass(),
                 candidate.source(),
                 candidate.sourceRef(),
@@ -82,8 +86,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
         return fetchers.stream()
                 .filter(fetcher -> fetcher.supports(candidate.source()))
                 .findFirst()
-                .map(fetcher ->
-                        withPrice(candidate, fetcher.fetch(transientInstrument).price()))
+                .map(fetcher -> withQuote(candidate, fetcher.fetch(transientInstrument)))
                 .orElse(candidate);
     }
 
@@ -99,7 +102,14 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
         }
     }
 
-    private static InstrumentCandidate withPrice(InstrumentCandidate candidate, BigDecimal price) {
+    private static int currencyRank(InstrumentCandidate candidate) {
+        if (candidate.currency() == null) {
+            return 1;
+        }
+        return "EUR".equals(candidate.currency()) ? 0 : 2;
+    }
+
+    private static InstrumentCandidate withQuote(InstrumentCandidate candidate, Quote quote) {
         return new InstrumentCandidate(
                 candidate.name(),
                 candidate.source(),
@@ -108,6 +118,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
                 candidate.exchange(),
                 candidate.isin(),
                 candidate.symbol(),
-                price);
+                quote.price(),
+                quote.currency());
     }
 }

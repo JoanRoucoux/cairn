@@ -132,7 +132,12 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 continue;
             }
             try {
-                candidates.put(ref, resolveInstrument.resolve(ref).getFirst());
+                Optional<InstrumentCandidate> chosen = choose(resolveInstrument.resolve(ref));
+                if (chosen.isEmpty()) {
+                    errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
+                } else {
+                    candidates.put(ref, chosen.get());
+                }
             } catch (UnknownInstrumentException unknown) {
                 errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
             }
@@ -142,6 +147,15 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             throw new PortfolioImportRejectedException(errors);
         }
         return candidates;
+    }
+
+    private static Optional<InstrumentCandidate> choose(List<InstrumentCandidate> candidates) {
+        return candidates.stream()
+                .filter(candidate -> EUR.equals(candidate.currency()))
+                .findFirst()
+                .or(() -> candidates.stream()
+                        .filter(candidate -> candidate.currency() == null)
+                        .findFirst());
     }
 
     private static boolean isSavings(ImportRow row, Map<String, Account> accountsByName) {
@@ -162,7 +176,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 name,
                 isin(row.isinOrTicker()),
                 candidate.symbol(),
-                EUR,
+                candidate.currency() == null ? EUR : candidate.currency(),
                 candidate.assetClass(),
                 candidate.source(),
                 candidate.sourceRef(),

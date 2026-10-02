@@ -2045,6 +2045,14 @@ components:
             The live price fetched from this source while resolving, as a sanity check. Null when
             the probe failed or timed out.
           example: 28.10
+        currency:
+          type: string
+          nullable: true
+          description: >-
+            The currency the probe quote is expressed in (ISO 4217). Null when the probe failed or
+            timed out, in which case the candidate stays selectable. Candidates are sorted EUR first,
+            then unknown, then other currencies, in the source's order within each group.
+          example: EUR
     QuoteResponse:
       description: >-
         One recorded price point for an instrument. Returned by `GET /instruments/{id}/quotes` and

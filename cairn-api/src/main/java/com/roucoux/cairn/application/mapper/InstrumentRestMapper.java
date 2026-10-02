@@ -51,6 +51,7 @@ public class InstrumentRestMapper {
         response.setIsin(candidate.isin());
         response.setSymbol(candidate.symbol());
         response.setProbePrice(candidate.probePrice());
+        response.setCurrency(candidate.currency());
         return response;
     }
 }
