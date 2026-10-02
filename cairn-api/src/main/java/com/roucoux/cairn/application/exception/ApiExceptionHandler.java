@@ -3,7 +3,6 @@ package com.roucoux.cairn.application.exception;
 import com.roucoux.cairn.application.csv.ImportFileRejectedException;
 import com.roucoux.cairn.application.csv.LineError;
 import com.roucoux.cairn.domain.exception.business.BusinessException;
-import com.roucoux.cairn.domain.exception.business.InstrumentAlreadyHeldException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
 import java.util.LinkedHashMap;
@@ -48,13 +47,6 @@ class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleConflict(DataIntegrityViolationException exception) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-        problem.setTitle("Already exists");
-        return problem;
-    }
-
-    @ExceptionHandler(InstrumentAlreadyHeldException.class)
-    ProblemDetail handleInstrumentAlreadyHeld(InstrumentAlreadyHeldException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setTitle("Already exists");
         return problem;
     }

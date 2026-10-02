@@ -395,14 +395,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-        '409':
-          description: The account already holds the target instrument
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
         '422':
-          description: A savings account cannot hold a non-cash instrument
+          description: The account already holds the target instrument, or a savings account would hold a non-cash instrument
           content:
             application/problem+json:
               schema:

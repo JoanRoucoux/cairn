@@ -15,7 +15,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
-import com.roucoux.cairn.domain.exception.business.InstrumentAlreadyHeldException;
 import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
@@ -285,16 +284,16 @@ class HoldingControllerTest {
     }
 
     @Test
-    void changingToAHeldInstrumentIs409() throws Exception {
+    void changingToAHeldInstrumentIs422() throws Exception {
         when(manageHolding.changeInstrument(any(), any()))
-                .thenThrow(new InstrumentAlreadyHeldException(ACCOUNT_ID, INSTRUMENT_ID));
+                .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
 
         mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
                         .with(user("joan"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

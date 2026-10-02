@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
-import com.roucoux.cairn.domain.exception.business.InstrumentAlreadyHeldException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
@@ -259,7 +258,6 @@ class HoldingServiceTest {
                 .add(new Holding(UUID.randomUUID(), fixture.accountId(), xetra.id(), BigDecimal.ONE, null, NOW));
 
         assertThatThrownBy(() -> fixture.service().changeInstrument(fixture.holdingId(), xetra.id()))
-                .isInstanceOf(InstrumentAlreadyHeldException.class)
                 .isInstanceOf(DuplicateHoldingException.class);
     }
 

@@ -2,7 +2,6 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
-import com.roucoux.cairn.domain.exception.business.InstrumentAlreadyHeldException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
@@ -113,7 +112,7 @@ public class HoldingService implements ManageHoldingUseCase {
         loadHoldings
                 .findByAccountAndInstrument(existing.accountId(), instrumentId)
                 .ifPresent(held -> {
-                    throw new InstrumentAlreadyHeldException(existing.accountId(), instrumentId);
+                    throw new DuplicateHoldingException(existing.accountId(), instrumentId);
                 });
         return saveHolding.save(new Holding(
                 existing.id(),

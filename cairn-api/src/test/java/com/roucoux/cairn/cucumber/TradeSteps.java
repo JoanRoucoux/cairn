@@ -13,12 +13,14 @@ import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
 import com.roucoux.cairn.generated.model.PriceSource;
+import com.roucoux.cairn.generated.model.RecordQuoteRequest;
 import com.roucoux.cairn.generated.model.SellHoldingRequest;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,7 @@ public class TradeSteps {
     private UUID accountId;
     private UUID otherInstrumentId;
     private HttpStatus moveStatus;
+    private HoldingResponse moved;
     private HttpStatus lastStatus;
 
     @Before
@@ -90,6 +93,14 @@ public class TradeSteps {
         otherInstrumentId = createInstrument("Other ETF");
     }
 
+    @Given("a quote of {bigdecimal} on the other instrument")
+    public void aQuoteOnTheOtherInstrument(BigDecimal price) {
+        RecordQuoteRequest request = new RecordQuoteRequest();
+        request.setAsOf(LocalDate.now());
+        request.setPrice(price);
+        restTemplate.postForEntity("/instruments/{id}/quotes", request, Void.class, otherInstrumentId);
+    }
+
     @Given("the account already holds the other instrument")
     public void theAccountAlreadyHoldsTheOtherInstrument() {
         CreateHoldingRequest request = new CreateHoldingRequest();
@@ -102,14 +113,24 @@ public class TradeSteps {
     @When("I move the holding to the other instrument")
     public void iMoveTheHoldingToTheOtherInstrument() {
         ChangeHoldingInstrumentRequest request = new ChangeHoldingInstrumentRequest(otherInstrumentId);
-        ResponseEntity<String> response = restTemplate.exchange(
-                "/holdings/{id}/instrument", HttpMethod.PUT, new HttpEntity<>(request), String.class, holdingId);
+        ResponseEntity<HoldingResponse> response = restTemplate.exchange(
+                "/holdings/{id}/instrument",
+                HttpMethod.PUT,
+                new HttpEntity<>(request),
+                HoldingResponse.class,
+                holdingId);
         moveStatus = (HttpStatus) response.getStatusCode();
+        moved = response.getBody();
     }
 
     @Then("the move answers {int}")
     public void theMoveAnswers(int status) {
         assertThat(moveStatus.value()).isEqualTo(status);
+    }
+
+    @Then("the moved holding is valued at {bigdecimal}")
+    public void theMovedHoldingIsValuedAt(BigDecimal marketValue) {
+        assertThat(moved.getMarketValueEur()).isEqualByComparingTo(marketValue);
     }
 
     @Then("the holding is on the other instrument")
