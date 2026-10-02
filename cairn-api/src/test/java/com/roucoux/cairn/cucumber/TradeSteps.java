@@ -12,6 +12,7 @@ import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
+import com.roucoux.cairn.generated.model.PortfolioResponse;
 import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.RecordQuoteRequest;
 import com.roucoux.cairn.generated.model.SellHoldingRequest;
@@ -45,6 +46,8 @@ public class TradeSteps {
     private UUID otherInstrumentId;
     private HttpStatus moveStatus;
     private HoldingResponse moved;
+    private UUID holdingInstrumentId;
+    private PortfolioResponse portfolio;
     private HttpStatus lastStatus;
 
     @Before
@@ -57,12 +60,12 @@ public class TradeSteps {
 
     @Given("a holding of {int} units at an average cost of {bigdecimal}")
     public void aHoldingOfUnitsAtAnAverageCostOf(int quantity, BigDecimal averageCost) {
-        createHolding(quantity, averageCost);
+        createHolding(quantity, averageCost, "EUR");
     }
 
     @Given("a holding of {int} units without an average cost")
     public void aHoldingOfUnitsWithoutAnAverageCost(int quantity) {
-        createHolding(quantity, null);
+        createHolding(quantity, null, "EUR");
     }
 
     @When("I buy {int} units at {bigdecimal}")
@@ -88,9 +91,30 @@ public class TradeSteps {
         assertThat(holding.getAverageCost()).isEqualByComparingTo(averageCost);
     }
 
+    @Given("a USD holding of {int} units at an average cost of {bigdecimal} quoted at {bigdecimal}")
+    public void aUsdHolding(int quantity, BigDecimal averageCost, BigDecimal price) {
+        createHolding(quantity, averageCost, "USD");
+        RecordQuoteRequest request = new RecordQuoteRequest();
+        request.setAsOf(LocalDate.now());
+        request.setPrice(price);
+        restTemplate.postForEntity("/instruments/{id}/quotes", request, Void.class, holdingInstrumentId);
+    }
+
+    @When("I look at the portfolio")
+    public void iReadThePortfolio() {
+        portfolio =
+                restTemplate.getForEntity("/portfolio", PortfolioResponse.class).getBody();
+    }
+
+    @Then("the portfolio total is {bigdecimal} EUR with a non-EUR count of {int}")
+    public void thePortfolioTotal(BigDecimal total, int nonEurCount) {
+        assertThat(portfolio.getTotalEur()).isEqualByComparingTo(total);
+        assertThat(portfolio.getNonEurCount()).isEqualTo(nonEurCount);
+    }
+
     @Given("another instrument")
     public void anotherInstrument() {
-        otherInstrumentId = createInstrument("Other ETF");
+        otherInstrumentId = createInstrument("Other ETF", "EUR");
     }
 
     @Given("a quote of {bigdecimal} on the other instrument")
@@ -148,7 +172,7 @@ public class TradeSteps {
         assertThat(listHoldings().stream().map(HoldingResponse::getId)).doesNotContain(holdingId);
     }
 
-    private void createHolding(int quantity, BigDecimal averageCost) {
+    private void createHolding(int quantity, BigDecimal averageCost, String currency) {
         CreateAccountRequest accountRequest = new CreateAccountRequest();
         accountRequest.setName("Sample Broker");
         accountRequest.setType(AccountType.CTO);
@@ -158,8 +182,9 @@ public class TradeSteps {
                 .getBody()
                 .getId();
 
-        UUID instrumentId = createInstrument("Sample ETF");
+        UUID instrumentId = createInstrument("Sample ETF", currency);
 
+        holdingInstrumentId = instrumentId;
         CreateHoldingRequest holdingRequest = new CreateHoldingRequest();
         holdingRequest.setAccountId(accountId);
         holdingRequest.setInstrumentId(instrumentId);
@@ -171,10 +196,10 @@ public class TradeSteps {
                 .getId();
     }
 
-    private UUID createInstrument(String name) {
+    private UUID createInstrument(String name, String currency) {
         CreateInstrumentRequest instrumentRequest = new CreateInstrumentRequest();
         instrumentRequest.setName(name);
-        instrumentRequest.setCurrency("EUR");
+        instrumentRequest.setCurrency(currency);
         instrumentRequest.setAssetClass(AssetClass.ETF);
         instrumentRequest.setPriceSource(PriceSource.MANUAL);
         return restTemplate
