@@ -146,11 +146,16 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '422':
-          description: Nothing was written; every refused row is listed
+          description: >-
+            Nothing was written: either every refused row is listed, or a row puts a line other
+            than the EUR cash balance on a savings account (a savings account holds one balance,
+            not lines), in which case the body is a plain problem detail without `errors`
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ImportRejectionResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ImportRejectionResponse'
+                  - $ref: '#/components/schemas/ProblemDetail'
   /portfolio/performance:
     get:
       tags: [Performance]
@@ -264,7 +269,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '422':
-          description: The account already holds this instrument, or the quantity is zero
+          description: >-
+            The account already holds this instrument, the quantity is zero, or the account is a
+            savings account and the instrument is not the EUR cash balance (a savings account holds
+            one balance, not lines)
           content:
             application/problem+json:
               schema:
@@ -562,8 +570,7 @@ paths:
       summary: Delete an account
       description: >-
         Deletes an account that holds nothing but its EUR cash balance, which is deleted with it.
-        An account that still holds any other holding, a savings booklet included, is refused:
-        sell or delete its holdings first.
+        An account that still holds any other holding is refused: sell or delete its holdings first.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -602,7 +609,8 @@ paths:
       description: >-
         Creates, updates or removes the account's single EUR cash holding so its balance matches
         the given amount: a positive amount upserts the cash holding, and a zero amount deletes it
-        if one exists. There is at most one EUR cash holding per account.
+        if one exists, except on a savings account, where zero keeps the holding at zero so the
+        balance stays set. There is at most one EUR cash holding per account.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -1612,6 +1620,7 @@ components:
         - priceSource
         - stale
         - accountCash
+        - updatedAt
       properties:
         id:
           type: string
@@ -1685,6 +1694,11 @@ components:
           nullable: true
           description: When the latest quote was fetched or entered; absent when there is no quote or the value is computed at par.
           example: 2026-09-25T15:35:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the holding was last written. On a savings account's cash line this is the date of its balance.
+          example: 2026-09-12T08:30:00Z
         priceSource:
           description: Where the instrument's price comes from.
           allOf:
@@ -1693,7 +1707,7 @@ components:
           type: boolean
           description: >-
             True for the account's EUR cash balance, the holding `PUT /accounts/{id}/cash` sets; false
-            for every other holding, a savings booklet such as a Livret A included.
+            for every other holding.
           example: false
         stale:
           type: boolean
@@ -1799,7 +1813,7 @@ components:
       properties:
         amount:
           type: number
-          description: The desired EUR cash balance. Must not be negative; zero removes the cash holding.
+          description: The desired EUR cash balance. Must not be negative. Zero removes the cash holding of a securities account and keeps it at zero on a savings account, whose balance is never absent once set.
           example: 1500.00
     InstrumentResponse:
       description: >-

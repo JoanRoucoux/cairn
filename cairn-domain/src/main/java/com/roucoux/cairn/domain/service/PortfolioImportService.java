@@ -1,8 +1,10 @@
 package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
@@ -64,6 +66,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         Map<String, Instrument> instrumentsByRef = new HashMap<>();
         loadInstruments.findAll().forEach(instrument -> index(instrumentsByRef, instrument));
 
+        requireBalancesOnlyOnSavings(rows, accountsByName, instrumentsByRef);
         Map<String, InstrumentCandidate> candidates = validate(rows, instrumentsByRef);
 
         int accountsCreated = 0;
@@ -98,6 +101,18 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         }
 
         return new ImportReport(accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated);
+    }
+
+    private static void requireBalancesOnlyOnSavings(
+            List<ImportRow> rows, Map<String, Account> accountsByName, Map<String, Instrument> known) {
+        for (ImportRow row : rows) {
+            Account existing = accountsByName.get(row.accountName());
+            AccountType type = existing == null ? row.accountType() : existing.type();
+            Instrument instrument = known.get(row.isinOrTicker());
+            if (type == AccountType.SAVINGS && (instrument == null || !instrument.isEurCash())) {
+                throw new SavingsAccountLineException();
+            }
+        }
     }
 
     private Map<String, InstrumentCandidate> validate(List<ImportRow> rows, Map<String, Instrument> known) {

@@ -42,9 +42,18 @@ public class CashBalanceSteps {
 
     @Given("an account {string}")
     public void anAccount(String name) {
+        createAccount(name, AccountType.SAVINGS);
+    }
+
+    @Given("a securities account {string}")
+    public void aSecuritiesAccount(String name) {
+        createAccount(name, AccountType.CTO);
+    }
+
+    private void createAccount(String name, AccountType type) {
         CreateAccountRequest request = new CreateAccountRequest();
         request.setName(name);
-        request.setType(AccountType.SAVINGS);
+        request.setType(type);
         request.setInstitution(name);
         accountId = restTemplate
                 .postForEntity("/accounts", request, AccountResponse.class)

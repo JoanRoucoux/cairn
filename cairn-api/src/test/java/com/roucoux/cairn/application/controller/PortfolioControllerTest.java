@@ -19,6 +19,7 @@ import com.roucoux.cairn.application.mapper.AllocationRestMapper;
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.application.mapper.PortfolioRestMapper;
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountAllocation;
 import com.roucoux.cairn.domain.model.AccountBreakdown;
@@ -297,6 +298,20 @@ class PortfolioControllerTest {
                 .andExpect(jsonPath("$.errors[0].line").value(3))
                 .andExpect(jsonPath("$.errors[0].code").value("UNRESOLVED_INSTRUMENT"))
                 .andExpect(jsonPath("$.errors[0].value").value("GGT.PA"));
+    }
+
+    @Test
+    void refusesALineOnASavingsAccountAsAPlainProblemDetail() throws Exception {
+        when(importPortfolio.run(anyList())).thenThrow(new SavingsAccountLineException());
+
+        mockMvc.perform(post("/portfolio/import")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType("text/csv")
+                        .content(PortfolioCsvReader.HEADER + "\r\n"
+                                + "Livret A;SAVINGS;Fortuneo;Tracker;LU0000000001;100;20.00\r\n"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
     }
 
     @Test

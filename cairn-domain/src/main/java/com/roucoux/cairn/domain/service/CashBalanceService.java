@@ -2,6 +2,8 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.NegativeCashBalanceException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
@@ -46,11 +48,12 @@ public class CashBalanceService implements SetCashBalanceUseCase {
         if (amount == null || amount.signum() < 0) {
             throw new NegativeCashBalanceException();
         }
-        loadAccounts.findById(accountId).orElseThrow(() -> new NotFoundException("account", accountId));
+        Account account =
+                loadAccounts.findById(accountId).orElseThrow(() -> new NotFoundException("account", accountId));
 
         Optional<UUID> eurosId = findEurCash();
 
-        if (amount.signum() == 0) {
+        if (amount.signum() == 0 && account.type() != AccountType.SAVINGS) {
             eurosId.flatMap(id -> loadHoldings.findByAccountAndInstrument(accountId, id))
                     .ifPresent(holding -> deleteHolding.delete(holding.id()));
             return;

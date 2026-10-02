@@ -7,6 +7,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
@@ -94,6 +95,54 @@ class PortfolioImportServiceTest {
         assertThat(accounts).isEmpty();
         assertThat(instruments).isEmpty();
         assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void refusesALineOtherThanTheEuroCashBalanceOnANewSavingsAccountAndWritesNothing() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow row = new ImportRow(
+                "Livret A",
+                AccountType.SAVINGS,
+                "Fortuneo",
+                "Global Growth Tracker",
+                "LU0000000001",
+                BigDecimal.TEN,
+                null);
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(row)))
+                .isInstanceOf(SavingsAccountLineException.class)
+                .hasMessage("A savings account holds one balance, not lines");
+
+        assertThat(accounts).isEmpty();
+        assertThat(instruments).isEmpty();
+        assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void refusesALineOtherThanTheEuroCashBalanceOnAnExistingSavingsAccount() {
+        accounts.add(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Fortuneo"));
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow row = new ImportRow(
+                "Livret A", AccountType.PEA, "Fortuneo", "Global Growth Tracker", "LU0000000001", BigDecimal.TEN, null);
+
+        assertThatThrownBy(() -> service.importPortfolio(List.of(row))).isInstanceOf(SavingsAccountLineException.class);
+        assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void acceptsTheEuroCashBalanceOnASavingsAccount() {
+        instruments.add(new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportRow row =
+                new ImportRow("Livret A", AccountType.SAVINGS, "Fortuneo", "Euros", "EUR", new BigDecimal("500"), null);
+
+        ImportReport report = service.importPortfolio(List.of(row));
+
+        assertThat(report.holdingsCreated()).isEqualTo(1);
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(h -> assertThat(h.quantity()).isEqualByComparingTo("500"));
     }
 
     private PortfolioImportService serviceResolvingTo(InstrumentCandidate... candidates) {

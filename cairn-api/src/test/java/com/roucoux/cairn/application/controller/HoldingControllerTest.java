@@ -16,6 +16,7 @@ import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -194,6 +195,19 @@ class HoldingControllerTest {
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.averageCost").doesNotExist());
+    }
+
+    @Test
+    void reportsALineOnASavingsAccountAs422() throws Exception {
+        when(manageHolding.create(any(), any(), any(), any())).thenThrow(new SavingsAccountLineException());
+
+        mockMvc.perform(post("/holdings")
+                        .with(user("joan"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
     }
 
     @Test

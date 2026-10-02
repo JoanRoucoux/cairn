@@ -19,7 +19,7 @@ Feature: Managing accounts
     And no holding is left for that account
 
   Scenario: an account that still holds a line cannot be deleted
-    Given an account named "Fortuneo" of type SAVINGS
+    Given an account named "Fortuneo" of type CTO
     And it holds 20000 units of a manual cash instrument "Livret A"
     When I delete it
     Then the deletion answers 422

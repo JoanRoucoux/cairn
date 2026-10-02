@@ -4,11 +4,13 @@ import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException
 import com.roucoux.cairn.domain.exception.business.InvalidTradeException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost) {
+public record Holding(
+        UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost, Instant updatedAt) {
 
     private static final int AVERAGE_COST_SCALE = 6;
 
@@ -17,6 +19,11 @@ public record Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal qua
         Objects.requireNonNull(accountId, "accountId");
         Objects.requireNonNull(instrumentId, "instrumentId");
         Objects.requireNonNull(quantity, "quantity");
+        Objects.requireNonNull(updatedAt, "updatedAt");
+    }
+
+    public Holding(UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost) {
+        this(id, accountId, instrumentId, quantity, averageCost, Instant.now());
     }
 
     public Optional<BigDecimal> costBasis() {

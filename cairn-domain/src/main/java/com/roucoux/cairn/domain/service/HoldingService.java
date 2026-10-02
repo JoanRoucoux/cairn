@@ -3,9 +3,13 @@ package com.roucoux.cairn.domain.service;
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
+import com.roucoux.cairn.domain.model.Account;
+import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
+import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
@@ -40,8 +44,14 @@ public class HoldingService implements ManageHoldingUseCase {
     @Override
     public Holding create(UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost) {
         requireNonZero(quantity);
-        loadAccounts.findById(accountId).orElseThrow(() -> new NotFoundException("account", accountId));
-        loadInstruments.findById(instrumentId).orElseThrow(() -> new NotFoundException("instrument", instrumentId));
+        Account account =
+                loadAccounts.findById(accountId).orElseThrow(() -> new NotFoundException("account", accountId));
+        Instrument instrument = loadInstruments
+                .findById(instrumentId)
+                .orElseThrow(() -> new NotFoundException("instrument", instrumentId));
+        if (account.type() == AccountType.SAVINGS && !instrument.isEurCash()) {
+            throw new SavingsAccountLineException();
+        }
         loadHoldings.findByAccountAndInstrument(accountId, instrumentId).ifPresent(existing -> {
             throw new DuplicateHoldingException(accountId, instrumentId);
         });

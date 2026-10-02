@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="016-seed-demo-savings" author="cairn" context="demo">
+
+        <insert tableName="instruments">
+            <column name="id" value="99999999-9999-9999-9999-999999999915"/>
+            <column name="name" value="Euros"/>
+            <column name="currency" value="EUR"/>
+            <column name="asset_class" value="CASH"/>
+            <column name="price_source" value="MANUAL"/>
+            <column name="source_ref" value="EUR"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+
+        <update tableName="accounts">
+            <column name="name" value="Livret A"/>
+            <column name="institution" value="Fortuneo"/>
+            <where>id = '99999999-9999-9999-9999-999999999903'</where>
+        </update>
+        <insert tableName="accounts">
+            <column name="id" value="99999999-9999-9999-9999-999999999904"/>
+            <column name="name" value="LDDS"/>
+            <column name="type" value="SAVINGS"/>
+            <column name="institution" value="Fortuneo"/>
+            <column name="created_at" valueComputed="now()"/>
+        </insert>
+
+        <update tableName="holdings">
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999915"/>
+            <where>id = '99999999-9999-9999-9999-999999999924'</where>
+        </update>
+        <insert tableName="holdings">
+            <column name="id" value="99999999-9999-9999-9999-999999999925"/>
+            <column name="account_id" value="99999999-9999-9999-9999-999999999904"/>
+            <column name="instrument_id" value="99999999-9999-9999-9999-999999999915"/>
+            <column name="quantity" value="500"/>
+            <column name="average_cost" value="1"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+
+        <delete tableName="quotes">
+            <where>instrument_id = '99999999-9999-9999-9999-999999999914'</where>
+        </delete>
+        <delete tableName="instruments">
+            <where>id = '99999999-9999-9999-9999-999999999914'</where>
+        </delete>
+
+    </changeSet>
+
+</databaseChangeLog>

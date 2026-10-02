@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
@@ -48,6 +49,39 @@ class HoldingServiceTest {
                 fixture.service().create(fixture.accountId(), fixture.instrumentId(), new BigDecimal("296"), null);
 
         assertThat(created.averageCost()).isNull();
+    }
+
+    @Test
+    void aSavingsAccountRefusesALineThatIsNotTheEuroCashBalance() {
+        Instrument etf = new Instrument(
+                UUID.randomUUID(), "ETF", "FR0011871128", "EUR", AssetClass.ETF, PriceSource.YAHOO, "E.PA", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(etf);
+
+        assertThatThrownBy(() -> fixture.service().create(fixture.accountId(), etf.id(), BigDecimal.ONE, null))
+                .isInstanceOf(SavingsAccountLineException.class)
+                .hasMessage("A savings account holds one balance, not lines");
+        assertThat(fixture.holdings()).isEmpty();
+    }
+
+    @Test
+    void aSavingsAccountRefusesABookletInstrumentToo() {
+        Instrument booklet = new Instrument(
+                UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(booklet);
+
+        assertThatThrownBy(() -> fixture.service().create(fixture.accountId(), booklet.id(), BigDecimal.ONE, null))
+                .isInstanceOf(SavingsAccountLineException.class);
+    }
+
+    @Test
+    void aSavingsAccountAcceptsItsEuroCashBalance() {
+        Instrument euros = new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
+        Fixture fixture = Fixture.withSavingsAccountAndInstrument(euros);
+
+        Holding created = fixture.service().create(fixture.accountId(), euros.id(), new BigDecimal("1500"), null);
+
+        assertThat(created.quantity()).isEqualByComparingTo("1500");
     }
 
     @Test
@@ -193,10 +227,14 @@ class HoldingServiceTest {
         private final UUID holdingId;
 
         private Fixture(UUID accountId, UUID instrumentId, UUID holdingId) {
+            this(accountId, instrumentId, holdingId, AccountType.PEA);
+        }
+
+        private Fixture(UUID accountId, UUID instrumentId, UUID holdingId, AccountType type) {
             this.accountId = accountId;
             this.instrumentId = instrumentId;
             this.holdingId = holdingId;
-            this.accounts = Map.of(accountId, new Account(accountId, "Livret A", AccountType.SAVINGS, "Bank"));
+            this.accounts = Map.of(accountId, new Account(accountId, "Account", type, "Bank"));
             this.instruments = new HashMap<>();
             this.instruments.put(
                     instrumentId,
@@ -209,6 +247,12 @@ class HoldingServiceTest {
                             PriceSource.MANUAL,
                             null,
                             null));
+        }
+
+        static Fixture withSavingsAccountAndInstrument(Instrument instrument) {
+            Fixture fixture = new Fixture(UUID.randomUUID(), instrument.id(), UUID.randomUUID(), AccountType.SAVINGS);
+            fixture.instruments.put(instrument.id(), instrument);
+            return fixture;
         }
 
         static Fixture withKnownAccountAndInstrument() {

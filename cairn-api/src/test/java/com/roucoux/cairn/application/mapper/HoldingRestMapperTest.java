@@ -57,6 +57,20 @@ class HoldingRestMapperTest {
     }
 
     @Test
+    void exposesWhenTheHoldingWasLastWritten() {
+        Instrument euros = new Instrument(
+                UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
+        Instant writtenAt = Instant.parse("2026-09-12T08:30:00Z");
+        Holding holding = new Holding(
+                UUID.randomUUID(), savings.id(), euros.id(), new BigDecimal("1500"), BigDecimal.ONE, writtenAt);
+
+        assertThat(mapper.toResponse(holding).getUpdatedAt()).isEqualTo(OffsetDateTime.parse("2026-09-12T08:30:00Z"));
+        assertThat(mapper.toResponse(new ValuedHolding(holding, euros, savings, Optional.empty(), Optional.empty()))
+                        .getUpdatedAt())
+                .isEqualTo(OffsetDateTime.parse("2026-09-12T08:30:00Z"));
+    }
+
+    @Test
     void doesNotMarkAHoldingItCouldNotValue() {
         Holding holding =
                 new Holding(UUID.randomUUID(), savings.id(), UUID.randomUUID(), BigDecimal.ONE, BigDecimal.ONE);
