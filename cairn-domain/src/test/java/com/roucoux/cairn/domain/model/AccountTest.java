@@ -10,11 +10,11 @@ class AccountTest {
     @Test
     void exposesItsFields() {
         UUID id = UUID.randomUUID();
-        Account account = new Account(id, "Compte-titres", AccountType.CTO, "Boursorama");
+        Account account = new Account(id, "Compte-titres", AccountType.CTO, "Contoso Securities");
 
         assertThat(account.id()).isEqualTo(id);
         assertThat(account.name()).isEqualTo("Compte-titres");
         assertThat(account.type()).isEqualTo(AccountType.CTO);
-        assertThat(account.institution()).isEqualTo("Boursorama");
+        assertThat(account.institution()).isEqualTo("Contoso Securities");
     }
 }

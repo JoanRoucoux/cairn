@@ -168,11 +168,11 @@ class HistoryServiceTest {
     @Test
     void readsTheSnapshotTableInSnapshotMode() {
         HistoryService service = serviceWithSnapshots(
-                List.of(new Snapshot(LocalDate.of(2026, 8, 21), new BigDecimal("278146.45"), Map.of(), Map.of())));
+                List.of(new Snapshot(LocalDate.of(2026, 8, 21), new BigDecimal("143729.18"), Map.of(), Map.of())));
 
         assertThat(service.history(HistoryMode.SNAPSHOT, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 21)))
                 .singleElement()
-                .satisfies(point -> assertThat(point.totalEur()).isEqualByComparingTo("278146.45"));
+                .satisfies(point -> assertThat(point.totalEur()).isEqualByComparingTo("143729.18"));
     }
 
     private static Holding holding(UUID instrumentId, BigDecimal quantity) {
