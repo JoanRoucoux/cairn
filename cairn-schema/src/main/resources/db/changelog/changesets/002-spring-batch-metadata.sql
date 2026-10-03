@@ -1,3 +1,15 @@
+--liquibase formatted sql
+
+--changeset starter:002-spring-batch-metadata
+--rollback DROP TABLE batch_step_execution_context;
+--rollback DROP TABLE batch_job_execution_context;
+--rollback DROP TABLE batch_step_execution;
+--rollback DROP TABLE batch_job_execution_params;
+--rollback DROP TABLE batch_job_execution;
+--rollback DROP TABLE batch_job_instance;
+--rollback DROP SEQUENCE batch_step_execution_seq;
+--rollback DROP SEQUENCE batch_job_execution_seq;
+--rollback DROP SEQUENCE batch_job_seq;
 -- Copied verbatim from spring-batch-core 5.2.2 (org/springframework/batch/core/schema-postgresql.sql).
 -- The batch application never creates these tables itself: this module owns them like any other.
 -- On a Spring Batch upgrade, re-extract this file and add a NEW changeset for the difference.

@@ -1,3 +1,9 @@
+--liquibase formatted sql
+
+--changeset cairn:013-create-spring-session-tables
+--rollback DROP TABLE spring_session_attributes;
+--rollback DROP TABLE spring_session;
+
 CREATE TABLE SPRING_SESSION (
 	PRIMARY_ID CHAR(36) NOT NULL,
 	SESSION_ID CHAR(36) NOT NULL,
