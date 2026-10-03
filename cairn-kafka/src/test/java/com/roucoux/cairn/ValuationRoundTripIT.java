@@ -72,8 +72,12 @@ class ValuationRoundTripIT {
 
         awaitUntil(() -> valuations.count() == 1, "no valuation point recorded");
         assertThat(valuations.findAll()).hasSize(1);
-        assertThat(output.getOut().lines())
-                .anyMatch(line -> line.contains("use case RecordValuation.record succeeded") && line.contains(traceId));
+        awaitUntil(
+                () -> output.getOut()
+                        .lines()
+                        .anyMatch(line ->
+                                line.contains("use case RecordValuation.record succeeded") && line.contains(traceId)),
+                "no RecordValuation line carrying the publishing trace id");
     }
 
     private void awaitTheCairnValuationContainerToHaveAssignedPartitions() {
