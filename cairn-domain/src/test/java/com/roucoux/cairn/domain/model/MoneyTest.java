@@ -24,9 +24,9 @@ class MoneyTest {
 
     @Test
     void keepsFullPrecisionInsteadOfRoundingOnConstruction() {
-        Money tiny = Money.eur(new BigDecimal("0.000057520000"));
+        Money tiny = Money.eur(new BigDecimal("0.000042170000"));
 
-        assertThat(tiny.amount()).isEqualByComparingTo("0.00005752");
+        assertThat(tiny.amount()).isEqualByComparingTo("0.00004217");
     }
 
     @Test

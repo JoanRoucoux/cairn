@@ -167,7 +167,7 @@ class RefreshQuotesJobIT {
 
     private void givenOneInstrumentFailingUnexpectedly() {
         Instrument working = instruments.save(etf("Amundi MSCI World", "ETF.PA"));
-        Instrument failing = instruments.save(etf("Amundi ESR-E", "0P0001D8GQ.F"));
+        Instrument failing = instruments.save(etf("Woodgrove Equity Fund", "WEF.PA"));
 
         when(yahooQuoteAdapter.supports(PriceSource.YAHOO)).thenReturn(true);
         when(yahooQuoteAdapter.fetch(working)).thenReturn(quoteOf(working, "456.78"));

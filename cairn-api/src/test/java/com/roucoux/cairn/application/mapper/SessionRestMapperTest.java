@@ -29,9 +29,9 @@ class SessionRestMapperTest {
 
     private static PublicKeyCredentialUserEntity owner() {
         return ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
     }
 
@@ -52,7 +52,7 @@ class SessionRestMapperTest {
 
     @Test
     void takesOneInitialFromEachOfTheFirstTwoWords() {
-        assertThat(mapper.initialsOf("Joan Roucoux")).isEqualTo("JR");
+        assertThat(mapper.initialsOf("Alex Martin")).isEqualTo("AM");
     }
 
     @Test
@@ -62,7 +62,7 @@ class SessionRestMapperTest {
 
     @Test
     void takesTwoLettersFromASingleWord() {
-        assertThat(mapper.initialsOf("joan")).isEqualTo("JO");
+        assertThat(mapper.initialsOf("alex")).isEqualTo("AL");
     }
 
     @Test
@@ -77,7 +77,7 @@ class SessionRestMapperTest {
 
     @Test
     void ordersThePasskeysOldestFirstThenByCredentialId() {
-        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("alex", "n/a", List.of());
         Instant earlier = Instant.parse("2026-01-01T00:00:00Z");
         Instant later = Instant.parse("2026-02-01T00:00:00Z");
 
@@ -104,17 +104,17 @@ class SessionRestMapperTest {
     void exposesTheUsernameAndFlagsAPasskeySignIn() {
         Authentication passkey = new PasskeyAuthentication(owner(), List.of(), ICLOUD_KEY.toBase64UrlString());
 
-        SessionResponse response = mapper.toResponse(passkey, "Joan Roucoux");
+        SessionResponse response = mapper.toResponse(passkey, "Alex Martin");
 
-        assertThat(response.getUsername()).isEqualTo("joan");
+        assertThat(response.getUsername()).isEqualTo("alex");
         assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
     }
 
     @Test
     void flagsAPasswordSignIn() {
-        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("alex", "n/a", List.of());
 
-        SessionResponse response = mapper.toResponse(password, "Joan Roucoux");
+        SessionResponse response = mapper.toResponse(password, "Alex Martin");
 
         assertThat(response.getSignInMethod()).isEqualTo(SessionResponse.SignInMethodEnum.PASSWORD);
     }
@@ -131,7 +131,7 @@ class SessionRestMapperTest {
 
     @Test
     void marksNoPasskeyAsCurrentWhenThePasswordOpenedTheSession() {
-        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("alex", "n/a", List.of());
 
         List<PasskeyResponse> response = mapper.toPasskeys(password, List.of(credential(ICLOUD_KEY, null)));
 
@@ -144,14 +144,14 @@ class SessionRestMapperTest {
 
         List<PasskeyResponse> response = mapper.toPasskeys(legacy, List.of(credential(ICLOUD_KEY, null)));
 
-        assertThat(mapper.toResponse(legacy, "Joan Roucoux").getSignInMethod())
+        assertThat(mapper.toResponse(legacy, "Alex Martin").getSignInMethod())
                 .isEqualTo(SessionResponse.SignInMethodEnum.PASSKEY);
         assertThat(response).extracting(PasskeyResponse::getCurrent).containsExactly(false);
     }
 
     @Test
     void namesTheProviderFromTheAttestationAndLeavesItNullWhenUnknown() {
-        Authentication password = UsernamePasswordAuthenticationToken.authenticated("joan", "n/a", List.of());
+        Authentication password = UsernamePasswordAuthenticationToken.authenticated("alex", "n/a", List.of());
 
         List<PasskeyResponse> response = mapper.toPasskeys(
                 password,

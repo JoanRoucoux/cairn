@@ -51,17 +51,17 @@ class HoldingTest {
 
     @Test
     void theFirstPurchaseSetsAMissingAverageCost() {
-        Holding bought = holding("342", null).buy(new BigDecimal("20"), new BigDecimal("51.20"));
+        Holding bought = holding("120", null).buy(new BigDecimal("20"), new BigDecimal("51.20"));
 
-        assertThat(bought.quantity()).isEqualByComparingTo("362");
+        assertThat(bought.quantity()).isEqualByComparingTo("140");
         assertThat(bought.averageCost()).isEqualByComparingTo("51.20");
     }
 
     @Test
     void buyingKeepsTheQuantityScale() {
-        Holding bought = holding("0.00005752", "60000").buy(new BigDecimal("0.00000001"), new BigDecimal("61200"));
+        Holding bought = holding("0.00004217", "60000").buy(new BigDecimal("0.00000001"), new BigDecimal("61200"));
 
-        assertThat(bought.quantity()).isEqualByComparingTo("0.00005753");
+        assertThat(bought.quantity()).isEqualByComparingTo("0.00004218");
     }
 
     @Test

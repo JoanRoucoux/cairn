@@ -24,15 +24,15 @@ class SessionSerializationTest {
     void aPasskeyAuthenticationSurvivesTheTripThroughTheSessionTable() throws Exception {
         WebAuthnAuthentication signedIn = new WebAuthnAuthentication(
                 ImmutablePublicKeyCredentialUserEntity.builder()
-                        .name("joan")
+                        .name("alex")
                         .id(Bytes.random())
-                        .displayName("Joan")
+                        .displayName("Alex")
                         .build(),
                 List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
         WebAuthnAuthentication restored = (WebAuthnAuthentication) roundTrip(signedIn);
 
-        assertThat(restored.getName()).isEqualTo("joan");
+        assertThat(restored.getName()).isEqualTo("alex");
         assertThat(restored.isAuthenticated()).isTrue();
     }
 
@@ -40,9 +40,9 @@ class SessionSerializationTest {
     void thePasskeyThatSignedInSurvivesTheTripThroughTheSessionTable() throws Exception {
         PasskeyAuthentication signedIn = new PasskeyAuthentication(
                 ImmutablePublicKeyCredentialUserEntity.builder()
-                        .name("joan")
+                        .name("alex")
                         .id(Bytes.random())
-                        .displayName("Joan")
+                        .displayName("Alex")
                         .build(),
                 List.of(new SimpleGrantedAuthority("ROLE_USER")),
                 "aXBob25l");
@@ -74,9 +74,9 @@ class SessionSerializationTest {
                         .id("cairn.example")
                         .build())
                 .user(ImmutablePublicKeyCredentialUserEntity.builder()
-                        .name("joan")
+                        .name("alex")
                         .id(Bytes.random())
-                        .displayName("Joan")
+                        .displayName("Alex")
                         .build())
                 .challenge(Bytes.random())
                 .pubKeyCredParams(PublicKeyCredentialParameters.ES256)

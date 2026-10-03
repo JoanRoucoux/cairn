@@ -94,7 +94,7 @@ public class SessionSteps {
             owner = ImmutablePublicKeyCredentialUserEntity.builder()
                     .name(ANONYMOUS_OWNER)
                     .id(Bytes.random())
-                    .displayName("Joan Roucoux")
+                    .displayName("Alex Martin")
                     .build();
             userEntities.save(owner);
         }

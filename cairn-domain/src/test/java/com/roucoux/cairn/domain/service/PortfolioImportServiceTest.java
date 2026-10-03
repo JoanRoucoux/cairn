@@ -148,7 +148,7 @@ class PortfolioImportServiceTest {
         ImportRow savingsLine = new ImportRow(
                 "Livret A",
                 AccountType.SAVINGS,
-                "Fortuneo",
+                "Woodgrove Bank",
                 "Global Growth Tracker",
                 "LU0000000001",
                 BigDecimal.TEN,
@@ -171,10 +171,16 @@ class PortfolioImportServiceTest {
 
     @Test
     void theTypeOfAnExistingAccountWinsOverTheRowsWhenRefusingASavingsLine() {
-        accounts.add(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Fortuneo"));
+        accounts.add(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank"));
         PortfolioImportService service = serviceResolvingTo(aCandidate());
         ImportRow row = new ImportRow(
-                "Livret A", AccountType.PEA, "Fortuneo", "Global Growth Tracker", "LU0000000001", BigDecimal.TEN, null);
+                "Livret A",
+                AccountType.PEA,
+                "Woodgrove Bank",
+                "Global Growth Tracker",
+                "LU0000000001",
+                BigDecimal.TEN,
+                null);
 
         assertThatThrownBy(() -> service.importPortfolio(List.of(row)))
                 .isInstanceOf(PortfolioImportRejectedException.class);
@@ -186,8 +192,8 @@ class PortfolioImportServiceTest {
         instruments.add(new Instrument(
                 UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
         PortfolioImportService service = serviceResolvingTo(aCandidate());
-        ImportRow row =
-                new ImportRow("Livret A", AccountType.SAVINGS, "Fortuneo", "Euros", "EUR", new BigDecimal("500"), null);
+        ImportRow row = new ImportRow(
+                "Livret A", AccountType.SAVINGS, "Woodgrove Bank", "Euros", "EUR", new BigDecimal("500"), null);
 
         ImportReport report = service.importPortfolio(List.of(row));
 
@@ -204,8 +210,8 @@ class PortfolioImportServiceTest {
         PortfolioImportService service = serviceResolving(query -> {
             throw new UnknownInstrumentException(query);
         });
-        ImportRow row =
-                new ImportRow("Livret A", AccountType.SAVINGS, "Fortuneo", "Euros", "EUR", new BigDecimal("500"), null);
+        ImportRow row = new ImportRow(
+                "Livret A", AccountType.SAVINGS, "Woodgrove Bank", "Euros", "EUR", new BigDecimal("500"), null);
 
         ImportReport report = service.importPortfolio(List.of(row));
 

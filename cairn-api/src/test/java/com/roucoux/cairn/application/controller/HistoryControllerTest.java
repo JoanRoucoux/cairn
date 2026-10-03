@@ -59,15 +59,15 @@ class HistoryControllerTest {
     @Test
     void returnsTheSeriesForTheRequestedRange() throws Exception {
         when(getHistory.history(eq(HistoryMode.CONSTANT_MIX), any(), any()))
-                .thenReturn(List.of(new HistoryPoint(LocalDate.of(2026, 8, 21), new BigDecimal("278146.45"))));
+                .thenReturn(List.of(new HistoryPoint(LocalDate.of(2026, 8, 21), new BigDecimal("143729.18"))));
 
         mockMvc.perform(get("/history")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .param("mode", "constant-mix")
                         .param("from", "2026-08-01")
                         .param("to", "2026-08-21"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.points[0].totalEur").value(278146.45))
+                .andExpect(jsonPath("$.points[0].totalEur").value(143729.18))
                 .andExpect(jsonPath("$.reconstructed").value(true));
     }
 
@@ -76,7 +76,7 @@ class HistoryControllerTest {
         when(getHistory.history(eq(HistoryMode.SNAPSHOT), any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/history")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .param("mode", "snapshot")
                         .param("from", "2026-08-01")
                         .param("to", "2026-08-21"))
@@ -86,7 +86,7 @@ class HistoryControllerTest {
     @Test
     void rejectsARangeWhoseEndPrecedesItsStart() throws Exception {
         mockMvc.perform(get("/history")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .param("mode", "constant-mix")
                         .param("from", "2026-08-21")
                         .param("to", "2026-08-01"))
@@ -108,7 +108,7 @@ class HistoryControllerTest {
                 .thenReturn(
                         List.of(new IntradayPoint(Instant.parse("2026-09-24T07:00:00Z"), new BigDecimal("108000.00"))));
 
-        mockMvc.perform(get("/history/intraday").with(user("joan")).param("date", "2026-09-24"))
+        mockMvc.perform(get("/history/intraday").with(user("alex")).param("date", "2026-09-24"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.points[0].totalEur").value(108000.00))
                 .andExpect(jsonPath("$.points[0].at").value("2026-09-24T07:00:00Z"));
@@ -116,6 +116,6 @@ class HistoryControllerTest {
 
     @Test
     void rejectsAMissingDate() throws Exception {
-        mockMvc.perform(get("/history/intraday").with(user("joan"))).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/history/intraday").with(user("alex"))).andExpect(status().isBadRequest());
     }
 }

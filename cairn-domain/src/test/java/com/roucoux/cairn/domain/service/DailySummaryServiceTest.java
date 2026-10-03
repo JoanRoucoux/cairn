@@ -53,7 +53,8 @@ class DailySummaryServiceTest {
     private static final Instrument ETF = new Instrument(
             UUID.randomUUID(), "Sample ETF", "FR0011550185", "EUR", AssetClass.ETF, PriceSource.YAHOO, "ESE.PA", null);
 
-    private static final Account PEA = new Account(UUID.randomUUID(), "Saxo Investor", AccountType.PEA, "Saxo");
+    private static final Account PEA =
+            new Account(UUID.randomUUID(), "Northwind PEA", AccountType.PEA, "Northwind Bank");
     private static final Account LIVRET_A = new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Bank");
     private static final Account LDDS = new Account(UUID.randomUUID(), "LDDS", AccountType.SAVINGS, "Bank");
 
@@ -151,7 +152,7 @@ class DailySummaryServiceTest {
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
-                        new CashOnlyAccount("Saxo Investor", AccountType.PEA, Money.eur(new BigDecimal("300"))));
+                        new CashOnlyAccount("Northwind PEA", AccountType.PEA, Money.eur(new BigDecimal("300"))));
     }
 
     private static ValuedHolding line(Account account, Instrument instrument, String quantity, Optional<Quote> quote) {

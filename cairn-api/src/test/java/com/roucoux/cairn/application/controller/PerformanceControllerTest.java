@@ -46,7 +46,7 @@ class PerformanceControllerTest {
     void returnsThePerformanceForTheRequestedRange() throws Exception {
         when(getPerformance.performance(eq(PerformanceRange.D1))).thenReturn(aPerformance());
 
-        mockMvc.perform(get("/portfolio/performance").with(user("joan")).param("range", "1d"))
+        mockMvc.perform(get("/portfolio/performance").with(user("alex")).param("range", "1d"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.range").value("1d"))
                 .andExpect(jsonPath("$.total.valueEur").value(650.00))
@@ -55,7 +55,7 @@ class PerformanceControllerTest {
 
     @Test
     void rejectsAnUnknownRange() throws Exception {
-        mockMvc.perform(get("/portfolio/performance").with(user("joan")).param("range", "3d"))
+        mockMvc.perform(get("/portfolio/performance").with(user("alex")).param("range", "3d"))
                 .andExpect(status().isBadRequest());
     }
 

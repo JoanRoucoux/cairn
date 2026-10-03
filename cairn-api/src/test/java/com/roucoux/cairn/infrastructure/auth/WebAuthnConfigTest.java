@@ -34,7 +34,7 @@ class WebAuthnConfigTest {
         MockEnvironment environment = new MockEnvironment();
 
         assertThatIllegalStateException()
-                .isThrownBy(() -> config.userDetailsService(passwordEncoder, environment, "joan", "changeme"))
+                .isThrownBy(() -> config.userDetailsService(passwordEncoder, environment, "alex", "changeme"))
                 .withMessageContaining("app.security.password");
     }
 
@@ -44,7 +44,7 @@ class WebAuthnConfigTest {
         environment.setActiveProfiles("staging");
 
         assertThatIllegalStateException()
-                .isThrownBy(() -> config.userDetailsService(passwordEncoder, environment, "joan", "changeme"));
+                .isThrownBy(() -> config.userDetailsService(passwordEncoder, environment, "alex", "changeme"));
     }
 
     @Test
@@ -52,7 +52,7 @@ class WebAuthnConfigTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("local");
 
-        assertThat(config.userDetailsService(passwordEncoder, environment, "joan", "changeme"))
+        assertThat(config.userDetailsService(passwordEncoder, environment, "alex", "changeme"))
                 .isNotNull();
     }
 
@@ -60,7 +60,7 @@ class WebAuthnConfigTest {
     void acceptsAnOverriddenPasswordOutsideTheLocalProfile() {
         MockEnvironment environment = new MockEnvironment();
 
-        assertThat(config.userDetailsService(passwordEncoder, environment, "joan", "a-real-password"))
+        assertThat(config.userDetailsService(passwordEncoder, environment, "alex", "a-real-password"))
                 .isNotNull();
     }
 
@@ -69,14 +69,14 @@ class WebAuthnConfigTest {
         WebAuthnRelyingPartyOperations operations = mock(WebAuthnRelyingPartyOperations.class);
         UserDetailsService users = mock(UserDetailsService.class);
         PublicKeyCredentialUserEntity owner = ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
         when(operations.authenticate(any())).thenReturn(owner);
-        when(users.loadUserByUsername("joan"))
+        when(users.loadUserByUsername("alex"))
                 .thenReturn(
-                        User.withUsername("joan").password("x").roles("USER").build());
+                        User.withUsername("alex").password("x").roles("USER").build());
         WebAuthnAuthenticationFilter filter = WebAuthnConfig.rememberingTheCredential(operations, users, null)
                 .postProcess(new WebAuthnAuthenticationFilter());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login/webauthn");

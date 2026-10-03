@@ -34,7 +34,7 @@ class AccountServiceTest {
     void createsAnAccount() {
         Fixture fixture = new Fixture();
 
-        Account created = fixture.service().create("Saxo Investor", AccountType.PEA, "Saxo");
+        Account created = fixture.service().create("Northwind PEA", AccountType.PEA, "Northwind Bank");
 
         assertThat(fixture.accounts).containsKey(created.id());
     }
@@ -42,21 +42,22 @@ class AccountServiceTest {
     @Test
     void updatesNameTypeAndInstitution() {
         Fixture fixture = new Fixture();
-        UUID id = fixture.account("Saxo", AccountType.CTO);
+        UUID id = fixture.account("Contoso Trading", AccountType.CTO);
 
-        Account updated = fixture.service().update(id, "Saxo Investor", AccountType.PEA, "Saxo Bank");
+        Account updated = fixture.service().update(id, "Northwind PEA", AccountType.PEA, "Northwind Bank");
 
-        assertThat(updated).isEqualTo(new Account(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"));
+        assertThat(updated).isEqualTo(new Account(id, "Northwind PEA", AccountType.PEA, "Northwind Bank"));
     }
 
     @Test
     void refusesToTurnAnAccountHoldingSecuritiesIntoASavingsAccount() {
         Fixture fixture = new Fixture();
-        UUID id = fixture.account("Saxo", AccountType.CTO);
+        UUID id = fixture.account("Contoso Trading", AccountType.CTO);
         fixture.holding(id, fixture.eurCash(), "100");
         fixture.holding(id, fixture.livretA(), "200");
 
-        assertThatThrownBy(() -> fixture.service().update(id, "Saxo", AccountType.SAVINGS, "Saxo"))
+        assertThatThrownBy(() ->
+                        fixture.service().update(id, "Contoso Trading", AccountType.SAVINGS, "Contoso Securities"))
                 .isInstanceOf(SavingsAccountLineException.class);
         assertThat(fixture.accounts.get(id).type()).isEqualTo(AccountType.CTO);
     }
@@ -64,10 +65,10 @@ class AccountServiceTest {
     @Test
     void turnsAnAccountHoldingOnlyEuroCashIntoASavingsAccount() {
         Fixture fixture = new Fixture();
-        UUID id = fixture.account("Saxo", AccountType.CTO);
+        UUID id = fixture.account("Contoso Trading", AccountType.CTO);
         fixture.holding(id, fixture.eurCash(), "100");
 
-        Account updated = fixture.service().update(id, "Saxo", AccountType.SAVINGS, "Saxo");
+        Account updated = fixture.service().update(id, "Contoso Trading", AccountType.SAVINGS, "Contoso Securities");
 
         assertThat(updated.type()).isEqualTo(AccountType.SAVINGS);
     }
@@ -81,7 +82,7 @@ class AccountServiceTest {
     @Test
     void deletesAnAccountThatHoldsOnlyEuroCash() {
         Fixture fixture = new Fixture();
-        UUID id = fixture.account("Fortuneo", AccountType.SAVINGS);
+        UUID id = fixture.account("Livret A", AccountType.SAVINGS);
         fixture.holding(id, fixture.eurCash(), "1500");
 
         fixture.service().delete(id);
@@ -93,7 +94,7 @@ class AccountServiceTest {
     @Test
     void refusesToDeleteAnAccountThatStillHoldsLines() {
         Fixture fixture = new Fixture();
-        UUID id = fixture.account("Fortuneo", AccountType.SAVINGS);
+        UUID id = fixture.account("Livret A", AccountType.SAVINGS);
         fixture.holding(id, fixture.eurCash(), "1500");
         fixture.holding(id, fixture.livretA(), "20000");
 

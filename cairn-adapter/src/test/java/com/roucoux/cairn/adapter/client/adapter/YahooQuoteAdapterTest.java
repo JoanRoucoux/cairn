@@ -68,14 +68,7 @@ class YahooQuoteAdapterTest {
 
     private static Instrument fund(String sourceRef) {
         return new Instrument(
-                UUID.randomUUID(),
-                "Amundi Opportunites",
-                null,
-                "EUR",
-                AssetClass.FUND,
-                PriceSource.YAHOO,
-                sourceRef,
-                null);
+                UUID.randomUUID(), "Comgest Monde", null, "EUR", AssetClass.FUND, PriceSource.YAHOO, sourceRef, null);
     }
 
     @Test

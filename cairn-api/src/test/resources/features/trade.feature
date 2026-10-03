@@ -8,9 +8,9 @@ Feature: Buying and selling a holding
     Then the holding has 400 units at an average cost of 24.49
 
   Scenario: the first purchase sets a missing average cost
-    Given a holding of 342 units without an average cost
+    Given a holding of 120 units without an average cost
     When I buy 20 units at 51.20
-    Then the holding has 362 units at an average cost of 51.2
+    Then the holding has 140 units at an average cost of 51.2
 
   Scenario: selling everything deletes the holding
     Given a holding of 500 units at an average cost of 24.12

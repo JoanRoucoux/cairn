@@ -42,22 +42,22 @@ class PasskeyAuthenticationProviderTest {
     @Test
     void remembersTheCredentialThatSignedTheOwnerIn() {
         PublicKeyCredentialUserEntity owner = ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
         Bytes rawId = Bytes.fromBase64("aXBob25l");
         WebAuthnAuthenticationRequestToken token = requestFor(rawId);
         when(operations.authenticate(token.getWebAuthnRequest())).thenReturn(owner);
-        when(users.loadUserByUsername("joan"))
+        when(users.loadUserByUsername("alex"))
                 .thenReturn(
-                        User.withUsername("joan").password("x").roles("USER").build());
+                        User.withUsername("alex").password("x").roles("USER").build());
 
         var signedIn = provider.authenticate(token);
 
         assertThat(signedIn).isInstanceOf(PasskeyAuthentication.class).isInstanceOf(WebAuthnAuthentication.class);
         assertThat(((PasskeyAuthentication) signedIn).credentialId()).isEqualTo(rawId.toBase64UrlString());
-        assertThat(signedIn.getName()).isEqualTo("joan");
+        assertThat(signedIn.getName()).isEqualTo("alex");
         assertThat(signedIn.isAuthenticated()).isTrue();
         assertThat(signedIn.getAuthorities().stream().map(a -> a.getAuthority()))
                 .contains("ROLE_USER");

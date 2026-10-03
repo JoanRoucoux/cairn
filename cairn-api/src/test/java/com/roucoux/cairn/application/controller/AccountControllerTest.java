@@ -44,10 +44,10 @@ import org.springframework.test.web.servlet.MockMvc;
 class AccountControllerTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
-    private static final Account BOURSORAMA_PEA =
-            new Account(ACCOUNT_ID, "PEA Boursorama", AccountType.PEA, "Boursorama");
+    private static final Account NORTHWIND_PEA =
+            new Account(ACCOUNT_ID, "Northwind PEA", AccountType.PEA, "Northwind Bank");
     private static final String VALID_BODY = """
-            {"name":"PEA Boursorama","type":"PEA","institution":"Boursorama"}
+            {"name":"Northwind PEA","type":"PEA","institution":"Northwind Bank"}
             """;
 
     @Autowired
@@ -70,54 +70,54 @@ class AccountControllerTest {
 
     @Test
     void listsEveryAccount() throws Exception {
-        when(loadAccounts.findAll()).thenReturn(List.of(BOURSORAMA_PEA));
+        when(loadAccounts.findAll()).thenReturn(List.of(NORTHWIND_PEA));
 
-        mockMvc.perform(get("/accounts").with(user("joan")))
+        mockMvc.perform(get("/accounts").with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("PEA Boursorama"))
+                .andExpect(jsonPath("$[0].name").value("Northwind PEA"))
                 .andExpect(jsonPath("$[0].type").value("PEA"));
     }
 
     @Test
     void createsAnAccount() throws Exception {
-        when(manageAccount.create("PEA Boursorama", AccountType.PEA, "Boursorama"))
-                .thenReturn(BOURSORAMA_PEA);
+        when(manageAccount.create("Northwind PEA", AccountType.PEA, "Northwind Bank"))
+                .thenReturn(NORTHWIND_PEA);
 
         mockMvc.perform(post("/accounts")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.institution").value("Boursorama"));
+                .andExpect(jsonPath("$.institution").value("Northwind Bank"));
     }
 
     @Test
     void updatingAnswersTheAccount() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageAccount.update(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"))
-                .thenReturn(new Account(id, "Saxo Investor", AccountType.PEA, "Saxo Bank"));
+        when(manageAccount.update(id, "Northwind PEA", AccountType.PEA, "Northwind Bank"))
+                .thenReturn(new Account(id, "Northwind PEA", AccountType.PEA, "Northwind Bank"));
 
         mockMvc.perform(put("/accounts/{id}", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Saxo Investor\",\"type\":\"PEA\",\"institution\":\"Saxo Bank\"}"))
+                        .content("{\"name\":\"Northwind PEA\",\"type\":\"PEA\",\"institution\":\"Northwind Bank\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Saxo Investor"));
+                .andExpect(jsonPath("$.name").value("Northwind PEA"));
     }
 
     @Test
     void turningAnAccountHoldingSecuritiesIntoSavingsIsRefused() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageAccount.update(id, "Saxo", AccountType.SAVINGS, "Saxo"))
+        when(manageAccount.update(id, "Livret A", AccountType.SAVINGS, "Woodgrove Bank"))
                 .thenThrow(new SavingsAccountLineException());
 
         mockMvc.perform(put("/accounts/{id}", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Saxo\",\"type\":\"SAVINGS\",\"institution\":\"Saxo\"}"))
+                        .content("{\"name\":\"Livret A\",\"type\":\"SAVINGS\",\"institution\":\"Woodgrove Bank\"}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value("A savings account holds one balance, not lines"));
     }
@@ -126,7 +126,7 @@ class AccountControllerTest {
     void deletingAnswersNoContent() throws Exception {
         UUID id = UUID.randomUUID();
 
-        mockMvc.perform(delete("/accounts/{id}", id).with(user("joan")).with(csrf()))
+        mockMvc.perform(delete("/accounts/{id}", id).with(user("alex")).with(csrf()))
                 .andExpect(status().isNoContent());
 
         verify(deletion).run(id);
@@ -137,7 +137,7 @@ class AccountControllerTest {
         UUID id = UUID.randomUUID();
         doThrow(new AccountNotEmptyException(id, 8)).when(deletion).run(id);
 
-        mockMvc.perform(delete("/accounts/{id}", id).with(user("joan")).with(csrf()))
+        mockMvc.perform(delete("/accounts/{id}", id).with(user("alex")).with(csrf()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("8 holding")));
     }
@@ -145,7 +145,7 @@ class AccountControllerTest {
     @Test
     void refusesAWriteWithoutACsrfToken() throws Exception {
         mockMvc.perform(post("/accounts")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isForbidden());
@@ -154,7 +154,7 @@ class AccountControllerTest {
     @Test
     void setsAnAccountsCashBalance() throws Exception {
         mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"amount\":732.40}"))
@@ -170,7 +170,7 @@ class AccountControllerTest {
                 .setCashBalance(any(), any());
 
         mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"amount\":732.40}"))
@@ -184,7 +184,7 @@ class AccountControllerTest {
                 .setCashBalance(ACCOUNT_ID, new BigDecimal("-1"));
 
         mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"amount\":-1}"))

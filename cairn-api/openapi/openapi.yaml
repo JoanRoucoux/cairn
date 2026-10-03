@@ -590,9 +590,9 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateAccountRequest'
             example:
-              name: Saxo Investor
+              name: Northwind PEA
               type: PEA
-              institution: Saxo Bank
+              institution: Northwind Bank
       responses:
         '200':
           description: Account updated
@@ -1112,7 +1112,7 @@ paths:
                   summary: A passkey in iCloud Keychain, currently in use, and a security key
                   value:
                     - credentialId: AbCdEf1234567890
-                      label: iPhone de Joan
+                      label: Alex's iPhone
                       createdAt: 2026-01-15T09:30:00Z
                       lastUsedAt: 2026-09-25T07:45:00Z
                       current: true
@@ -1270,26 +1270,26 @@ components:
         totalEur:
           type: number
           description: The portfolio's total value, across every valued holding.
-          example: 184320.75
+          example: 142680.40
         dayChangeEur:
           type: number
           description: The portfolio's value change since the previous close.
-          example: 1250.30
+          example: 980.60
         dayChangeRatio:
           type: number
           nullable: true
           description: Absent when the previous total is zero.
-          example: 0.0068
+          example: 0.0069
         unrealizedGainEur:
           type: number
           nullable: true
           description: Absent when no holding's cost basis is known enough to sum. Never 0.
-          example: 12500.00
+          example: 9800.00
         unrealizedGainRatio:
           type: number
           nullable: true
           description: Absent when the cost basis total is zero.
-          example: 0.0725
+          example: 0.0737
         staleCount:
           type: integer
           description: The number of holdings whose latest quote is older than expected for their asset class.
@@ -1380,16 +1380,16 @@ components:
         valueEur:
           type: number
           description: The portfolio's total value at the end of the range.
-          example: 184320.75
+          example: 142680.40
         changeEur:
           type: number
           description: The portfolio's value change over the range.
-          example: 5230.10
+          example: 4120.35
         changeRatio:
           type: number
           nullable: true
           description: Absent when the base value is zero.
-          example: 0.0292
+          example: 0.0297
     EnvelopePerformanceResponse:
       description: >-
         One account type's (envelope's) value and change over a performance range, one entry of
@@ -1404,20 +1404,20 @@ components:
         valueEur:
           type: number
           description: The total value of every account of this type, at the end of the range.
-          example: 92000.00
+          example: 71200.00
         share:
           type: number
           description: This envelope's fraction of the portfolio's total value.
-          example: 0.4991
+          example: 0.4990
         changeEur:
           type: number
           description: This envelope's value change over the range.
-          example: 2100.00
+          example: 1850.00
         changeRatio:
           type: number
           nullable: true
           description: Absent when the base value is zero.
-          example: 0.0233
+          example: 0.0267
     ImportRejectionResponse:
       description: >-
         RFC 9457 problem detail for a refused import. Nothing was written: every row that could
@@ -1510,11 +1510,11 @@ components:
         valueEur:
           type: number
           description: The total value of every holding in this slice.
-          example: 92000.00
+          example: 71200.00
         share:
           type: number
           description: This allocation's fraction of the portfolio's total value.
-          example: 0.4991
+          example: 0.4990
     AssetClassAllocationResponse:
       description: >-
         The portfolio's breakdown by asset class. Returned by `GET /portfolio/allocation/classes`.
@@ -1524,7 +1524,7 @@ components:
         totalEur:
           type: number
           description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
-          example: 184320.75
+          example: 142680.40
         unvaluedCount:
           type: integer
           description: The number of holdings with no quote yet, excluded from every value and share.
@@ -1550,11 +1550,11 @@ components:
         valueEur:
           type: number
           description: The total value of every valued holding in this slice.
-          example: 92000.00
+          example: 71200.00
         share:
           type: number
           description: This slice's fraction of the portfolio's total value.
-          example: 0.4991
+          example: 0.4990
         lineCount:
           type: integer
           description: The number of holdings in this slice, those with no quote yet or quoted in another currency than EUR included (they carry no value).
@@ -1568,7 +1568,7 @@ components:
         totalEur:
           type: number
           description: The portfolio's total value, the same figure as `PortfolioResponse.totalEur`.
-          example: 184320.75
+          example: 142680.40
         unvaluedCount:
           type: integer
           description: The number of holdings with no quote yet, excluded from every value and share.
@@ -1594,11 +1594,11 @@ components:
         valueEur:
           type: number
           description: The total value of every valued holding in this account.
-          example: 61247.83
+          example: 48215.60
         share:
           type: number
           description: This account's fraction of the portfolio's total value.
-          example: 0.3326
+          example: 0.3379
         lineCount:
           type: integer
           description: The number of holdings in this account, those with no quote yet or quoted in another currency than EUR included (they carry no value).
@@ -1867,7 +1867,7 @@ components:
         name:
           type: string
           description: Must be unique across every account.
-          example: Saxo Investor
+          example: Northwind PEA
         type:
           description: The kind of envelope this account is.
           allOf:
@@ -1875,7 +1875,7 @@ components:
         institution:
           type: string
           description: The bank or broker the account is held at.
-          example: Saxo Bank
+          example: Northwind Bank
     SetCashBalanceRequest:
       description: The body of `PUT /accounts/{id}/cash`.
       type: object
@@ -2205,7 +2205,7 @@ components:
         totalEur:
           type: number
           description: The portfolio's total value on that day.
-          example: 181500.00
+          example: 139400.00
     IntradayHistoryResponse:
       description: A day's intraday valuation points. Returned by `GET /history/intraday`.
       type: object
@@ -2229,7 +2229,7 @@ components:
         totalEur:
           type: number
           description: The portfolio's total value at that instant.
-          example: 183900.50
+          example: 141950.25
     SessionResponse:
       description: The signed-in owner and how the session was opened. Returned by `GET /session`.
       type: object
@@ -2238,16 +2238,16 @@ components:
         displayName:
           type: string
           description: The owner's display name, as entered when the first passkey was registered.
-          example: Joan Roucoux
+          example: Alex Martin
         initials:
           type: string
           maxLength: 2
           description: Up to two letters derived from displayName, for a compact avatar.
-          example: JR
+          example: AM
         username:
           type: string
           description: The owner's sign-in identifier.
-          example: joan
+          example: alex
         signInMethod:
           type: string
           enum: [PASSKEY, PASSWORD]
@@ -2265,7 +2265,7 @@ components:
         label:
           type: string
           description: The name the owner gave this passkey when registering it.
-          example: iPhone de Joan
+          example: Alex's iPhone
         createdAt:
           type: string
           format: date-time

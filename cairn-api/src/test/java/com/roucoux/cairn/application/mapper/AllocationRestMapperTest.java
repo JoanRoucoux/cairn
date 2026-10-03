@@ -45,7 +45,7 @@ class AllocationRestMapperTest {
 
     @Test
     void mapsAnAccountBreakdownCarryingTheWholeAccount() {
-        Account account = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
+        Account account = new Account(UUID.randomUUID(), "Northwind PEA", AccountType.PEA, "Northwind Bank");
         AccountBreakdown breakdown = new AccountBreakdown(
                 Money.eur(new BigDecimal("1000")),
                 List.of(new AccountAllocation(account, Money.eur(new BigDecimal("600")), new BigDecimal("0.6"), 2)),
@@ -59,9 +59,9 @@ class AllocationRestMapperTest {
 
         assertThat(response.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getAccount().getId()).isEqualTo(account.id());
-            assertThat(item.getAccount().getName()).isEqualTo("Saxo");
+            assertThat(item.getAccount().getName()).isEqualTo("Northwind PEA");
             assertThat(item.getAccount().getType().getValue()).isEqualTo("PEA");
-            assertThat(item.getAccount().getInstitution()).isEqualTo("Saxo Bank");
+            assertThat(item.getAccount().getInstitution()).isEqualTo("Northwind Bank");
             assertThat(item.getValueEur()).isEqualByComparingTo("600");
             assertThat(item.getShare()).isEqualByComparingTo("0.6");
             assertThat(item.getLineCount()).isEqualTo(2);

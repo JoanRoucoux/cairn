@@ -159,7 +159,7 @@ class CashBalanceServiceTest {
 
         private Fixture(UUID accountId, AccountType type) {
             this.accountId = accountId;
-            this.accounts = Map.of(accountId, new Account(accountId, "Fortuneo", type, "Fortuneo"));
+            this.accounts = Map.of(accountId, new Account(accountId, "Livret A", type, "Woodgrove Bank"));
         }
 
         static Fixture withKnownAccount() {

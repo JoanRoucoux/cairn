@@ -21,7 +21,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @TestPropertySource(
         properties = {
             "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml",
-            "app.security.password=a-real-password"
+            "app.security.password=a-real-password",
+            "app.security.username=alex"
         })
 @Testcontainers
 class SignInIT {
@@ -36,7 +37,7 @@ class SignInIT {
     @Test
     void answersNoContentOnTheRightPassword() throws Exception {
         mockMvc.perform(post("/authenticate")
-                        .param("username", "joan")
+                        .param("username", "alex")
                         .param("password", "a-real-password")
                         .with(csrf()))
                 .andExpect(status().isNoContent());
@@ -45,7 +46,7 @@ class SignInIT {
     @Test
     void answersUnauthorizedRatherThanRedirectingOnAWrongPassword() throws Exception {
         mockMvc.perform(post("/authenticate")
-                        .param("username", "joan")
+                        .param("username", "alex")
                         .param("password", "wrong")
                         .with(csrf()))
                 .andExpect(status().isUnauthorized());

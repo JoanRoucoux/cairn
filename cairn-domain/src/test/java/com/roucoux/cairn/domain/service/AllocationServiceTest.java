@@ -28,8 +28,10 @@ import org.junit.jupiter.api.Test;
 
 class AllocationServiceTest {
 
-    private static final Account PEA = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
-    private static final Account SAVINGS = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private static final Account PEA =
+            new Account(UUID.randomUUID(), "Northwind PEA", AccountType.PEA, "Northwind Bank");
+    private static final Account SAVINGS =
+            new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
 
     private final ValuedHolding etfA = line(PEA, AssetClass.ETF, "10", "60.00");
     private final ValuedHolding etfB = line(SAVINGS, AssetClass.ETF, "5", "40.00");
@@ -45,8 +47,8 @@ class AllocationServiceTest {
                     new Allocation("ETF", Money.eur(new BigDecimal("800")), new BigDecimal("0.8")),
                     new Allocation("CASH", Money.eur(new BigDecimal("200")), new BigDecimal("0.2"))),
             List.of(
-                    new Allocation("Saxo", Money.eur(new BigDecimal("600")), new BigDecimal("0.6")),
-                    new Allocation("Fortuneo", Money.eur(new BigDecimal("400")), new BigDecimal("0.4"))),
+                    new Allocation("Northwind PEA", Money.eur(new BigDecimal("600")), new BigDecimal("0.6")),
+                    new Allocation("Livret A", Money.eur(new BigDecimal("400")), new BigDecimal("0.4"))),
             List.of(etfA, etfB, cash, unvalued, usd),
             0,
             1,

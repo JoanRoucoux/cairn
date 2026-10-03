@@ -47,7 +47,7 @@ class DemoSavingsSeedIT {
         assertThat(lines).hasSize(2);
         assertThat(lines)
                 .extracting(line -> line.get("account"), line -> line.get("institution"))
-                .containsExactly(tuple("LDDS", "Fortuneo"), tuple("Livret A", "Fortuneo"));
+                .containsExactly(tuple("LDDS", "Woodgrove Bank"), tuple("Livret A", "Woodgrove Bank"));
         assertThat(lines).allSatisfy(line -> {
             assertThat(line.get("instrument")).isEqualTo("Euros");
             assertThat(line.get("source_ref")).isEqualTo("EUR");
