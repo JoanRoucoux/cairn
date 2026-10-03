@@ -67,6 +67,7 @@ services:
       KUMA_PUSH_SUMMARY: ${KUMA_PUSH_SUMMARY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
     mem_limit: 384m
     depends_on:
       postgres:
@@ -85,6 +86,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=app
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
     networks:
       - default
       - edge
@@ -108,6 +110,7 @@ services:
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
     depends_on:
       postgres:
         condition: service_healthy

@@ -42,6 +42,10 @@ spring:
     keep-alive: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -66,3 +70,23 @@ spring:
     open-in-view: false
   liquibase:
     contexts: '!demo'
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      otlp:
+        enabled: false
+
+logging:
+  expect-correlation-id: true
+  structured:
+    json:
+      stacktrace:
+        root: first
+        max-length: 8192

@@ -359,4 +359,36 @@ class PortfolioImportServiceTest {
                 new BigDecimal("22"),
                 currency);
     }
+
+    @Test
+    void logsAnAcceptedImportWithItsCounts() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+
+        try (CapturedLog log = CapturedLog.of(PortfolioImportService.class)) {
+            service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+            assertThat(log.records()).singleElement().satisfies(record -> {
+                assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.INFO);
+                assertThat(record.getMessage())
+                        .startsWith("portfolio import accepted: ")
+                        .doesNotContain("100")
+                        .doesNotContain("20");
+            });
+        }
+    }
+
+    @Test
+    void logsARejectedImportWithItsErrorCount() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+
+        try (CapturedLog log = CapturedLog.of(PortfolioImportService.class)) {
+            assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(BigDecimal.ZERO, new BigDecimal("20")))))
+                    .isInstanceOf(PortfolioImportRejectedException.class);
+
+            assertThat(log.records()).singleElement().satisfies(record -> {
+                assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.INFO);
+                assertThat(record.getMessage()).isEqualTo("portfolio import rejected: 1 error(s) over 1 row(s)");
+            });
+        }
+    }
 }

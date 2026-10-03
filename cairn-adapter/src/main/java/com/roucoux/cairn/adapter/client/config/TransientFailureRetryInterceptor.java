@@ -6,6 +6,8 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import org.springframework.http.client.ClientHttpResponse;
 
 class TransientFailureRetryInterceptor implements ClientHttpRequestInterceptor {
 
+    private static final Logger log = LoggerFactory.getLogger(TransientFailureRetryInterceptor.class);
     private static final List<Duration> DEFAULT_BACKOFF = List.of(Duration.ofSeconds(1), Duration.ofSeconds(3));
     private static final Duration MAX_RETRY_AFTER = Duration.ofSeconds(5);
 
@@ -45,6 +48,7 @@ class TransientFailureRetryInterceptor implements ClientHttpRequestInterceptor {
                 if (lastAttempt) {
                     throw failure;
                 }
+                logRetry(request, failure.getClass().getSimpleName(), attempt, backoff.get(attempt));
                 sleeper.sleep(backoff.get(attempt));
                 continue;
             }
@@ -52,9 +56,21 @@ class TransientFailureRetryInterceptor implements ClientHttpRequestInterceptor {
             if (wait.isEmpty()) {
                 return response;
             }
+            logRetry(request, String.valueOf(response.getStatusCode().value()), attempt, wait.get());
             response.close();
             sleeper.sleep(wait.get());
         }
+    }
+
+    private void logRetry(HttpRequest request, String cause, int attempt, Duration wait) {
+        log.warn(
+                "{} {} answered {}, retry {}/{} in {} ms",
+                request.getMethod(),
+                request.getURI().getHost(),
+                cause,
+                attempt + 1,
+                backoff.size(),
+                wait.toMillis());
     }
 
     private Optional<Duration> waitBeforeRetry(ClientHttpResponse response, int attempt) throws IOException {

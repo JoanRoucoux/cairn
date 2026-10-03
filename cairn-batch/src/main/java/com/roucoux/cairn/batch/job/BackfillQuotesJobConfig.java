@@ -30,9 +30,10 @@ class BackfillQuotesJobConfig {
     private static final LocalDate DEFAULT_FROM = LocalDate.of(2015, 1, 1);
 
     @Bean
-    Job backfillQuotesJob(JobRepository jobRepository, Step backfillQuotesStep) {
+    Job backfillQuotesJob(JobRepository jobRepository, Step backfillQuotesStep, JobOutcomeListener jobOutcomeListener) {
         return new JobBuilder("backfillQuotesJob", jobRepository)
                 .start(backfillQuotesStep)
+                .listener(jobOutcomeListener)
                 .build();
     }
 

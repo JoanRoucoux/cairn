@@ -8,6 +8,7 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
+import java.lang.System.Logger.Level;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class InstrumentResolutionService implements ResolveInstrumentUseCase {
+
+    private static final System.Logger LOG = System.getLogger(InstrumentResolutionService.class.getName());
 
     private static final String UNKNOWN_CURRENCY = "XXX";
     private static final Duration DEFAULT_PROBE_TIMEOUT = Duration.ofSeconds(4);
@@ -66,6 +69,9 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
         try {
             return resolver.resolve(query);
         } catch (MarketDataUnavailableException unavailable) {
+            LOG.log(
+                    Level.WARNING,
+                    "instrument resolution source unavailable for " + query + ": " + unavailable.getMessage());
             return List.of();
         }
     }
@@ -95,11 +101,23 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
             return probe.get(probeTimeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            LOG.log(Level.WARNING, "price probe interrupted for " + describe(fallback));
             return fallback;
         } catch (ExecutionException | TimeoutException failed) {
             probe.cancel(true);
+            LOG.log(Level.WARNING, "price probe failed for " + describe(fallback) + ": " + reasonOf(failed));
             return fallback;
         }
+    }
+
+    private static String describe(InstrumentCandidate candidate) {
+        return candidate.sourceRef() + " (" + candidate.source() + ")";
+    }
+
+    private static String reasonOf(Exception failed) {
+        Throwable cause =
+                failed instanceof ExecutionException && failed.getCause() != null ? failed.getCause() : failed;
+        return cause.getClass().getSimpleName() + (cause.getMessage() == null ? "" : ": " + cause.getMessage());
     }
 
     private static int currencyRank(InstrumentCandidate candidate) {

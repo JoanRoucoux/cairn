@@ -13,11 +13,14 @@ import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import java.lang.System.Logger.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 public class QuoteRefreshService implements RefreshQuotesUseCase {
+
+    private static final System.Logger LOG = System.getLogger(QuoteRefreshService.class.getName());
 
     private final List<FetchQuotePort> fetchers;
     private final LoadInstrumentsPort loadInstruments;
@@ -64,11 +67,20 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                     continue;
                 }
                 String reason = reasonOf(failure);
+                LOG.log(
+                        Level.WARNING,
+                        "quote refresh failed for " + instrument.name() + " (" + instrument.priceSource() + "): "
+                                + reason,
+                        failure);
                 recordFailure.record(instrument.id(), instrument.priceSource(), reason);
                 failures.add(new RefreshReport.Failure(
                         instrument.id(), instrument.name(), instrument.priceSource(), reason));
             }
         }
+        LOG.log(
+                Level.INFO,
+                "quote refresh %s of %s: %d refreshed, %d skipped, %d failed"
+                        .formatted(trigger, assetClasses, refreshed, skipped, failures.size()));
         announce.refreshCompleted(assetClasses, refreshed, failures.size(), trigger);
         return new RefreshReport(refreshed, skipped, List.copyOf(failures));
     }
