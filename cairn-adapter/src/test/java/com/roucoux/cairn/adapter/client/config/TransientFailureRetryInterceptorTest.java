@@ -235,6 +235,7 @@ class TransientFailureRetryInterceptorTest {
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         logger.addAppender(appender);
+        logger.setAdditive(false);
         stubSequence(aResponse().withStatus(503), ok("price"));
         try {
             assertThat(call()).isEqualTo("price");
@@ -246,6 +247,7 @@ class TransientFailureRetryInterceptorTest {
             });
         } finally {
             logger.detachAppender(appender);
+            logger.setAdditive(true);
         }
     }
 

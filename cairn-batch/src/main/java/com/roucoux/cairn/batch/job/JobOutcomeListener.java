@@ -1,6 +1,5 @@
 package com.roucoux.cairn.batch.job;
 
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
@@ -32,10 +31,6 @@ class JobOutcomeListener implements JobExecutionListener {
             log.info(line);
             return;
         }
-        List<Throwable> failures = jobExecution.getAllFailureExceptions();
-        if (failures.isEmpty()) {
-            log.error(line);
-        }
-        failures.forEach(failure -> log.error(line, failure));
+        log.error(line);
     }
 }

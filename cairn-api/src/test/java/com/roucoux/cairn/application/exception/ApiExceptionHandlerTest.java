@@ -24,11 +24,13 @@ class ApiExceptionHandlerTest {
     void attach() {
         appender.start();
         logger.addAppender(appender);
+        logger.setAdditive(false);
     }
 
     @AfterEach
     void detach() {
         logger.detachAppender(appender);
+        logger.setAdditive(true);
     }
 
     @Test

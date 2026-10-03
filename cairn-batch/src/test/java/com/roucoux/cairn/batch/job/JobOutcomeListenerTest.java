@@ -6,6 +6,8 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
@@ -15,12 +17,24 @@ import org.springframework.batch.test.MetaDataInstanceFactory;
 
 class JobOutcomeListenerTest {
 
-    @Test
-    void logsTheJobOutcomeWithItsCounts() {
-        Logger logger = (Logger) LoggerFactory.getLogger(JobOutcomeListener.class);
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    private final Logger logger = (Logger) LoggerFactory.getLogger(JobOutcomeListener.class);
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+
+    @BeforeEach
+    void attachAppender() {
         appender.start();
         logger.addAppender(appender);
+        logger.setAdditive(false);
+    }
+
+    @AfterEach
+    void detachAppender() {
+        logger.detachAppender(appender);
+        logger.setAdditive(true);
+    }
+
+    @Test
+    void logsTheJobOutcomeWithItsCounts() {
         JobExecution jobExecution = MetaDataInstanceFactory.createJobExecution("refreshQuotesJob", 1L, 1L);
         StepExecution step = MetaDataInstanceFactory.createStepExecution(jobExecution, "refreshQuotesStep", 1L);
         jobExecution.addStepExecution(step);
@@ -28,58 +42,29 @@ class JobOutcomeListenerTest {
         step.setWriteCount(4);
         step.setProcessSkipCount(1);
         jobExecution.setStatus(BatchStatus.COMPLETED);
-        try {
-            new JobOutcomeListener().afterJob(jobExecution);
 
-            assertThat(appender.list).singleElement().satisfies(event -> {
-                assertThat(event.getLevel()).isEqualTo(Level.INFO);
-                assertThat(event.getFormattedMessage())
-                        .isEqualTo("job refreshQuotesJob COMPLETED: read 5, written 4, skipped 1");
-            });
-        } finally {
-            logger.detachAppender(appender);
-        }
+        new JobOutcomeListener().afterJob(jobExecution);
+
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.INFO);
+            assertThat(event.getFormattedMessage())
+                    .isEqualTo("job refreshQuotesJob COMPLETED: read 5, written 4, skipped 1");
+        });
     }
 
     @Test
-    void logsAFailedJobAtErrorWithItsFailure() {
-        Logger logger = (Logger) LoggerFactory.getLogger(JobOutcomeListener.class);
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        appender.start();
-        logger.addAppender(appender);
+    void logsAFailedJobOnceAtErrorWithoutStack() {
         JobExecution jobExecution = MetaDataInstanceFactory.createJobExecution("snapshotJob", 2L, 2L);
         jobExecution.setStatus(BatchStatus.FAILED);
         jobExecution.addFailureException(new IllegalStateException("boom"));
-        try {
-            new JobOutcomeListener().afterJob(jobExecution);
+        jobExecution.addFailureException(new IllegalArgumentException("bang"));
 
-            assertThat(appender.list).singleElement().satisfies(event -> {
-                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
-                assertThat(event.getFormattedMessage()).startsWith("job snapshotJob FAILED");
-                assertThat(event.getThrowableProxy()).isNotNull();
-            });
-        } finally {
-            logger.detachAppender(appender);
-        }
-    }
+        new JobOutcomeListener().afterJob(jobExecution);
 
-    @Test
-    void logsAFailedJobWithoutExceptionAtError() {
-        Logger logger = (Logger) LoggerFactory.getLogger(JobOutcomeListener.class);
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        appender.start();
-        logger.addAppender(appender);
-        JobExecution jobExecution = MetaDataInstanceFactory.createJobExecution("snapshotJob", 3L, 3L);
-        jobExecution.setStatus(BatchStatus.STOPPED);
-        try {
-            new JobOutcomeListener().afterJob(jobExecution);
-
-            assertThat(appender.list).singleElement().satisfies(event -> {
-                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
-                assertThat(event.getThrowableProxy()).isNull();
-            });
-        } finally {
-            logger.detachAppender(appender);
-        }
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            assertThat(event.getThrowableProxy()).isNull();
+            assertThat(event.getFormattedMessage()).isEqualTo("job snapshotJob FAILED: read 0, written 0, skipped 0");
+        });
     }
 }

@@ -24,6 +24,7 @@ class QuoteFailureSkipListenerTest {
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         logger.addAppender(appender);
+        logger.setAdditive(false);
         Instrument northwind = new Instrument(
                 UUID.randomUUID(), "Northwind", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "NWD.PA", null);
         try {
@@ -37,6 +38,7 @@ class QuoteFailureSkipListenerTest {
             });
         } finally {
             logger.detachAppender(appender);
+            logger.setAdditive(true);
         }
     }
 }

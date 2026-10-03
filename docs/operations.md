@@ -116,7 +116,8 @@ produces one `cairn.usecase` line with `useCase`, `method`, `outcome` (`success`
 `durationMs` and, on failure, the `exception` class. Arguments, results and the exception message are
 never logged there, since a domain message can carry a quantity.
 
-Every line carries `traceId` and `spanId`. The trace id follows an event from `api` to `worker`
+Every line logged while handling a request, a Kafka record, a batch chunk or a scheduled run
+carries `traceId` and `spanId`; startup lines do not. The trace id follows an event from `api` to `worker`
 through the Kafka record headers, so the second command above shows both sides of a quote
 announcement. Batch use case lines carry a trace id too, but one per chunk or item, not one per job
 run. Nothing is exported: `management.tracing.export.otlp.enabled` and
@@ -126,6 +127,8 @@ the `[traceId-spanId]` prefix of the text format.
 
 A stack trace appears once, where the failure leaves the application: a 502 in the API, a skipped
 item or a failed job in a batch, a Kafka publish or consume, a scheduler run. A business refusal
-(422, 404) is a single WARN line without stack. A failed batch job is one ERROR line without stack;
+raised by a use case (422, 404) is a single WARN line without stack. A CSV import rejected for its
+shape (by `PortfolioCsvReader`, before any use case runs) leaves no log line.
+A failed batch job is one ERROR line without stack;
 the stack is Spring Batch's own step failure line just above it. An asynchronous Kafka send failure
 is logged by Spring Kafka's `LoggingProducerListener`, in its own wording.
