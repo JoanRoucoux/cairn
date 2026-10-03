@@ -21,6 +21,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveAccountPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
+import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +32,8 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 public class PortfolioImportService implements ImportPortfolioUseCase {
+
+    private static final System.Logger LOG = System.getLogger(PortfolioImportService.class.getName());
 
     private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
 
@@ -71,7 +74,16 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         Map<String, Instrument> instrumentsByRef = new HashMap<>();
         loadInstruments.findAll().forEach(instrument -> index(instrumentsByRef, instrument));
 
-        Map<String, InstrumentCandidate> candidates = validate(rows, accountsByName, instrumentsByRef);
+        Map<String, InstrumentCandidate> candidates;
+        try {
+            candidates = validate(rows, accountsByName, instrumentsByRef);
+        } catch (PortfolioImportRejectedException rejected) {
+            LOG.log(
+                    Level.INFO,
+                    "portfolio import rejected: %d error(s) over %d row(s)"
+                            .formatted(rejected.errors().size(), rows.size()));
+            throw rejected;
+        }
 
         int accountsCreated = 0;
         int instrumentsCreated = 0;
@@ -108,7 +120,9 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             }
         }
 
-        return new ImportReport(accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated);
+        ImportReport report = new ImportReport(accountsCreated, instrumentsCreated, holdingsCreated, holdingsUpdated);
+        LOG.log(Level.INFO, "portfolio import accepted: " + report);
+        return report;
     }
 
     private Map<String, InstrumentCandidate> validate(

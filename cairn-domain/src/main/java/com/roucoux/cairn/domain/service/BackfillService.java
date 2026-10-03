@@ -6,10 +6,13 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.BackfillQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import java.lang.System.Logger.Level;
 import java.time.LocalDate;
 import java.util.List;
 
 public class BackfillService implements BackfillQuotesUseCase {
+
+    private static final System.Logger LOG = System.getLogger(BackfillService.class.getName());
 
     private final List<FetchQuotePort> fetchers;
     private final SaveQuotePort saveQuote;
@@ -31,6 +34,10 @@ public class BackfillService implements BackfillQuotesUseCase {
                         new MarketDataUnavailableException("no adapter supports source " + instrument.priceSource()))
                 .fetchHistory(instrument, from);
         saveQuote.upsertAll(history);
+        LOG.log(
+                Level.INFO,
+                "backfilled %d quote(s) for %s (%s) from %s"
+                        .formatted(history.size(), instrument.name(), instrument.priceSource(), from));
         return history.size();
     }
 }

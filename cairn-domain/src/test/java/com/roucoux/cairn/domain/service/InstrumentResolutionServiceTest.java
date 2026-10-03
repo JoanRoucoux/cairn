@@ -258,4 +258,42 @@ class InstrumentResolutionServiceTest {
             throw new MarketDataUnavailableException("simulated failure for " + query);
         }
     }
+
+    @Test
+    void logsASourceThatIsUnavailable() {
+        InstrumentResolutionService service =
+                new InstrumentResolutionService(List.of(failingResolver(), resolver(SG_CANDIDATE)), List.of());
+
+        try (CapturedLog log = CapturedLog.of(InstrumentResolutionService.class)) {
+            service.resolve("QS0000000010");
+
+            assertThat(log.records()).singleElement().satisfies(record -> {
+                assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.WARNING);
+                assertThat(record.getMessage()).contains("QS0000000010").contains("simulated failure");
+            });
+        }
+    }
+
+    @Test
+    void logsAProbeThatTimesOut() {
+        ResolveInstrumentPort yahoo = resolver(new InstrumentCandidate(
+                "Woodgrove", PriceSource.YAHOO, "WGV.PA", AssetClass.EQUITY, "Paris", null, "WGV.PA", null, null));
+        FetchQuotePort slow = fetcher(PriceSource.YAHOO, instrument -> {
+            try {
+                Thread.sleep(Duration.ofSeconds(2).toMillis());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            return new BigDecimal("30.00");
+        });
+
+        try (CapturedLog log = CapturedLog.of(InstrumentResolutionService.class)) {
+            new InstrumentResolutionService(List.of(yahoo), List.of(slow), Duration.ofMillis(50)).resolve("woodgrove");
+
+            assertThat(log.records()).singleElement().satisfies(record -> {
+                assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.WARNING);
+                assertThat(record.getMessage()).contains("WGV.PA").contains("YAHOO");
+            });
+        }
+    }
 }

@@ -380,4 +380,43 @@ class QuoteRefreshServiceTest {
             return events;
         }
     }
+
+    @Test
+    void logsAFailedInstrumentWithItsStack() {
+        Instrument braces = new Instrument(
+                UUID.randomUUID(), "Contoso {0} 100%", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "CTS.PA", null);
+        QuoteRefreshService service =
+                service(List.of(new FailingPort(PriceSource.YAHOO, braces.id())), List.of(braces));
+
+        try (CapturedLog log = CapturedLog.of(QuoteRefreshService.class)) {
+            service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+            assertThat(log.records())
+                    .filteredOn(record -> record.getLevel() == java.util.logging.Level.WARNING)
+                    .singleElement()
+                    .satisfies(record -> {
+                        assertThat(record.getMessage())
+                                .contains("Contoso {0} 100%")
+                                .contains("YAHOO");
+                        assertThat(record.getThrown()).isInstanceOf(MarketDataUnavailableException.class);
+                    });
+        }
+    }
+
+    @Test
+    void logsTheRefreshSummary() {
+        QuoteRefreshService service =
+                service(List.of(new FailingPort(PriceSource.YAHOO, ETF2.id())), List.of(ETF2, ETF, LIVRET_A));
+
+        try (CapturedLog log = CapturedLog.of(QuoteRefreshService.class)) {
+            service.refreshAll(Set.of(AssetClass.ETF, AssetClass.CASH), RefreshTrigger.MANUAL);
+
+            assertThat(log.records())
+                    .filteredOn(record -> record.getLevel() == java.util.logging.Level.INFO)
+                    .singleElement()
+                    .satisfies(record -> assertThat(record.getMessage())
+                            .contains("MANUAL")
+                            .contains("1 refreshed, 1 skipped, 1 failed"));
+        }
+    }
 }

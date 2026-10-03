@@ -106,4 +106,18 @@ class BackfillServiceTest {
             return upserted;
         }
     }
+
+    @Test
+    void logsTheBackfilledRange() {
+        BackfillService service = new BackfillService(List.of(historyPort(3)), new RecordingSaveQuotePort());
+
+        try (CapturedLog log = CapturedLog.of(BackfillService.class)) {
+            service.backfill(ETF, LocalDate.of(2015, 1, 1));
+
+            assertThat(log.records())
+                    .singleElement()
+                    .satisfies(record -> assertThat(record.getMessage())
+                            .isEqualTo("backfilled 3 quote(s) for Amundi MSCI World (YAHOO) from 2015-01-01"));
+        }
+    }
 }
