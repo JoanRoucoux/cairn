@@ -23,7 +23,6 @@ import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
-import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
@@ -151,11 +150,10 @@ class WorkerDomainConfigTest {
     }
 
     @Test
-    void wiresTheValuationSliceSoRecordingSavesAndPublishes() {
+    void wiresTheValuationSliceSoRecordingSaves() {
         ValueHoldingUseCase valueHolding = config.valueHoldingUseCase(loadInstruments, loadAccounts, loadQuotes, CLOCK);
         GetPortfolioUseCase getPortfolio = config.getPortfolioUseCase(loadHoldings, valueHolding, CLOCK);
         List<IntradayValuation> saved = new ArrayList<>();
-        List<DomainEvent> published = new ArrayList<>();
         SaveValuationPort saveValuation = new SaveValuationPort() {
             @Override
             public void upsert(IntradayValuation valuation) {
@@ -165,14 +163,11 @@ class WorkerDomainConfigTest {
             @Override
             public void deleteBefore(Instant cutoff) {}
         };
-        PublishEventPort publishEvent = published::add;
 
-        RecordValuationUseCase recordValuation =
-                config.recordValuationUseCase(getPortfolio, saveValuation, publishEvent);
+        RecordValuationUseCase recordValuation = config.recordValuationUseCase(getPortfolio, saveValuation);
         recordValuation.record(NOW);
 
         assertThat(saved).hasSize(1);
-        assertThat(published).hasSize(1);
     }
 
     @Test

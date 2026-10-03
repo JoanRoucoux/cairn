@@ -152,7 +152,7 @@ The second command starts PostgreSQL and applies the schema through Docker Compo
 ## Documentation
 
 - [docs/development.md](docs/development.md): local run, Docker Compose, Kafka, contract-first workflow, testing, conventions
-- [docs/operations.md](docs/operations.md): production layout, deployment by hand, push monitors, Telegram summary
+- [docs/operations.md](docs/operations.md): production layout, deployment by hand, push monitors, backfilling quotes, Telegram summary
 - [docs/portfolio-import.md](docs/portfolio-import.md): CSV import and export
 - [AGENTS.md](AGENTS.md): architecture, conventions and gotchas, for contributors and coding agents
 

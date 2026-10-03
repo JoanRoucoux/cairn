@@ -95,9 +95,8 @@ class WorkerDomainConfig {
     }
 
     @Bean
-    RecordValuationUseCase recordValuationUseCase(
-            GetPortfolioUseCase getPortfolio, SaveValuationPort saveValuation, PublishEventPort publishEvent) {
-        return new ValuationService(getPortfolio, saveValuation, publishEvent);
+    RecordValuationUseCase recordValuationUseCase(GetPortfolioUseCase getPortfolio, SaveValuationPort saveValuation) {
+        return new ValuationService(getPortfolio, saveValuation);
     }
 
     @Bean

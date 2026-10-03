@@ -39,13 +39,6 @@ class ValuationConsumerTest {
     }
 
     @Test
-    void itsOwnValuationRecordedEnvelopeIsIgnored() {
-        consumer.onMessage(envelope("valuation.recorded"));
-
-        assertThat(recordedAt).isEmpty();
-    }
-
-    @Test
     void anUnknownTypeIsIgnored() {
         consumer.onMessage(envelope("something.else"));
 
