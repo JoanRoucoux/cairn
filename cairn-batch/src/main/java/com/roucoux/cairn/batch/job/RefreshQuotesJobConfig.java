@@ -35,9 +35,10 @@ class RefreshQuotesJobConfig {
     private static final int CHUNK_SIZE = 20;
 
     @Bean
-    Job refreshQuotesJob(JobRepository jobRepository, Step refreshQuotesStep) {
+    Job refreshQuotesJob(JobRepository jobRepository, Step refreshQuotesStep, JobOutcomeListener jobOutcomeListener) {
         return new JobBuilder("refreshQuotesJob", jobRepository)
                 .start(refreshQuotesStep)
+                .listener(jobOutcomeListener)
                 .build();
     }
 

@@ -4,11 +4,15 @@ import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.stereotype.Component;
 
 @Component
 class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
+
+    private static final Logger log = LoggerFactory.getLogger(QuoteFailureSkipListener.class);
 
     private final RecordQuoteFailurePort recordFailure;
     private final LoadInstrumentsPort loadInstruments;
@@ -20,6 +24,7 @@ class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
 
     @Override
     public void onSkipInProcess(Instrument instrument, Throwable failure) {
+        log.warn("quote refresh skipped {} ({})", instrument.name(), instrument.priceSource(), failure);
         recordFailure.record(instrument.id(), instrument.priceSource(), reasonOf(failure));
     }
 

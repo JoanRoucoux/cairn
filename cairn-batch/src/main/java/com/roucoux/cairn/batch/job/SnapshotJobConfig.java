@@ -16,8 +16,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 class SnapshotJobConfig {
 
     @Bean
-    Job snapshotJob(JobRepository jobRepository, Step snapshotStep) {
-        return new JobBuilder("snapshotJob", jobRepository).start(snapshotStep).build();
+    Job snapshotJob(JobRepository jobRepository, Step snapshotStep, JobOutcomeListener jobOutcomeListener) {
+        return new JobBuilder("snapshotJob", jobRepository)
+                .start(snapshotStep)
+                .listener(jobOutcomeListener)
+                .build();
     }
 
     @Bean
