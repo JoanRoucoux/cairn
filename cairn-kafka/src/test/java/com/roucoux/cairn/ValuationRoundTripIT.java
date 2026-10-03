@@ -3,11 +3,17 @@ package com.roucoux.cairn;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.adapter.persistence.repository.IntradayValuationJpaRepository;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Tracer;
 import java.time.Duration;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -21,6 +27,7 @@ import org.testcontainers.kafka.KafkaContainer;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(properties = "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml")
 @Testcontainers
+@ExtendWith(OutputCaptureExtension.class)
 class ValuationRoundTripIT {
 
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(15);
@@ -42,8 +49,14 @@ class ValuationRoundTripIT {
     @Autowired
     private IntradayValuationJpaRepository valuations;
 
+    @Autowired
+    private Tracer tracer;
+
+    @Autowired
+    private ObservationRegistry observationRegistry;
+
     @Test
-    void aRefreshCompletedEnvelopeIsTurnedIntoARecordedValuation() {
+    void aRefreshCompletedEnvelopeIsTurnedIntoARecordedValuation(CapturedOutput output) {
         awaitTheCairnValuationContainerToHaveAssignedPartitions();
 
         String envelope = """
@@ -51,10 +64,16 @@ class ValuationRoundTripIT {
                 "occurredAt":"2026-09-24T09:31:00Z","source":"cairn-api",\
                 "data":{"assetClasses":[],"refreshed":0,"failed":0,"trigger":"MANUAL"}}\
                 """;
-        kafkaTemplate.send("cairn.portfolio", envelope);
+        String traceId = Observation.createNotStarted("test-publish", observationRegistry)
+                .observe(() -> {
+                    kafkaTemplate.send("cairn.portfolio", envelope);
+                    return tracer.currentSpan().context().traceId();
+                });
 
         awaitUntil(() -> valuations.count() == 1, "no valuation point recorded");
         assertThat(valuations.findAll()).hasSize(1);
+        assertThat(output.getOut().lines())
+                .anyMatch(line -> line.contains("use case RecordValuation.record succeeded") && line.contains(traceId));
     }
 
     private void awaitTheCairnValuationContainerToHaveAssignedPartitions() {

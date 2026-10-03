@@ -9,6 +9,8 @@ spring:
         skip: never
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -55,3 +57,23 @@ app:
     chat-id: ${TELEGRAM_CHAT_ID:}
     connect-timeout: 3s
     read-timeout: 10s
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      otlp:
+        enabled: false
+
+logging:
+  expect-correlation-id: true
+  structured:
+    json:
+      stacktrace:
+        root: first
+        max-length: 8192
