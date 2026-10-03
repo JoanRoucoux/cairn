@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -43,7 +42,7 @@ class KafkaEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void logsAnAsyncSendFailureWithoutThrowing() {
+    void anAsyncSendFailureNeverReachesTheCaller() {
         KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
         when(template.send(anyString(), any(), anyString()))
                 .thenReturn(CompletableFuture.<SendResult<String, String>>failedFuture(
@@ -54,11 +53,7 @@ class KafkaEventPublisherTest {
                         publisher.publish(new RefreshCompleted(Set.of(AssetClass.ETF), 1, 0, RefreshTrigger.MANUAL)))
                 .doesNotThrowAnyException();
 
-        assertThat(appender.list).singleElement().satisfies(event -> {
-            assertThat(event.getLevel()).isEqualTo(Level.WARN);
-            assertThat(event.getFormattedMessage()).contains("RefreshCompleted");
-            assertThat(event.getThrowableProxy()).isNotNull();
-        });
+        assertThat(appender.list).isEmpty();
     }
 
     private static KafkaMessagingProperties properties() {
