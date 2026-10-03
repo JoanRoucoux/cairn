@@ -36,8 +36,6 @@ jobs:
           script: |
             const title = 'Market data contract broke';
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            // A nightly job reopening the same issue every night buries it. One issue stays open
-            // until someone closes it, and each further failure only adds a dated comment.
             const open = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
