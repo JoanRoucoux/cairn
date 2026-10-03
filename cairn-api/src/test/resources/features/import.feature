@@ -30,7 +30,7 @@ Feature: Portfolio import
     When I import:
       """
       account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
-      Livret A;SAVINGS;Fortuneo;Global Growth Tracker;GGT.PA;10;
+      Livret A;SAVINGS;Woodgrove Bank;Global Growth Tracker;GGT.PA;10;
       """
     Then the import is refused
     When I read the portfolio
@@ -40,7 +40,7 @@ Feature: Portfolio import
     When I import:
       """
       account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
-      Livret A;SAVINGS;Fortuneo;Euros;EUR;500;
+      Livret A;SAVINGS;Woodgrove Bank;Euros;EUR;500;
       """
     Then the import reports 1 created and 0 updated holdings
     When I read the portfolio

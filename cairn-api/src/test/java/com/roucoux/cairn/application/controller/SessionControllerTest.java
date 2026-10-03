@@ -42,7 +42,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@TestPropertySource(properties = "app.security.password=test-password")
+@TestPropertySource(properties = {"app.security.password=test-password", "app.security.username=alex"})
 @WebMvcTest(SessionController.class)
 @Import({WebAuthnConfig.class, SessionRestMapper.class})
 class SessionControllerTest {
@@ -93,58 +93,58 @@ class SessionControllerTest {
 
     @Test
     void returnsTheOwnerWithoutTheirPasskeys() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"));
 
-        mockMvc.perform(get("/session").with(user("joan")))
+        mockMvc.perform(get("/session").with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName").value("Joan Roucoux"))
-                .andExpect(jsonPath("$.initials").value("JR"))
-                .andExpect(jsonPath("$.username").value("joan"))
+                .andExpect(jsonPath("$.displayName").value("Alex Martin"))
+                .andExpect(jsonPath("$.initials").value("AM"))
+                .andExpect(jsonPath("$.username").value("alex"))
                 .andExpect(jsonPath("$.signInMethod").value("PASSWORD"))
                 .andExpect(jsonPath("$.passkeys").doesNotExist());
     }
 
     @Test
     void returnsTheOwnerNamedAfterTheirUsernameWhenNoPasskeyWasRegisteredYet() throws Exception {
-        when(userEntities.findByUsername("joan")).thenReturn(null);
+        when(userEntities.findByUsername("alex")).thenReturn(null);
 
-        mockMvc.perform(get("/session").with(user("joan")))
+        mockMvc.perform(get("/session").with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName").value("joan"));
+                .andExpect(jsonPath("$.displayName").value("alex"));
     }
 
     @Test
     void reportsAPasskeySessionOpenedByThePasskeyAuthentication() throws Exception {
         PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
 
         mockMvc.perform(get("/session").with(authentication(new PasskeyAuthentication(principal, List.of(), "bWFj"))))
-                .andExpect(jsonPath("$.username").value("joan"))
+                .andExpect(jsonPath("$.username").value("alex"))
                 .andExpect(jsonPath("$.signInMethod").value("PASSKEY"));
     }
 
     @Test
     void listsThePasskeysOfTheOwner() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
 
-        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+        mockMvc.perform(get("/session/passkeys").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].label").value("iPhone de Joan"))
+                .andExpect(jsonPath("$[0].label").value("Alex's iPhone"))
                 .andExpect(jsonPath("$[1].label").value("MacBook"));
     }
 
     @Test
     void flagsNoPasskeyAsCurrentWhenThePasswordOpenedTheSession() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
 
-        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+        mockMvc.perform(get("/session/passkeys").with(user("alex")))
                 .andExpect(jsonPath("$[0].current").value(false))
                 .andExpect(jsonPath("$[1].current").value(false))
                 .andExpect(jsonPath("$[0].provider").doesNotExist());
@@ -152,12 +152,12 @@ class SessionControllerTest {
 
     @Test
     void flagsThePasskeyThatOpenedTheSessionAsCurrent() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
         PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
 
         mockMvc.perform(get("/session/passkeys")
@@ -170,12 +170,12 @@ class SessionControllerTest {
     @Test
     void aPasskeySignInThroughTheSecurityFilterChainOpensASessionThatKnowsItsCredential() throws Exception {
         PublicKeyCredentialUserEntity principal = ImmutablePublicKeyCredentialUserEntity.builder()
-                .name("joan")
+                .name("alex")
                 .id(Bytes.random())
-                .displayName("Joan Roucoux")
+                .displayName("Alex Martin")
                 .build();
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
         when(relyingParty.authenticate(any())).thenReturn(principal);
         MockHttpSession session = new MockHttpSession();
         MockHttpServletRequest holder = new MockHttpServletRequest();
@@ -207,10 +207,10 @@ class SessionControllerTest {
 
     @Test
     void reportsAPasskeyThatWasNeverUsedAsNullNotAsAnEpoch() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aNeverUsedCredential("aXBob25l", "iPhone de Joan"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aNeverUsedCredential("aXBob25l", "Alex's iPhone"));
 
-        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+        mockMvc.perform(get("/session/passkeys").with(user("alex")))
                 .andExpect(jsonPath("$[0].lastUsedAt").doesNotExist());
     }
 
@@ -226,19 +226,19 @@ class SessionControllerTest {
 
     @Test
     void listsNoPasskeyWhenNoneWasRegisteredYet() throws Exception {
-        when(userEntities.findByUsername("joan")).thenReturn(null);
+        when(userEntities.findByUsername("alex")).thenReturn(null);
 
-        mockMvc.perform(get("/session/passkeys").with(user("joan")))
+        mockMvc.perform(get("/session/passkeys").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
     void revokingAPasskeyReturnsNotFoundWhenNoPasskeyWasRegisteredYet() throws Exception {
-        when(userEntities.findByUsername("joan")).thenReturn(null);
+        when(userEntities.findByUsername("alex")).thenReturn(null);
 
         mockMvc.perform(delete("/session/passkeys/{id}", "aXBob25l")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
 
@@ -247,11 +247,11 @@ class SessionControllerTest {
 
     @Test
     void revokesAPasskeyWhenAnotherOneRemains() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
 
         mockMvc.perform(delete("/session/passkeys/{id}", "bWFj")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
@@ -260,11 +260,11 @@ class SessionControllerTest {
 
     @Test
     void refusesToRevokeTheLastPasskey() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"));
 
         mockMvc.perform(delete("/session/passkeys/{id}", "aXBob25l")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isConflict());
 
@@ -273,15 +273,15 @@ class SessionControllerTest {
 
     @Test
     void revokingAPasskeySignsOutEveryOtherSessionOfTheOwner() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
-        when(sessions.findByPrincipalName("joan"))
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
+        when(sessions.findByPrincipalName("alex"))
                 .thenReturn(Map.of(
                         "current-session-id", org.mockito.Mockito.mock(Session.class),
                         "other-session-id", org.mockito.Mockito.mock(Session.class)));
 
         mockMvc.perform(delete("/session/passkeys/{id}", "bWFj")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .session(new MockHttpSession(null, "current-session-id")))
                 .andExpect(status().isNoContent());
@@ -292,12 +292,12 @@ class SessionControllerTest {
 
     @Test
     void leavesTheCredentialInPlaceWhenSigningOutOtherSessionsFails() {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
-        when(sessions.findByPrincipalName("joan")).thenThrow(new RuntimeException("session store unavailable"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
+        when(sessions.findByPrincipalName("alex")).thenThrow(new RuntimeException("session store unavailable"));
 
         assertThatThrownBy(() -> mockMvc.perform(delete("/session/passkeys/{id}", "bWFj")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())))
                 .isInstanceOf(Exception.class);
 
@@ -306,11 +306,11 @@ class SessionControllerTest {
 
     @Test
     void refusesToRevokeAPasskeyThatBelongsToNobodyHere() throws Exception {
-        givenOwner("joan", "Joan Roucoux");
-        givenPasskeys(aCredential("aXBob25l", "iPhone de Joan"), aCredential("bWFj", "MacBook"));
+        givenOwner("alex", "Alex Martin");
+        givenPasskeys(aCredential("aXBob25l", "Alex's iPhone"), aCredential("bWFj", "MacBook"));
 
         mockMvc.perform(delete("/session/passkeys/{id}", "aW5jb25udQ")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
 

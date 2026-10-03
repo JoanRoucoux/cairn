@@ -45,19 +45,21 @@ class HoldingPersistenceAdapterIT {
 
     @Test
     void savesAndReadsBackAHolding() {
-        Account account = accounts.save(new Account(UUID.randomUUID(), "Binance", AccountType.CRYPTO, "Binance"));
+        Account account = accounts.save(
+                new Account(UUID.randomUUID(), "Tailspin Wallet", AccountType.CRYPTO, "Tailspin Exchange"));
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
 
         Holding saved = holdings.save(new Holding(
-                UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00005752"), null, Instant.EPOCH));
+                UUID.randomUUID(), account.id(), bitcoin.id(), new BigDecimal("0.00004217"), null, Instant.EPOCH));
 
-        assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00005752");
+        assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00004217");
     }
 
     @Test
     void keepsTheDateTheHoldingWasWritten() {
-        Account account = accounts.save(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Fortuneo"));
+        Account account =
+                accounts.save(new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank"));
         Instrument euros = instruments.save(new Instrument(
                 UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null));
         Instant writtenAt = Instant.parse("2026-09-12T08:30:00Z");
@@ -71,9 +73,9 @@ class HoldingPersistenceAdapterIT {
 
     @Test
     void keepsTwelveDecimalsOfQuantity() {
-        Holding saved = givenAHoldingOf(new BigDecimal("0.000057520000"));
+        Holding saved = givenAHoldingOf(new BigDecimal("0.000042170000"));
 
-        assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00005752");
+        assertThat(holdings.findById(saved.id()).orElseThrow().quantity()).isEqualByComparingTo("0.00004217");
     }
 
     @Test
@@ -121,7 +123,8 @@ class HoldingPersistenceAdapterIT {
     }
 
     private Holding givenAHoldingOf(BigDecimal quantity) {
-        Account account = accounts.save(new Account(UUID.randomUUID(), "Binance", AccountType.CRYPTO, "Binance"));
+        Account account = accounts.save(
+                new Account(UUID.randomUUID(), "Tailspin Wallet", AccountType.CRYPTO, "Tailspin Exchange"));
         Instrument bitcoin = instruments.save(new Instrument(
                 UUID.randomUUID(), "Bitcoin", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "bitcoin", null));
         return holdings.save(new Holding(UUID.randomUUID(), account.id(), bitcoin.id(), quantity, null, Instant.EPOCH));

@@ -111,27 +111,27 @@ class PortfolioControllerTest {
 
     @Test
     void returnsTheValuedPortfolio() throws Exception {
-        when(getPortfolio.get()).thenReturn(aPortfolioOf(new BigDecimal("278146.45")));
+        when(getPortfolio.get()).thenReturn(aPortfolioOf(new BigDecimal("143729.18")));
 
-        mockMvc.perform(get("/portfolio").with(user("joan")))
+        mockMvc.perform(get("/portfolio").with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalEur").value(278146.45))
+                .andExpect(jsonPath("$.totalEur").value(143729.18))
                 .andExpect(jsonPath("$.holdings").isArray());
     }
 
     @Test
     void roundsMoneyToTwoDecimalsOnTheWireOnly() throws Exception {
-        when(getPortfolio.get()).thenReturn(aPortfolioOf(new BigDecimal("278146.4512345")));
+        when(getPortfolio.get()).thenReturn(aPortfolioOf(new BigDecimal("143729.1834567")));
 
-        mockMvc.perform(get("/portfolio").with(user("joan")))
-                .andExpect(jsonPath("$.totalEur").value(278146.45));
+        mockMvc.perform(get("/portfolio").with(user("alex")))
+                .andExpect(jsonPath("$.totalEur").value(143729.18));
     }
 
     @Test
     void reportsAnAbsentUnrealizedGainAsNullNotZero() throws Exception {
         when(getPortfolio.get()).thenReturn(aPortfolioWithoutCostBasis());
 
-        mockMvc.perform(get("/portfolio").with(user("joan")))
+        mockMvc.perform(get("/portfolio").with(user("alex")))
                 .andExpect(jsonPath("$.unrealizedGainEur").doesNotExist());
     }
 
@@ -149,7 +149,7 @@ class PortfolioControllerTest {
                 1);
         when(getPortfolio.get()).thenReturn(portfolio);
 
-        mockMvc.perform(get("/portfolio").with(user("joan")))
+        mockMvc.perform(get("/portfolio").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalEur").value(1000.0))
                 .andExpect(jsonPath("$.unvaluedCount").value(2))
@@ -171,7 +171,7 @@ class PortfolioControllerTest {
                         0,
                         0));
 
-        mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
+        mockMvc.perform(get("/portfolio/allocation/classes").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalEur").value(1000.0))
                 .andExpect(jsonPath("$.items[0].assetClass").value("ETF"))
@@ -182,7 +182,7 @@ class PortfolioControllerTest {
 
     @Test
     void returnsTheBreakdownByAccountWithTheWholeAccount() throws Exception {
-        Account account = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
+        Account account = new Account(UUID.randomUUID(), "Northwind PEA", AccountType.PEA, "Northwind Bank");
         when(getAccountAllocation.byAccount())
                 .thenReturn(new AccountBreakdown(
                         Money.eur(new BigDecimal("1000")),
@@ -191,12 +191,12 @@ class PortfolioControllerTest {
                         0,
                         0));
 
-        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
+        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].account.id").value(account.id().toString()))
-                .andExpect(jsonPath("$.items[0].account.name").value("Saxo"))
+                .andExpect(jsonPath("$.items[0].account.name").value("Northwind PEA"))
                 .andExpect(jsonPath("$.items[0].account.type").value("PEA"))
-                .andExpect(jsonPath("$.items[0].account.institution").value("Saxo Bank"))
+                .andExpect(jsonPath("$.items[0].account.institution").value("Northwind Bank"))
                 .andExpect(jsonPath("$.items[0].valueEur").value(600.0))
                 .andExpect(jsonPath("$.items[0].lineCount").value(2));
     }
@@ -208,11 +208,11 @@ class PortfolioControllerTest {
         when(getAccountAllocation.byAccount())
                 .thenReturn(new AccountBreakdown(Money.eur(new BigDecimal("1000")), List.of(), 3, 4));
 
-        mockMvc.perform(get("/portfolio/allocation/classes").with(user("joan")))
+        mockMvc.perform(get("/portfolio/allocation/classes").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.unvaluedCount").value(2))
                 .andExpect(jsonPath("$.nonEurCount").value(1));
-        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("joan")))
+        mockMvc.perform(get("/portfolio/allocation/accounts").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.unvaluedCount").value(3))
                 .andExpect(jsonPath("$.nonEurCount").value(4));
@@ -240,7 +240,7 @@ class PortfolioControllerTest {
                 0);
         when(getPortfolio.get()).thenReturn(portfolio);
 
-        mockMvc.perform(get("/portfolio").with(user("joan")))
+        mockMvc.perform(get("/portfolio").with(user("alex")))
                 .andExpect(jsonPath("$.dayChangeRatio").value(0.1));
     }
 
@@ -251,7 +251,7 @@ class PortfolioControllerTest {
         when(loadHoldings.findAll()).thenReturn(List.of(holding));
         when(valueHolding.value(holding)).thenReturn(Optional.of(aValuedHolding(holding)));
 
-        mockMvc.perform(get("/portfolio/export").with(user("joan")))
+        mockMvc.perform(get("/portfolio/export").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"))
                 .andExpect(header().string(
@@ -268,7 +268,7 @@ class PortfolioControllerTest {
         when(importPortfolio.run(anyList())).thenReturn(new ImportReport(1, 2, 3, 4));
 
         mockMvc.perform(post("/portfolio/import")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
@@ -287,7 +287,7 @@ class PortfolioControllerTest {
                         List.of(new ImportError(0, ImportErrorCode.UNRESOLVED_INSTRUMENT, "GGT.PA"))));
 
         mockMvc.perform(post("/portfolio/import")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
@@ -306,11 +306,11 @@ class PortfolioControllerTest {
                         List.of(new ImportError(0, ImportErrorCode.SAVINGS_ACCOUNT_LINE, "LU0000000001"))));
 
         mockMvc.perform(post("/portfolio/import")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType("text/csv")
                         .content(PortfolioCsvReader.HEADER + "\r\n"
-                                + "Livret A;SAVINGS;Fortuneo;Tracker;LU0000000001;100;20.00\r\n"))
+                                + "Livret A;SAVINGS;Woodgrove Bank;Tracker;LU0000000001;100;20.00\r\n"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors[0].line").value(2))
                 .andExpect(jsonPath("$.errors[0].code").value("SAVINGS_ACCOUNT_LINE"))
@@ -319,7 +319,7 @@ class PortfolioControllerTest {
 
     @Test
     void servesTheImportTemplateAsItsOwnHeaderRow() throws Exception {
-        mockMvc.perform(get("/portfolio/import/template").with(user("joan")))
+        mockMvc.perform(get("/portfolio/import/template").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(startsWith("﻿" + PortfolioCsvReader.HEADER)));
     }
@@ -334,7 +334,7 @@ class PortfolioControllerTest {
                 PriceSource.YAHOO,
                 "AAPL",
                 null);
-        Account account = new Account(holding.accountId(), "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Account account = new Account(holding.accountId(), "Contoso Trading", AccountType.CTO, "Contoso Securities");
         Quote quote = new Quote(
                 holding.instrumentId(),
                 LocalDate.of(2026, 8, 26),
@@ -378,7 +378,7 @@ class PortfolioControllerTest {
         Holding holding = new Holding(UUID.randomUUID(), accountId, instrumentId, quantity, null, Instant.EPOCH);
         Instrument instrument = new Instrument(
                 instrumentId, "Test", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "TEST.PA", null);
-        Account account = new Account(accountId, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Account account = new Account(accountId, "Contoso Trading", AccountType.CTO, "Contoso Securities");
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 8, 26),
@@ -405,7 +405,7 @@ class PortfolioControllerTest {
                 new Holding(UUID.randomUUID(), accountId, instrumentId, new BigDecimal("10"), null, Instant.EPOCH);
         Instrument instrument = new Instrument(
                 instrumentId, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
-        Account account = new Account(accountId, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Account account = new Account(accountId, "Contoso Trading", AccountType.CTO, "Contoso Securities");
         Quote quote = new Quote(
                 instrumentId,
                 LocalDate.of(2026, 8, 26),

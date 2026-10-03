@@ -30,7 +30,8 @@ class HoldingDomainConfigTest {
 
     private static final Instant NOW = Instant.parse("2026-09-23T13:57:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
-    private static final Account ACCOUNT = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private static final Account ACCOUNT =
+            new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
     private static final Instrument EUROS =
             new Instrument(UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
 

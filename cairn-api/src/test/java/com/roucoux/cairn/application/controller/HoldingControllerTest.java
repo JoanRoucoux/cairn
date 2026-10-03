@@ -92,12 +92,12 @@ class HoldingControllerTest {
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
 
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accountName").value("CTO Boursorama"))
+                .andExpect(jsonPath("$.accountName").value("Contoso Trading"))
                 .andExpect(jsonPath("$.accountType").value("CTO"))
                 .andExpect(jsonPath("$.instrumentName").value("Apple Inc."))
                 .andExpect(jsonPath("$.assetClass").value("EQUITY"))
@@ -118,7 +118,7 @@ class HoldingControllerTest {
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
@@ -132,9 +132,9 @@ class HoldingControllerTest {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
 
-        mockMvc.perform(get("/holdings").with(user("joan")))
+        mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].accountName").value("CTO Boursorama"))
+                .andExpect(jsonPath("$[0].accountName").value("Contoso Trading"))
                 .andExpect(jsonPath("$[0].price").value(123.45))
                 .andExpect(jsonPath("$[0].priceCurrency").value("USD"))
                 .andExpect(jsonPath("$[0].marketValueEur").doesNotExist())
@@ -151,7 +151,7 @@ class HoldingControllerTest {
         when(loadHoldings.findAll()).thenReturn(List.of(held));
         when(valueHolding.value(held)).thenReturn(Optional.of(aQuotedHolding(held, "EUR")));
 
-        mockMvc.perform(get("/holdings").with(user("joan")))
+        mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].priceCurrency").value("EUR"))
                 .andExpect(jsonPath("$[0].marketValueEur").value(1234.5))
@@ -165,7 +165,7 @@ class HoldingControllerTest {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHoldingWithoutQuote(A_HOLDING)));
 
-        mockMvc.perform(get("/holdings").with(user("joan")))
+        mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].instrumentName").value("Apple Inc."))
                 .andExpect(jsonPath("$[0].price").doesNotExist())
@@ -177,7 +177,7 @@ class HoldingControllerTest {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/holdings").with(user("joan")))
+        mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
@@ -192,7 +192,7 @@ class HoldingControllerTest {
                 .thenReturn(Optional.of(aValuedHolding(holdingWithoutCostBasis)));
 
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
@@ -205,7 +205,7 @@ class HoldingControllerTest {
         when(manageHolding.create(any(), any(), any(), any())).thenThrow(new SavingsAccountLineException());
 
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
@@ -219,7 +219,7 @@ class HoldingControllerTest {
                 .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
 
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
@@ -232,13 +232,13 @@ class HoldingControllerTest {
                 .when(manageHolding)
                 .delete(HOLDING_ID);
 
-        mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("joan")).with(csrf()))
+        mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void deletesAHolding() throws Exception {
-        mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("joan")).with(csrf()))
+        mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
                 .andExpect(status().isNoContent());
     }
 
@@ -256,7 +256,7 @@ class HoldingControllerTest {
                 .thenReturn(bought);
 
         mockMvc.perform(post("/holdings/{id}/buy", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"quantity\":40,\"unitPrice\":29.10}"))
@@ -273,7 +273,7 @@ class HoldingControllerTest {
         when(manageHolding.changeInstrument(HOLDING_ID, target)).thenReturn(moved);
 
         mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"instrumentId\":\"" + target + "\"}"))
@@ -289,7 +289,7 @@ class HoldingControllerTest {
                 .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
 
         mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
@@ -302,7 +302,7 @@ class HoldingControllerTest {
                 .thenThrow(new NotFoundException("instrument", INSTRUMENT_ID));
 
         mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
@@ -322,7 +322,7 @@ class HoldingControllerTest {
         when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"quantity\":100}"))
@@ -336,7 +336,7 @@ class HoldingControllerTest {
         when(manageHolding.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"quantity\":500}"))
@@ -350,7 +350,7 @@ class HoldingControllerTest {
                 .thenThrow(new InsufficientQuantityException(new BigDecimal("500"), new BigDecimal("501")));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"quantity\":501}"))
@@ -360,7 +360,7 @@ class HoldingControllerTest {
     @Test
     void refusesAWriteWithoutACsrfToken() throws Exception {
         mockMvc.perform(post("/holdings")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .contentType(APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isForbidden());
@@ -373,7 +373,7 @@ class HoldingControllerTest {
     private static ValuedHolding aQuotedHolding(Holding holding, String currency) {
         Instrument instrument = new Instrument(
                 INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
-        Account account = new Account(ACCOUNT_ID, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Account account = new Account(ACCOUNT_ID, "Contoso Trading", AccountType.CTO, "Contoso Securities");
         Quote quote = new Quote(
                 INSTRUMENT_ID,
                 LocalDate.of(2026, 8, 26),
@@ -394,7 +394,7 @@ class HoldingControllerTest {
     private static ValuedHolding aValuedHoldingWithoutQuote(Holding holding) {
         Instrument instrument = new Instrument(
                 INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
-        Account account = new Account(ACCOUNT_ID, "CTO Boursorama", AccountType.CTO, "Boursorama");
+        Account account = new Account(ACCOUNT_ID, "Contoso Trading", AccountType.CTO, "Contoso Securities");
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
     }
 }

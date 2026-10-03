@@ -32,7 +32,7 @@ class HoldingCsvWriterTest {
 
     @Test
     void quotesAFieldThatContainsTheSeparator() {
-        assertThat(writer.write(List.of(aPassbook()))).contains("\"Fortuneo; Livret A\"");
+        assertThat(writer.write(List.of(aPassbook()))).contains("\"Woodgrove; Livret A\"");
     }
 
     @Test
@@ -66,7 +66,7 @@ class HoldingCsvWriterTest {
 
     private static HoldingResponse anEtf() {
         HoldingResponse holding = new HoldingResponse();
-        holding.setAccountName("CTO Boursorama");
+        holding.setAccountName("Contoso Trading");
         holding.setInstrumentName("Amundi PEA MSCI Emerging");
         holding.setIsin("FR0011869353");
         holding.setQuantity(new BigDecimal("12"));
@@ -80,7 +80,7 @@ class HoldingCsvWriterTest {
 
     private static HoldingResponse aPassbook() {
         HoldingResponse holding = new HoldingResponse();
-        holding.setAccountName("Fortuneo; Livret A");
+        holding.setAccountName("Woodgrove; Livret A");
         holding.setInstrumentName("Livret A");
         holding.setQuantity(new BigDecimal("5000"));
         holding.setMarketValueEur(new BigDecimal("5000"));
@@ -90,7 +90,7 @@ class HoldingCsvWriterTest {
 
     private static HoldingResponse aHoldingNamed(String instrumentName) {
         HoldingResponse holding = new HoldingResponse();
-        holding.setAccountName("CTO Boursorama");
+        holding.setAccountName("Contoso Trading");
         holding.setInstrumentName(instrumentName);
         holding.setQuantity(new BigDecimal("3"));
         holding.setMarketValueEur(new BigDecimal("100"));
@@ -100,7 +100,7 @@ class HoldingCsvWriterTest {
 
     private static HoldingResponse aHoldingOfQuantity(BigDecimal quantity) {
         HoldingResponse holding = new HoldingResponse();
-        holding.setAccountName("Binance");
+        holding.setAccountName("Tailspin Wallet");
         holding.setInstrumentName("Bitcoin");
         holding.setQuantity(quantity);
         holding.setMarketValueEur(new BigDecimal("100"));

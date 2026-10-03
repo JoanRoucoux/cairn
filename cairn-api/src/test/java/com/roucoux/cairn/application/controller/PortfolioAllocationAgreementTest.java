@@ -62,8 +62,10 @@ import tools.jackson.databind.ObjectMapper;
 class PortfolioAllocationAgreementTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-26T20:00:00Z"), ZoneOffset.UTC);
-    private static final Account PEA = new Account(UUID.randomUUID(), "Saxo", AccountType.PEA, "Saxo Bank");
-    private static final Account SAVINGS = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private static final Account PEA =
+            new Account(UUID.randomUUID(), "Northwind PEA", AccountType.PEA, "Northwind Bank");
+    private static final Account SAVINGS =
+            new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
 
     @Autowired
     private MockMvc mockMvc;
@@ -148,7 +150,7 @@ class PortfolioAllocationAgreementTest {
     }
 
     private JsonNode read(String path) throws Exception {
-        return json.readTree(mockMvc.perform(get(path).with(user("joan")))
+        return json.readTree(mockMvc.perform(get(path).with(user("alex")))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());

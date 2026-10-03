@@ -141,10 +141,10 @@ class PortfolioCsvReaderTest {
     @Test
     void keepsACommaInsideAFieldRatherThanSplittingOnIt() {
         String csv = PortfolioCsvReader.HEADER + "\r\n"
-                + "Fortuneo, Livret A;SAVINGS;Fortuneo;Livret A;LIVRETA;5000;1.00\r\n";
+                + "Woodgrove, Livret A;SAVINGS;Woodgrove Bank;Livret A;LIVRETA;5000;1.00\r\n";
 
         assertThat(reader.read(csv).rows())
                 .singleElement()
-                .satisfies(row -> assertThat(row.accountName()).isEqualTo("Fortuneo, Livret A"));
+                .satisfies(row -> assertThat(row.accountName()).isEqualTo("Woodgrove, Livret A"));
     }
 }

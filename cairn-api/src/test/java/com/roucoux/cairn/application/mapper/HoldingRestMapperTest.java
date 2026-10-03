@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class HoldingRestMapperTest {
 
     private final HoldingRestMapper mapper = new HoldingRestMapper(Clock.systemUTC());
-    private final Account savings = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private final Account savings = new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
 
     @Test
     void marksTheAccountEuroCashBalance() {

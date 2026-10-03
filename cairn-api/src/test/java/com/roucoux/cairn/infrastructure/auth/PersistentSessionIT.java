@@ -26,7 +26,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @TestPropertySource(
         properties = {
             "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml",
-            "app.security.password=a-real-password"
+            "app.security.password=a-real-password",
+            "app.security.username=alex"
         })
 @Testcontainers
 class PersistentSessionIT {
@@ -44,7 +45,7 @@ class PersistentSessionIT {
     @Test
     void keepsTheSignedInSessionInPostgresForThirtyDays() throws Exception {
         MvcResult signIn = mockMvc.perform(post("/authenticate")
-                        .param("username", "joan")
+                        .param("username", "alex")
                         .param("password", "a-real-password")
                         .with(csrf()))
                 .andExpect(status().isNoContent())
@@ -68,7 +69,7 @@ class PersistentSessionIT {
     @Test
     void readsTheSessionBackFromPostgresOnTheNextRequest() throws Exception {
         MvcResult signIn = mockMvc.perform(post("/authenticate")
-                        .param("username", "joan")
+                        .param("username", "alex")
                         .param("password", "a-real-password")
                         .with(csrf()))
                 .andExpect(status().isNoContent())
@@ -81,7 +82,7 @@ class PersistentSessionIT {
     @Test
     void removesTheSessionRowOnSignOut() throws Exception {
         MvcResult signIn = mockMvc.perform(post("/authenticate")
-                        .param("username", "joan")
+                        .param("username", "alex")
                         .param("password", "a-real-password")
                         .with(csrf()))
                 .andExpect(status().isNoContent())

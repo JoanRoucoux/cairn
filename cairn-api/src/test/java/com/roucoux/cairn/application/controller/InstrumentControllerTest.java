@@ -101,7 +101,7 @@ class InstrumentControllerTest {
     void listsEveryInstrument() throws Exception {
         when(loadInstruments.findAll()).thenReturn(List.of(SP500));
 
-        mockMvc.perform(get("/instruments").with(user("joan")))
+        mockMvc.perform(get("/instruments").with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].isin").value("FR0011550185"))
                 .andExpect(jsonPath("$[0].symbol").value("PSP5"));
@@ -110,7 +110,7 @@ class InstrumentControllerTest {
     @Test
     void createsAnInstrument() throws Exception {
         mockMvc.perform(post("/instruments")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -148,7 +148,7 @@ class InstrumentControllerTest {
                         "USD")));
 
         mockMvc.perform(post("/instruments/resolve")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"query\":\"FR0000000010\"}"))
@@ -166,7 +166,7 @@ class InstrumentControllerTest {
         when(resolveInstrument.resolve("XX0000000000")).thenThrow(new UnknownInstrumentException("XX0000000000"));
 
         mockMvc.perform(post("/instruments/resolve")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"query\":\"XX0000000000\"}"))
@@ -177,7 +177,7 @@ class InstrumentControllerTest {
     void returnsTheDescriptionAndTheLinkToTheProviderSheet() throws Exception {
         when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
 
-        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("joan")))
+        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value(startsWith("ETF sur le S&P 500")))
                 .andExpect(jsonPath("$.externalUrl").value("https://finance.yahoo.com/quote/ETF3.PA"));
@@ -203,7 +203,7 @@ class InstrumentControllerTest {
                                 null,
                                 Instant.EPOCH)));
 
-        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("joan")))
+        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.holdingCount").value(2));
     }
@@ -212,7 +212,7 @@ class InstrumentControllerTest {
     void reportsNoExternalUrlForAManuallyPricedInstrument() throws Exception {
         when(loadInstruments.findById(LIVRET_A_ID)).thenReturn(Optional.of(LIVRET_A));
 
-        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("joan")))
+        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("alex")))
                 .andExpect(jsonPath("$.externalUrl").doesNotExist());
     }
 
@@ -232,7 +232,7 @@ class InstrumentControllerTest {
                 .thenReturn(updated);
 
         mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -250,7 +250,7 @@ class InstrumentControllerTest {
     void reportsAnUnknownInstrumentAs404() throws Exception {
         when(loadInstruments.findById(LIVRET_A_ID)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("joan")))
+        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("alex")))
                 .andExpect(status().isNotFound());
     }
 
@@ -260,7 +260,7 @@ class InstrumentControllerTest {
                 .thenThrow(new NotFoundException("instrument", LIVRET_A_ID));
 
         mockMvc.perform(put("/instruments/{id}", LIVRET_A_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -275,7 +275,7 @@ class InstrumentControllerTest {
                 .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
 
         mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -288,7 +288,7 @@ class InstrumentControllerTest {
     @Test
     void deletesAnInstrument() throws Exception {
         mockMvc.perform(delete("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isNoContent());
     }
@@ -300,7 +300,7 @@ class InstrumentControllerTest {
                 .run(LIVRET_A_ID);
 
         mockMvc.perform(delete("/instruments/{id}", LIVRET_A_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
     }
@@ -308,7 +308,7 @@ class InstrumentControllerTest {
     @Test
     void refusesAWriteWithoutACsrfToken() throws Exception {
         mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO"}
@@ -322,7 +322,7 @@ class InstrumentControllerTest {
                 .thenThrow(new InvalidInstrumentException("sourceRef is required unless priceSource is MANUAL"));
 
         mockMvc.perform(post("/instruments")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -338,7 +338,7 @@ class InstrumentControllerTest {
                 .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
 
         mockMvc.perform(post("/instruments")
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""

@@ -36,7 +36,8 @@ class PortfolioDomainConfigTest {
     private static final ZoneId ZONE = ZoneId.of("Europe/Paris");
     private static final Clock CLOCK =
             Clock.fixed(LocalDate.of(2026, 9, 24).atTime(20, 0).atZone(ZONE).toInstant(), ZONE);
-    private static final Account ACCOUNT = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private static final Account ACCOUNT =
+            new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
     private static final Instrument EUROS =
             new Instrument(UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);
 

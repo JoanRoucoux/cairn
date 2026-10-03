@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test;
 
 class AccountDomainConfigTest {
 
-    private static final Account ACCOUNT = new Account(UUID.randomUUID(), "Fortuneo", AccountType.SAVINGS, "Fortuneo");
+    private static final Account ACCOUNT =
+            new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Woodgrove Bank");
     private static final Instrument EUROS =
             new Instrument(UUID.randomUUID(), "Euros", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, "EUR", null);
 

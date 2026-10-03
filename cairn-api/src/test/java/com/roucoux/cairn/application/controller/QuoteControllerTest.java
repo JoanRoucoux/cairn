@@ -63,7 +63,7 @@ class QuoteControllerTest {
         when(recordManualQuote.record(any(), any(), any())).thenReturn(A_QUOTE);
 
         mockMvc.perform(post("/instruments/{id}/quotes", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"asOf\":\"2026-08-20\",\"price\":57.48}"))
@@ -79,7 +79,7 @@ class QuoteControllerTest {
         mockMvc.perform(get("/instruments/{id}/quotes", INSTRUMENT_ID)
                         .param("from", "2026-08-01")
                         .param("to", "2026-08-21")
-                        .with(user("joan")))
+                        .with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].price").value(686.31));
     }
@@ -87,7 +87,7 @@ class QuoteControllerTest {
     @Test
     void refusesAWriteWithoutACsrfToken() throws Exception {
         mockMvc.perform(post("/instruments/{id}/quotes", INSTRUMENT_ID)
-                        .with(user("joan"))
+                        .with(user("alex"))
                         .contentType(APPLICATION_JSON)
                         .content("{\"asOf\":\"2026-08-20\",\"price\":57.48}"))
                 .andExpect(status().isForbidden());
