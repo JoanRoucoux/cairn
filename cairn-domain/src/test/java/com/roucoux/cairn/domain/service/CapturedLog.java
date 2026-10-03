@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 final class CapturedLog implements AutoCloseable {
 
     private final Logger logger;
+    private final boolean usedParentHandlers;
     private final List<LogRecord> records = new CopyOnWriteArrayList<>();
     private final Handler handler = new Handler() {
         @Override
@@ -25,6 +26,8 @@ final class CapturedLog implements AutoCloseable {
 
     private CapturedLog(Class<?> type) {
         this.logger = Logger.getLogger(type.getName());
+        this.usedParentHandlers = logger.getUseParentHandlers();
+        logger.setUseParentHandlers(false);
         logger.addHandler(handler);
     }
 
@@ -39,5 +42,6 @@ final class CapturedLog implements AutoCloseable {
     @Override
     public void close() {
         logger.removeHandler(handler);
+        logger.setUseParentHandlers(usedParentHandlers);
     }
 }
