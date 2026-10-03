@@ -36,7 +36,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - **Comments are the exception, not the norm**, in code and in configuration alike. Write one only for a trap that no test and no error message would catch. If a failing test would catch the edit the comment warns about, or if the sentence belongs in this file, it does not belong in the file it annotates.
 - Formatting is Spotless/palantir; records for immutable data; constructor injection without Lombok. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
 - Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}` — that would silently mean the wrong thing once a module is extracted.
-- Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`).
+- Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`). New changesets are Liquibase formatted SQL (`changesets/0NN-name.sql`, starting with `--liquibase formatted sql` and `--changeset cairn:0NN-name`), picked up by the same `includeAll`. Every changeset is a formatted SQL file, author `cairn`, ids sequential; only `changelog-master.xml` stays XML.
 
 ## Testing
 
@@ -231,6 +231,8 @@ CHANGELOG.md: it would mean a bot commit on main per deploy, for content the Rel
 holds. A rollback redeploys an already released commit and mints no version.
 
 ## Gotchas
+
+- **A changeset's identity is id + author + file path, and its checksum is its content.** Renaming a changeset file, changing its extension or reformatting it makes Liquibase see an applied changeset as new (and replay it against production) or fail checksum validation. Any such change needs a `databasechangelog` update on every database first, the way `deploy/liquibase-xml-to-sql.sql` did for the XML to SQL conversion: new `filename`, `md5sum = NULL` (Liquibase recomputes a NULL checksum on the next update). The recorded filename is `src/main/resources/db/changelog/changesets/<name>`, as `mvn liquibase:update` runs it.
 
 - **A killed migration leaves a lock that blocks every later deploy.** Liquibase takes a row in
   `DATABASECHANGELOGLOCK` before applying anything and releases it on exit. A `schema` container

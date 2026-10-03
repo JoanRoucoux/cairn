@@ -1,7 +1,11 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/github/banner-dark.png">
-  <img alt="Cairn: Wealth tracking, line by line." src="docs/github/banner-light.png">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/github/banner-dark.png">
+    <img alt="Cairn: Wealth tracking, line by line." src="docs/github/banner-light.png">
+  </picture>
+</p>
+
+<br>
 
 <p align="center">
   <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml/badge.svg"></a>
@@ -17,23 +21,20 @@ Cairn is a single-owner wealth tracker. Every envelope (PEA, PEA-PME, CTO, PER, 
 The data shown is fictional.
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/github/screenshots/dashboard-dark.png">
-    <img alt="The dashboard in light mode: net worth, day change, unrealized gain and the performance chart over a selectable range" src="docs/github/screenshots/dashboard-light.png">
-  </picture>
+  <img alt="The dashboard: net worth, day change, unrealized gain, the performance chart over a selectable range and the envelopes" src="docs/github/screenshots/dashboard-dark.png">
 </p>
 
 <table>
   <tr>
-    <td width="50%"><img alt="Allocation of the portfolio by asset class and by account" src="docs/github/screenshots/allocation-light.png"></td>
-    <td width="50%"><img alt="The holdings list with the detail panel of one holding open" src="docs/github/screenshots/holding-light.png"></td>
+    <td width="50%"><img alt="Allocation of the portfolio by asset class and by account" src="docs/github/screenshots/allocation-dark.png"></td>
+    <td width="50%"><img alt="The holdings list with the detail panel of one holding open" src="docs/github/screenshots/holding-dark.png"></td>
   </tr>
 </table>
 
 <p align="center">
-  <img alt="Mobile dashboard" src="docs/github/screenshots/mobile-dashboard.png" width="30%">
-  <img alt="Mobile holdings list" src="docs/github/screenshots/mobile-holdings.png" width="30%">
-  <img alt="Mobile holding detail" src="docs/github/screenshots/mobile-holding.png" width="30%">
+  <img alt="Mobile dashboard" src="docs/github/screenshots/mobile-dashboard-dark.png" width="30%">
+  <img alt="Mobile holdings list" src="docs/github/screenshots/mobile-holdings-dark.png" width="30%">
+  <img alt="Mobile holding detail" src="docs/github/screenshots/mobile-holding-dark.png" width="30%">
 </p>
 
 ## Features
@@ -157,3 +158,5 @@ The second command starts PostgreSQL and applies the schema through Docker Compo
 ## License
 
 [MIT](LICENSE)
+
+<sub>Generated from [java-starter](https://github.com/JoanRoucoux/java-starter).</sub>
