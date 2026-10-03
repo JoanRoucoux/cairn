@@ -1,269 +1,159 @@
-# Cairn
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/github/banner-dark.png">
+  <img alt="Cairn: Wealth tracking, line by line." src="docs/github/banner-light.png">
+</picture>
 
-Cairn — Spring Boot backend in hexagonal architecture, generated from [java-starter](https://github.com/JoanRoucoux/java-starter) with these modules: **api, domain, adapter, schema, batch**.
+<p align="center">
+  <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml"><img alt="Deploy" src="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml/badge.svg"></a>
+  <a href="https://github.com/JoanRoucoux/cairn/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/JoanRoucoux/cairn"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+</p>
 
-There is no parent pom: the root `pom.xml` only aggregates, and every module is a standalone Maven project parented by `spring-boot-starter-parent`. A module can be moved to its own repository as-is.
+Cairn is a single-owner wealth tracker. Every envelope (PEA, PEA-PME, CTO, PER, PEE, life insurance, savings, crypto) is valued line by line, from Yahoo Finance, CoinGecko, SG Sirius or a manual quote. A private instance runs at https://cairn.joanroucoux.fr behind passkey sign-in. This repository is the backend; the frontend and the design system live in their own repositories (see [The Cairn repositories](#the-cairn-repositories)).
 
-## Stack
+## Screenshots
 
-| Tool                                     | Role                                                        |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| Spring Boot 4.1 / Java 25                | Application framework, Maven modules with wrapper           |
-| openapi-generator (contract-first)       | `cairn-api/openapi/openapi.yaml` → interfaces + DTOs  |
-| Spring Security + WebAuthn               | Session-based passkey authentication (see AGENTS.md's Deviations from the starter) |
-| RestClient                               | External API client adapter (timeouts via properties)       |
-| Spring Data JPA + PostgreSQL             | Persistence adapter                                         |
-| Liquibase (`cairn-schema`)         | Versioned changelogs, applied out-of-band — never by an app |
-| Spring Batch (`cairn-batch`)       | Chunk-oriented jobs over the same domain as the API         |
-| Testcontainers, WireMock, ArchUnit       | Integration tests, client tests, architecture enforcement   |
-| Cucumber                                 | Business-scenario acceptance tests, over real HTTP          |
+The data shown is fictional.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/github/screenshots/dashboard-dark.png">
+    <img alt="The dashboard in light mode: net worth, day change, unrealized gain and the performance chart over a selectable range" src="docs/github/screenshots/dashboard-light.png">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Allocation of the portfolio by asset class and by account" src="docs/github/screenshots/allocation-light.png"></td>
+    <td width="50%"><img alt="The holdings list with the detail panel of one holding open" src="docs/github/screenshots/holding-light.png"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img alt="Mobile dashboard" src="docs/github/screenshots/mobile-dashboard.png" width="30%">
+  <img alt="Mobile holdings list" src="docs/github/screenshots/mobile-holdings.png" width="30%">
+  <img alt="Mobile holding detail" src="docs/github/screenshots/mobile-holding.png" width="30%">
+</p>
+
+## Features
+
+- **Dashboard**: net worth, day change, unrealized gain, and performance over 1D, 7D, 1M, 1Y, 5Y and max. 5Y and max are rebuilt at constant composition: today's holdings repriced over past quotes.
+- **Allocation** by asset class and by account.
+- **Holdings**: buy and sell, cash balance per account, manual quotes, and change of listing (`PUT /holdings/{id}/instrument`).
+- **Instruments**: lookup by ISIN through Yahoo Finance, with prices from Yahoo Finance, CoinGecko, SG Sirius or entered by hand.
+- **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
+- **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
+- **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.
+- **Telegram summary** on weekdays at 19:45 Paris time: net worth, day change and each envelope's change.
+- **Passkeys** (WebAuthn) with a password fallback, sessions stored in PostgreSQL.
+- **Stale-quote detection**: a holding is flagged when its latest quote is older than its asset class allows.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    browser([Browser]) --> caddy[Caddy<br/>shared proxy]
+    caddy -->|"/ (the rest)"| web[web<br/>nginx, cairn-web]
+    caddy -->|"/api/* stripped, /webauthn/*,<br/>/login/webauthn, /logout*"| api[api<br/>cairn-api]
+
+    api --> pg[(PostgreSQL 17)]
+    batch["batch<br/>cairn-batch, cron"] --> pg
+    worker["worker<br/>cairn-kafka"] --> pg
+
+    batch -- publishes --> kafka{{"Kafka<br/>cairn.prices, cairn.portfolio"}}
+    worker -- publishes --> kafka
+    kafka -- "refresh.completed" --> worker
+
+    api -- "instrument lookup" --> providers
+    batch -- "end-of-day refresh" --> providers
+    worker -- "intraday refresh" --> providers
+    providers["Price providers<br/>Yahoo Finance, CoinGecko, SG Sirius"]
+    worker -- "daily summary" --> telegram[Telegram]
+```
+
+The API calls the providers only to look an instrument up (ISIN or ticker) when one is created. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The API never publishes to Kafka: its producer is configured but unused. The batch jobs and the worker publish, and the worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point.
+
+### Modules
+
+There is no parent pom: the root `pom.xml` only aggregates, and each module is a standalone Maven project that carries its own dependencies and quality plugins.
+
+| Module | Role | Depends on |
+| ------ | ---- | ---------- |
+| `cairn-domain` | Model, exceptions, inbound and outbound ports, services. Plain Java. | nothing (JDK only) |
+| `cairn-adapter` | Outbound adapters: price providers, Telegram, Kafka publishing, JPA persistence. | `cairn-domain` (compile) |
+| `cairn-api` | REST application, generated from the OpenAPI contract, WebAuthn security. | `cairn-domain` (compile), `cairn-adapter` (runtime), `cairn-schema` (test) |
+| `cairn-batch` | Spring Batch application: quote refresh, snapshot and backfill jobs. | `cairn-domain` (compile), `cairn-adapter` (runtime), `cairn-schema` (test) |
+| `cairn-kafka` | Worker: topic declaration, intraday refresh scheduler, valuation consumer, Telegram summary. | `cairn-domain` (compile), `cairn-adapter` (runtime), `cairn-schema` (test) |
+| `cairn-schema` | Liquibase changelogs only, no Java. | nothing |
+
+Dependency rules:
+
+- `cairn-domain` has zero compile-scope dependencies, a Maven guarantee and not just a convention.
+- The application modules depend on `cairn-adapter` at runtime scope only: adapters are wired into the context but invisible at compile time.
+- `cairn-schema` is applied out-of-band by ops or the pipeline, never by a running application, and the application modules depend on it at test scope only, to migrate their throwaway Testcontainers databases.
+- ArchUnit tests enforce the hexagon on every build.
+
+## The Cairn repositories
+
+| Repository | Content |
+| ---------- | ------- |
+| [cairn](https://github.com/JoanRoucoux/cairn) (this one) | Backend: API, batch jobs, Kafka worker, schema |
+| [cairn-web](https://github.com/JoanRoucoux/cairn-web) | Angular 22 frontend |
+| [cairn-ui](https://github.com/JoanRoucoux/cairn-ui) | Design system, published on npm as `@joanroucoux/cairn-ui`, with a [Storybook](https://joanroucoux.github.io/cairn-ui/) |
+
+The host, the shared proxy and the monitoring are managed in a separate, private infrastructure repository.
+
+## Tech stack
+
+| Tool | Version | Role |
+| ---- | ------- | ---- |
+| Java | 25 | Language and runtime |
+| Spring Boot | 4.1.1 | Application framework |
+| Spring Security WebAuthn, Spring Session JDBC | managed by Spring Boot | Passkey sign-in, sessions stored in PostgreSQL |
+| Spring Batch | managed by Spring Boot | Scheduled quote and snapshot jobs |
+| Spring for Apache Kafka | managed by Spring Boot | Event publishing and consumption |
+| Apache Kafka | 4.3 (KRaft, no ZooKeeper) | Event broker (`apache/kafka:4.3.1`) |
+| PostgreSQL | 17 (`postgres:17.11`) | Persistence |
+| Liquibase | managed by Spring Boot | Versioned schema, applied out-of-band |
+| openapi-generator | 7.25.0 | Contract-first interfaces and DTOs |
+| springdoc | 3.1.1 | Swagger UI, `local` profile only |
+| Testcontainers | 1.21.4 | PostgreSQL and Kafka in integration tests |
+| WireMock | 3.13.2 | Tests of the price provider clients |
+| ArchUnit | 1.5.0 | Architecture enforcement |
+| Cucumber | 7.34.8 | Business scenarios over real HTTP |
+| JaCoCo | 0.8.15 | Coverage gate |
+| Spotless with palantir-java-format | 3.10.2 with 2.96.0 | Formatting |
+| Docker, GHCR | | Images `cairn-api`, `cairn-schema`, `cairn-batch`, `cairn-kafka` |
+
+## Quality and delivery
+
+- **Contract-first**: `cairn-api/openapi/openapi.yaml` is edited first, and the build generates the interfaces and DTOs from it.
+- **Test layers**: unit tests (`*Test`), integration tests with Testcontainers (`*IT`), Cucumber scenarios over real HTTP, ArchUnit rules, and a JaCoCo gate of 70 % of lines per module.
+- **Nightly contract check**: a scheduled workflow runs the `external` tests against the real price providers and opens an issue when they fail.
+- **Continuous deployment**: every push to `main` runs CI, builds the images tagged `sha-xxxxxxx`, applies the Liquibase migration before anything starts, brings the stack up and checks the health endpoint.
+- **Releases**: a successful deploy publishes a CalVer release `vYYYY.MM.DD.n`, with notes generated by git-cliff.
+- **Dependabot** keeps Maven, GitHub Actions, Docker and Docker Compose dependencies up to date.
+- **Monitoring**: each scheduled job pings an Uptime Kuma push monitor. See [docs/operations.md](docs/operations.md).
 
 ## Getting started
 
-Prerequisites: **JDK 25** and **Docker**. Maven comes with the wrapper (`./mvnw`, `mvnw.cmd` on Windows cmd).
+Prerequisites: JDK 25 and Docker.
 
 ```bash
-./mvnw verify                                                          # build + unit/integration tests + architecture + coverage
-./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local  # starts the API on :8080, authentication off
+./mvnw verify
+./mvnw spring-boot:run -pl cairn-api -Dspring-boot.run.profiles=local
 ```
 
-`spring-boot:run` starts what it needs from `compose.local.yaml` on its own: PostgreSQL on
-`localhost:5432` (`app`/`app`), then a one-shot `schema` container that applies the Liquibase
-changelog, and only then the application. The data lives in the
-`cairn-local-data` volume. `compose.yaml` is the whole stack and is not involved.
+The second command starts PostgreSQL and applies the schema through Docker Compose, then serves the API on `http://localhost:8080` with authentication off. See [docs/development.md](docs/development.md) for the rest.
 
-With the `local` profile, Swagger UI serves the contract at `http://localhost:8080/swagger-ui.html`.
-Without it, authentication is real and `CAIRN_PASSWORD` must be set.
+## Documentation
 
-The batch runs one job, named as `deploy/cairn.cron` names it, and exits. `run.at` makes each run a
-new job instance. The worker also starts Kafka on `localhost:9092`. Each application can run
-alongside the others:
+- [docs/development.md](docs/development.md): local run, Docker Compose, Kafka, contract-first workflow, testing, conventions
+- [docs/operations.md](docs/operations.md): production layout, deployment by hand, push monitors, Telegram summary
+- [docs/portfolio-import.md](docs/portfolio-import.md): CSV import and export
+- [AGENTS.md](AGENTS.md): architecture, conventions and gotchas, for contributors and coding agents
 
-```bash
-./mvnw spring-boot:run -pl cairn-batch "-Dspring-boot.run.arguments=--spring.batch.job.name=snapshotJob run.at=$(date +%s)"
-./mvnw spring-boot:run -pl cairn-kafka
-```
+## License
 
-The containers keep running after the applications stop. `docker compose -f compose.local.yaml stop`
-stops them, `down -v` also resets the database.
-
-## Running with Docker Compose
-
-`compose.yaml` runs the whole stack: `postgres` has no published port — only the other compose
-services reach it, over the compose network, by service name.
-
-```bash
-cd apps/cairn
-export CAIRN_PASSWORD=s0me-real-secret
-export POSTGRES_PASSWORD=s0me-real-secret
-docker compose --profile migrate up --build schema   # one-shot: applies the Liquibase changelog
-docker compose up -d --build api                      # starts the API on :8080
-docker compose run --rm batch                          # runs the batch job once, on demand
-```
-
-`CAIRN_PASSWORD` is required outside the `local` profile — `WebAuthnConfig` refuses to boot with
-its default value once it detects it isn't running with `local` active (see AGENTS.md's Deviations
-from the starter, point 1).
-
-`CAIRN_RP_ID`/`CAIRN_ORIGIN` are optional: `compose.yaml` only forwards them to the container when
-set in the host shell, so leaving them unset lets `cairn-api/application.yml`'s own defaults
-(`localhost` / `http://localhost:4200`) apply, which is enough for the single-user local quickstart
-above. Export them (e.g. `export CAIRN_RP_ID=cairn.example.com
-CAIRN_ORIGIN=https://cairn.example.com`) to point the passkey ceremony at a real domain.
-
-
-### The whole stack, as the server runs it
-
-The commands above start the API alone, which is what `pnpm start` proxies to. They do not exercise
-Caddy, and three defects have reached production precisely because nothing local did: the proxy
-strips the `/api` prefix the contract does not carry, it puts the frontend and the API on one
-origin, and outside the `local` profile CSRF is real. Add `web` and `caddy` and all three are back
-under test:
-
-```bash
-export CAIRN_PASSWORD=s0me-real-secret
-export POSTGRES_PASSWORD=s0me-real-secret
-export CAIRN_ORIGIN=http://localhost   # the browser's origin through Caddy, not ng serve's :4200
-export WEB_TAG=sha-1a2b3c4             # a deployed frontend, or a tag you built yourself
-
-docker compose --profile migrate up --build schema
-docker compose up -d --build
-```
-
-Then open `http://localhost`, never `http://localhost:8080`: the second bypasses the proxy and with
-it everything this stack exists to check. `curl -sS -o /dev/null -w '%{http_code}'
-http://localhost/api/actuator/health` answers 200 only if the prefix is being stripped, which is
-the same assertion the deploy workflow makes against production.
-
-To run a frontend that is not deployed, build it in its own repository under a tag and name it:
-
-```bash
-docker build -t ghcr.io/joanroucoux/cairn-web:local ../cairn-web
-WEB_TAG=local docker compose up -d
-```
-
-`schema` and `batch` both carry a `profiles` entry so `docker compose up` alone never starts them:
-the schema is migrated explicitly, out-of-band, and the batch job is meant to be triggered by cron
-(`docker compose run --rm batch`), not to run continuously.
-
-### Kafka
-
-`kafka` (a single-node KRaft broker) and `worker` (`cairn-kafka`, which declares the
-`cairn.prices`/`cairn.portfolio` topics, runs the intraday refresh scheduler and consumes
-`refresh.completed` events to record valuation points) come up with the rest of `docker compose
-up`. Both `api` and `batch` publish to them through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`. Watch a
-topic from the host with the broker's own console consumer:
-
-```bash
-docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 --topic cairn.prices --from-beginning
-```
-
-A refresh (`POST /quotes/refresh`, `docker compose run --rm batch`, or the cron job) publishes to
-`cairn.prices` and `cairn.portfolio` regardless of which entry point triggered it. `kafka` and
-`worker` being down does not fail a refresh: publishing is fire-and-forget from the caller's point
-of view, `api` stays `UP` even with the broker stopped.
-
-## Running in production
-
-Cairn assumes a host shared with other applications. The server, the shared Caddy proxy and the
-monitoring belong to the `infra` repository; Cairn owns `/srv/cairn` only.
-
-```
-/srv/proxy/    infra's: Caddy alone, ports 80/443, one snippet per site in sites/
-/srv/cairn/    compose.prod.yaml, .env, deploy.sh, run-batch.sh, cairn.cron
-```
-
-Every push to `main` deploys (see AGENTS.md's Deployment section). The core of what deploy.sh does,
-by hand, once the images are pulled:
-
-```bash
-cd /srv/cairn
-sed -i "s|^TAG=.*|TAG=sha-1a2b3c4|" .env
-docker compose -f compose.prod.yaml --profile migrate --profile batch pull schema api batch
-docker compose -f compose.prod.yaml --profile migrate run --rm -T schema </dev/null
-docker compose -f compose.prod.yaml up -d --wait postgres api
-```
-
-The migration runs first, on purpose: `ddl-auto: validate` means a failed migration must block the
-deploy rather than half-start it.
-
-`CAIRN_DOMAIN` is set in both `.env` files and the two must agree, since Caddy reads one and the
-api container the other. Use a subdomain, not the apex: an apex `rp-id` would make Cairn's passkeys
-usable by any other application on the domain. Choose it once, too — `rp-id` is bound into every
-credential registered against it, so changing the domain later breaks every existing passkey. See
-AGENTS.md's Deployment section for the routing details.
-
-### Push monitors
-
-`deploy/run-batch.sh` pings an Uptime Kuma push monitor after each cron-triggered batch run, and
-the worker's intraday scheduler pings its own. Each monitor's URL lives in `/srv/cairn/.env`, under
-the variable name its heartbeat uses:
-
-| Variable               | Job                | Cron                     |
-| ----------------------- | ------------------ | ------------------------ |
-| `KUMA_PUSH_EQUITY`      | `refreshQuotesJob` (EQUITY) | `0 19 * * 1-5`     |
-| `KUMA_PUSH_ETF`         | `refreshQuotesJob` (ETF)    | `15 19 * * 1-5`    |
-| `KUMA_PUSH_FUND`        | `refreshQuotesJob` (FUND)   | `0 11 * * 2-6`     |
-| `KUMA_PUSH_SNAPSHOT`    | `snapshotJob`                | `30 23 * * *`, interval 25 h |
-| `KUMA_PUSH_INTRADAY`    | worker's intraday refresh scheduler | not a cron job |
-| `KUMA_PUSH_SUMMARY`     | worker's daily Telegram summary scheduler | `0 45 19 * * MON-FRI`, interval 73 h |
-
-The summary runs Monday to Friday only, so its monitor waits 73 h: a 25 h interval would alert
-every weekend. A weekday failure is noticed the same evening anyway, when no message arrives.
-
-### Telegram summary
-
-Monday to Friday at 19:45 (Europe/Paris), the worker sends net worth, the day's change and each
-envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
-
-1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and put its token in
-   `/srv/cairn/.env` as `TELEGRAM_BOT_TOKEN`.
-2. Send the bot any message, then open `https://api.telegram.org/bot<token>/getUpdates` and put
-   `message.chat.id` in `/srv/cairn/.env` as `TELEGRAM_CHAT_ID`.
-3. Create the push monitor above and put its URL in `/srv/cairn/.env` as `KUMA_PUSH_SUMMARY`.
-
-The bot token never appears in the logs, not even on a failed send: `docker logs cairn-worker-1`
-must never show it.
-
-## Project structure
-
-```
-pom.xml                    Aggregator only: <modules>, no inheritance
-cairn-domain/        model/, exception/ (business/ holds BusinessException + its subclasses,
-                           technical/ holds TechnicalException + its), port/in/ (use cases),
-                           port/out/ (external providers, repositories), service/ — plain Java,
-                           ZERO dependencies (a Maven guarantee, not just a convention)
-cairn-adapter/       client/ (properties/, config/, adapter/), persistence/ where applicable —
-                           depends on cairn-domain
-cairn-api/           Spring Boot application: REST exposition
-├── openapi/openapi.yaml   The REST contract (source of truth, edited first)
-├── application/           controller/ (implements the generated interfaces), mapper/ (domain↔DTO,
-│                          one class per resource), exception/ (@RestControllerAdvice)
-├── infrastructure/        config/ (SecurityConfig, one XxxDomainConfig per slice)
-└── generated/             openapi build output (never edited, never committed)
-cairn-schema/        Liquibase changelogs (db/changelog/) — owns the schema, no Java code
-cairn-batch/         Spring Boot application: Spring Batch jobs over cairn-domain/cairn-adapter
-compose.prod.yaml          Production overlay: GHCR images, no published port
-cairn.caddy                Cairn's routing, deployed into the shared proxy's sites/
-deploy/                    deploy.sh, run-batch.sh and cairn.cron, shipped to /srv/cairn
-```
-
-Dependency rules: `cairn-domain` depends on nothing but the JDK (a Maven guarantee); `cairn-adapter` implements the domain's outbound ports and reaches the domain only through its ports, model and exceptions (ArchUnit); `cairn-api`/`cairn-batch` depend on `cairn-adapter` at **runtime scope only**, so neither can reach adapter internals even by accident. Errors map by family in the `@RestControllerAdvice` — `BusinessException` → 422, `TechnicalException` → 502; authentication and authorization (401/403) are handled by Spring Security.
-
-`cairn-schema` is applied out-of-band (ops or pipeline, `liquibase:update`) — a running application **never** migrates the database itself. The application modules depend on it at **test scope only**, so their integration tests can migrate their own throwaway Testcontainers database with the real changelog.
-
-The demo features are reference implementations of a full hexagonal slice — use them as the model for your own, then replace them.
-
-## Loading a portfolio
-
-`POST /portfolio/import` takes a semicolon-separated CSV and creates whatever the rows refer to and
-does not exist yet: accounts, instruments and positions. `GET /portfolio/import/template` returns
-the header to fill in, produced from the same constant the parser reads so the two cannot drift
-apart, followed by two example rows. A line starting with `#` is skipped, so the examples can stay
-in the file.
-
-```
-account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
-# Sample Broker;PEA;Sample Bank;Sample S&P 500 ETF;FR0011550185;12;26.65
-# Sample Broker;CTO;Sample Bank;Sample Bank Share;GLE.PA;10;
-```
-
-`isinOrTicker` is whatever identifies the instrument: an ISIN, a ticker, or a provider id such as
-`bitcoin`. The import first looks for an existing instrument with that ISIN or source reference.
-Failing that, it asks Yahoo Finance, the only price source able to look an instrument up. A
-CoinGecko coin, an SG Sirius fund or a manually priced instrument must therefore be created before
-the import, which then finds it by its source reference. Leave `averageCost` empty for a position
-with no known cost basis.
-
-Two properties worth knowing before running it:
-
-- **All or nothing.** One unreadable or unresolvable row and nothing is written; the 422 lists
-  every refused row with its line number, so the file is fixed in one pass rather than one deploy
-  at a time.
-- **It updates, it never deletes.** A row whose (account, instrument) pair already exists updates
-  its quantity and cost basis, which makes replaying a corrected file safe. A position removed from
-  the file stays in the database: deleting is an explicit `DELETE /holdings/{id}`.
-
-`GET /portfolio/export` is the inverse operation and a one-request backup. Take one before
-importing over an existing portfolio, since an import overwrites quantities silently.
-
-## Contract-first workflow
-
-1. Edit `cairn-api/openapi/openapi.yaml` (the contract comes first).
-2. `./mvnw compile` regenerates the interfaces and DTOs (`com.roucoux.cairn.generated.*` — build output, never edited).
-3. Implement the new interface methods in a controller, mapping DTOs to the domain through the inbound ports.
-
-## Testing
-
-- **Unit tests** (`*Test`, surefire): domain services with plain JUnit/Mockito, controllers with `@WebMvcTest` + `jwt()`, external clients against WireMock.
-- **Integration tests** (`*IT`, failsafe): full application boot with `@SpringBootTest`, and Testcontainers PostgreSQL wherever a database is involved.
-- **Business scenarios** (`CucumberIT`, failsafe): `.feature` files under `cairn-api/src/test/resources/features/` run over real HTTP through the full Spring context — `quote.feature` is the reference scenario for adding your own.
-- **Architecture**: the hexagonal rules, checked on every build.
-- **Coverage**: JaCoCo gate at 70% lines per module.
-
-## Quality and conventions
-
-- Formatting: Spotless with palantir-java-format — `./mvnw spotless:apply` / `spotless:check`. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org).
-- Schema changes only through `cairn-schema`'s Liquibase changelogs, applied out-of-band (`ddl-auto: validate` — never by an application).
+[MIT](LICENSE)

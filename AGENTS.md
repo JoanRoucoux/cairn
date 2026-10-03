@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for AI coding agents working in this repository. See the [README](README.md) for the full project overview.
+Guidance for AI coding agents working in this repository. See the [README](README.md) for the project overview, and [docs/development.md](docs/development.md), [docs/operations.md](docs/operations.md) and [docs/portfolio-import.md](docs/portfolio-import.md) for the how-to guides.
 
 ## Project
 
@@ -28,7 +28,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - `cairn-batch` — second Spring Boot application over the same `cairn-domain`/`cairn-adapter`: `BatchApplication` (in the base package, so the component scan reaches the adapters), `batch/job/` (the chunk-oriented step, wired to ports only) and `batch/config/` (its composition root). Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`. Its metadata tables come from a `cairn-schema` changeset, with `spring.batch.jdbc.initialize-schema: never`.
 - `cairn-kafka` — third entry point over the same hexagon: `KafkaWorkerApplication` (base package, same reason as `cairn-batch`), `kafka/config/` (`TopicsConfig` declares the `cairn.prices` and `cairn.portfolio` topics as `NewTopic` beans, `WorkerDomainConfig` is its composition root). It has no web server (`spring.main.web-application-type: none`) and stays up (`keep-alive: true`) to host the `KafkaAdmin` that creates the topics on startup, the intraday refresh scheduler (EQUITY+ETF every 15 min Mon-Fri 9:00-17:45, CRYPTO every 15 min, Europe/Paris) and the `ValuationConsumer` (`kafka/consumer/`) that turns each `refresh.completed` event on `cairn.portfolio` into a recorded valuation point, consumer group `cairn-valuation`. In the worker, the CoinGecko adapter is wired as a plain prototype rather than a scoped proxy: a scoped proxy over a prototype target makes a new adapter per method call, which would lose the one grouped call per refresh. Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`/`cairn-batch`. The `adapter/messaging/` package (`cairn-adapter`) is where the actual publishing lives: `adapter/` (`KafkaEventPublisher`, `EventEnvelope`, `PriceUpdatedData`, `ValuationRecordedData`), `config/` (`KafkaMessagingConfig`), `properties/` (`KafkaMessagingProperties`).
 - `com.roucoux.cairn.generated.*` is build output of openapi-generator: never edit it, edit the spec and rebuild. Contract-first: the spec changes before the code.
-- The hexagonal rules are law, enforced by the ArchUnit tests in the application modules. The demo features are reference implementations of a full slice — model new features on them.
+- The hexagonal rules are law, enforced by the ArchUnit tests in the application modules. The real features (accounts, holdings, instruments, quotes, portfolio, history) are full hexagonal slices: model new features on them.
 
 ## Conventions
 
@@ -202,8 +202,8 @@ portfolio value and its `ACCOUNT_TYPE`/`ASSET_CLASS` ventilations; its heartbeat
 (`kafka/schedule/`) sends the day's Telegram summary Monday to Friday at 19:45 Paris
 (`0 45 19 * * MON-FRI`), reading `GetPerformanceUseCase.performance(D1)` so its numbers match the
 dashboard's 1J tile; not on weekends, when a stock's day change would just replay Friday's. Its
-heartbeat is the `KUMA_PUSH_SUMMARY` push monitor, interval 73 h (see the README's push monitors
-section for why 25 h does not fit a weekday-only job). `TelegramNotificationAdapter`
+heartbeat is the `KUMA_PUSH_SUMMARY` push monitor, interval 73 h (see the push monitors
+section of [docs/operations.md](docs/operations.md) for why 25 h does not fit a weekday-only job). `TelegramNotificationAdapter`
 (`cairn-adapter`'s `client/`) is wired in every application, not the worker alone:
 `TelegramClientProperties`' `botToken`/`chatId` carry no validation annotation, so `cairn-api` and
 `cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks them when a
@@ -264,7 +264,6 @@ holds. A rollback redeploys an already released commit and mints no version.
 - **A domain invariant throws a `BusinessException`, never an `IllegalArgumentException`**, which the advice
   would not map at all and would surface as a 500. `DataIntegrityViolationException` maps to 409.
 - The aggregator declares the Spotless plugin although it holds no Java: `spotless:check` from the root resolves the plugin prefix per project and fails on any project that lacks it.
-- The demo table is named `positions` (plural): `POSITION` is a reserved word in PostgreSQL.
 - **`cairn-schema` stays a test-scope dependency of the application modules only** — never add it (or `liquibase-core`) to `cairn-domain`/`cairn-adapter`, and never widen its scope past `test`. An application must never be able to migrate the database itself.
 - **Without Docker, `cairn-adapter`'s coverage gate fails under `-DskipITs`**: expected, not a regression — its persistence code is only exercised by `*IT` tests.
 - **`cucumber-junit-platform-engine` must stay pinned to a version built against the same `junit-jupiter` line Spring Boot manages** (see `cairn-api/pom.xml`'s `cucumber.version` comment): a newer Cucumber needs a newer JUnit Platform than this project's dependency management provides, and fails at test discovery with `NoClassDefFoundError`.
