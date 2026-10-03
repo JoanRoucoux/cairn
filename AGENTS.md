@@ -48,7 +48,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Bean-wiring code (`@Bean` methods) is unit-tested by calling those methods directly, so the coverage gate does not depend on Docker being available.
 - External clients: WireMockServer without any Spring context.
 - ArchUnit rules are plain JUnit `@Test` methods over a static `ClassFileImporter` on purpose — do not migrate them to `@AnalyzeClasses`/`@ArchTest`. A rule whose subject matches nothing fails, so keep rules next to the code they constrain.
-- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, and the API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` and `ValuationRoundTripIT` exercise the real Kafka wiring, both through a Testcontainers broker.
+- Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, `CucumberSpringConfiguration` mocks `PublishEventPort` because the manual quote publishes, and the other API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` and `ValuationRoundTripIT` exercise the real Kafka wiring, both through a Testcontainers broker.
 - Coverage gate: 70% lines per module (JaCoCo, merged unit+IT data).
 
 ## Deviations from the starter
@@ -147,7 +147,8 @@ argument order (`postgres kafka worker api`) is not a start order and `api` does
 dropped and logged. `deploy.sh` pulls/prunes the `cairn-kafka` image alongside the other three.
 **PostgreSQL first, then the
 event**: `QuoteAnnouncementService` publishes only after the caller's transaction has written the
-quote/refresh outcome, never before, so a broker outage can drop an event but never leaves a
+quote/refresh outcome, never before (the API's `QuoteRecordingService` does the same for a manual
+quote, announcing a `MANUAL` refresh so the worker records a valuation point), so a broker outage can drop an event but never leaves a
 published event pointing at data that was never saved.
 
 `CAIRN_DOMAIN` is set twice, and the two must agree: in `/srv/cairn/.env` (feeding the api

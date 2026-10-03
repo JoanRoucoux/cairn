@@ -64,6 +64,7 @@ flowchart LR
 
     batch -- publishes --> kafka{{"Kafka<br/>cairn.prices, cairn.portfolio"}}
     worker -- publishes --> kafka
+    api -- "manual quote" --> kafka
     kafka -- "refresh.completed" --> worker
 
     api -- "instrument lookup" --> providers
@@ -73,7 +74,7 @@ flowchart LR
     worker -- "daily summary" --> telegram[Telegram]
 ```
 
-The API calls the providers only to look an instrument up (ISIN or ticker) when one is created. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The API never publishes to Kafka: its producer is configured but unused. The batch jobs and the worker publish, and the worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point.
+The API calls the providers only to look an instrument up (ISIN or ticker) when one is created. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The batch jobs and the worker publish after a refresh. The API publishes only when a quote is entered by hand: a `price.updated` on `cairn.prices` and a `refresh.completed` with the `MANUAL` trigger on `cairn.portfolio`. The worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point, so a manual quote gets one too.
 
 ### Modules
 
