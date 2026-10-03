@@ -92,8 +92,8 @@ cron, not to run continuously.
 `kafka` (a single-node KRaft broker) and `worker` (`cairn-kafka`, which declares the
 `cairn.prices` and `cairn.portfolio` topics, runs the intraday refresh scheduler and consumes
 `refresh.completed` events to record valuation points) come up with the rest of `docker compose up`.
-`batch` and `worker` publish to the topics through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`; the API
-sets the variable too, but nothing in it publishes. Watch a topic from the host with the broker's
+`batch`, `worker` and `api` publish to the topics through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`; the
+API publishes only when a quote is entered by hand. Watch a topic from the host with the broker's
 own console consumer:
 
 ```bash
@@ -104,8 +104,10 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
 There is no endpoint that triggers a refresh. A refresh is either a `refreshQuotesJob` batch run
 (`docker compose run --rm batch --spring.batch.job.name=refreshQuotesJob assetClasses=EQUITY "run.at=$(date +%s)"`,
 or the cron job in production) or a tick of the worker's intraday scheduler. Both publish to
-`cairn.prices` and `cairn.portfolio`. `kafka` and `worker` being down does not fail a refresh:
-publishing never fails the caller, and `api` stays `UP` even with the broker stopped.
+`cairn.prices` and `cairn.portfolio`. Recording a quote by hand through the API publishes the same
+two events, the second with the `MANUAL` trigger. `kafka` and `worker` being down does not fail a
+refresh or a manual quote: publishing never fails the caller, and `api` stays `UP` even with the
+broker stopped.
 
 ## Contract-first workflow
 
