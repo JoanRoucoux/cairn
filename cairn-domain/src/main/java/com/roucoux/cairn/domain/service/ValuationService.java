@@ -2,10 +2,8 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.model.IntradayValuation;
 import com.roucoux.cairn.domain.model.Portfolio;
-import com.roucoux.cairn.domain.model.event.ValuationRecorded;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
-import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,13 +15,10 @@ public class ValuationService implements RecordValuationUseCase {
 
     private final GetPortfolioUseCase getPortfolio;
     private final SaveValuationPort saveValuation;
-    private final PublishEventPort publishEvent;
 
-    public ValuationService(
-            GetPortfolioUseCase getPortfolio, SaveValuationPort saveValuation, PublishEventPort publishEvent) {
+    public ValuationService(GetPortfolioUseCase getPortfolio, SaveValuationPort saveValuation) {
         this.getPortfolio = getPortfolio;
         this.saveValuation = saveValuation;
-        this.publishEvent = publishEvent;
     }
 
     @Override
@@ -35,8 +30,6 @@ public class ValuationService implements RecordValuationUseCase {
 
         saveValuation.upsert(valuation);
         saveValuation.deleteBefore(truncated.minus(RETENTION));
-        publishEvent.publish(new ValuationRecorded(
-                truncated, portfolio.total().amount(), portfolio.dayChange().amount()));
 
         return valuation;
     }

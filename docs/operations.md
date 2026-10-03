@@ -54,6 +54,37 @@ variable name its heartbeat uses:
 The summary runs Monday to Friday only, so its monitor waits 73 h: a 25 h interval would alert
 every weekend. A weekday failure is noticed the same evening anyway, when no message arrives.
 
+## Backfilling quotes
+
+`backfillQuotesJob` loads the daily close history of instruments from their price provider and
+upserts it into `quotes`, one row per instrument and day. It has no cron entry and no push monitor:
+it is run by hand. Run it after adding an instrument whose history you want on the charts, or after
+an outage that left gaps in the daily closes. It is idempotent, since an existing day is overwritten
+with the provider's close, so running it twice is harmless. Instruments priced by hand (`MANUAL`)
+are skipped.
+
+Parameters, all optional:
+
+| Parameter      | Meaning                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `instrumentId` | UUID of one instrument. Without it, every non-manual instrument is backfilled.          |
+| `from`         | First day to keep, `YYYY-MM-DD`. Without it, `2015-01-01`.                              |
+| `run.at`       | Unique value that makes the run a new job instance, as for the other jobs.              |
+
+```bash
+cd /srv/cairn
+docker compose -f compose.prod.yaml --profile batch run --rm -T batch \
+  --spring.batch.job.name=backfillQuotesJob instrumentId=<uuid> from=2024-01-01 \
+  "run.at=$(date +%Y%m%dT%H%M%S)" </dev/null
+```
+
+`deploy/run-batch.sh` is not used here: it insists on a push monitor variable and pings it, and this
+job has none. Each instrument goes to the provider that supports its price source, with its own
+depth: Yahoo returns its whole series (`range=max`), SG Sirius its whole NAV series, and CoinGecko
+only the last 90 days, whatever `from` says. `from` only trims what the provider returned. A
+provider failure for one instrument fails the step and the job, and the instruments already
+processed keep their rows; fix the cause and rerun with a new `run.at`.
+
 ## Telegram summary
 
 Monday to Friday at 19:45 (Europe/Paris), the worker sends net worth, the day's change and each

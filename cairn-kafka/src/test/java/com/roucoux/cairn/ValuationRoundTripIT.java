@@ -4,17 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.adapter.persistence.repository.IntradayValuationJpaRepository;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Predicate;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,8 +17,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(properties = "spring.liquibase.change-log=classpath:db/changelog/changelog-master.xml")
@@ -36,7 +24,6 @@ import tools.jackson.databind.json.JsonMapper;
 class ValuationRoundTripIT {
 
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(15);
-    private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
 
     @Container
     @ServiceConnection
@@ -55,29 +42,6 @@ class ValuationRoundTripIT {
     @Autowired
     private IntradayValuationJpaRepository valuations;
 
-    private KafkaConsumer<String, String> consumer;
-
-    @BeforeEach
-    void subscribeToThePortfolioTopic() {
-        consumer = new KafkaConsumer<>(Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                kafka.getBootstrapServers(),
-                ConsumerConfig.GROUP_ID_CONFIG,
-                "valuation-round-trip-it-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                "earliest",
-                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class,
-                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class));
-        consumer.subscribe(List.of("cairn.portfolio"));
-    }
-
-    @AfterEach
-    void closeConsumer() {
-        consumer.close();
-    }
-
     @Test
     void aRefreshCompletedEnvelopeIsTurnedIntoARecordedValuation() {
         awaitTheCairnValuationContainerToHaveAssignedPartitions();
@@ -89,21 +53,23 @@ class ValuationRoundTripIT {
                 """;
         kafkaTemplate.send("cairn.portfolio", envelope);
 
-        ConsumerRecord<String, String> published =
-                pollMatching(value -> value.contains("\"type\":\"valuation.recorded\""));
-        JsonNode envelopeReceived = JSON_MAPPER.readTree(published.value());
-
-        assertThat(envelopeReceived.get("data").get("totalEur").decimalValue()).isEqualByComparingTo("0");
+        awaitUntil(() -> valuations.count() == 1, "no valuation point recorded");
         assertThat(valuations.findAll()).hasSize(1);
     }
 
     private void awaitTheCairnValuationContainerToHaveAssignedPartitions() {
         MessageListenerContainer container = registry.getListenerContainer("cairn-valuation");
+        awaitUntil(
+                () -> container.getAssignedPartitions() != null
+                        && !container.getAssignedPartitions().isEmpty(),
+                "cairn-valuation never got a partition assignment");
+    }
+
+    private static void awaitUntil(BooleanSupplier condition, String failure) {
         long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
-        while (container.getAssignedPartitions() == null
-                || container.getAssignedPartitions().isEmpty()) {
+        while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) {
-                throw new AssertionError("cairn-valuation never got a partition assignment within " + POLL_TIMEOUT);
+                throw new AssertionError(failure + " within " + POLL_TIMEOUT);
             }
             try {
                 Thread.sleep(100);
@@ -112,18 +78,5 @@ class ValuationRoundTripIT {
                 throw new AssertionError(interrupted);
             }
         }
-    }
-
-    private ConsumerRecord<String, String> pollMatching(Predicate<String> valueMatches) {
-        long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
-        while (System.nanoTime() < deadline) {
-            ConsumerRecords<String, String> polled = consumer.poll(Duration.ofMillis(200));
-            for (ConsumerRecord<String, String> record : polled) {
-                if (valueMatches.test(record.value())) {
-                    return record;
-                }
-            }
-        }
-        throw new AssertionError("no matching record polled on cairn.portfolio within " + POLL_TIMEOUT);
     }
 }

@@ -24,6 +24,7 @@ alongside the others:
 ```bash
 ./mvnw spring-boot:run -pl cairn-batch "-Dspring-boot.run.arguments=--spring.batch.job.name=snapshotJob run.at=$(date +%s)"
 ./mvnw spring-boot:run -pl cairn-batch "-Dspring-boot.run.arguments=--spring.batch.job.name=refreshQuotesJob assetClasses=EQUITY run.at=$(date +%s)"
+./mvnw spring-boot:run -pl cairn-batch "-Dspring-boot.run.arguments=--spring.batch.job.name=backfillQuotesJob from=2024-01-01 run.at=$(date +%s)"
 ./mvnw spring-boot:run -pl cairn-kafka
 ```
 
