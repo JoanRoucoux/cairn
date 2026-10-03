@@ -53,13 +53,7 @@ public class UseCaseLoggingInterceptor implements MethodInterceptor {
                     .addKeyValue("outcome", "failure")
                     .addKeyValue("durationMs", durationMs)
                     .addKeyValue("exception", exception)
-                    .log(
-                            "use case {}.{} failed in {} ms: {}: {}",
-                            useCase.get(),
-                            method,
-                            durationMs,
-                            exception,
-                            String.valueOf(failure.getMessage()));
+                    .log("use case {}.{} failed in {} ms: {}", useCase.get(), method, durationMs, exception);
             throw failure;
         }
     }

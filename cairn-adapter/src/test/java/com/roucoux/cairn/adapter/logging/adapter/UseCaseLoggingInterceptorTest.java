@@ -62,7 +62,8 @@ class UseCaseLoggingInterceptorTest {
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getLevel()).isEqualTo(Level.WARN);
             assertThat(event.getFormattedMessage())
-                    .matches("use case Greet\\.greet failed in \\d+ ms: IllegalArgumentException: blank name");
+                    .matches("use case Greet\\.greet failed in \\d+ ms: IllegalArgumentException")
+                    .doesNotContain("blank name");
             assertThat(event.getThrowableProxy()).isNull();
             assertThat(fields(event))
                     .containsEntry("outcome", "failure")
