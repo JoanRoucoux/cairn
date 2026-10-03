@@ -39,12 +39,17 @@ public class KafkaEventPublisher implements PublishEventPort {
 
     @Override
     public void publish(DomainEvent event) {
+        String type = event.getClass().getSimpleName();
         try {
             Publication publication = publicationFor(event);
             String payload = jsonMapper.writeValueAsString(publication.envelope());
-            kafkaTemplate.send(publication.topic(), publication.key(), payload);
+            kafkaTemplate.send(publication.topic(), publication.key(), payload).whenComplete((result, failure) -> {
+                if (failure != null) {
+                    log.warn("failed to publish a {} event", type, failure);
+                }
+            });
         } catch (RuntimeException failure) {
-            log.warn("failed to publish a {} event", event.getClass().getSimpleName(), failure);
+            log.warn("failed to publish a {} event", type, failure);
         }
     }
 

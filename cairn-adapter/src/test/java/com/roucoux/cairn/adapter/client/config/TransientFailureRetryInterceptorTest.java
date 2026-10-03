@@ -9,6 +9,10 @@ import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -17,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,13 +29,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -164,7 +172,10 @@ class TransientFailureRetryInterceptorTest {
         TransientFailureRetryInterceptor interceptor = new TransientFailureRetryInterceptor(
                 List.of(Duration.ofSeconds(1), Duration.ofSeconds(3)), duration -> {});
 
-        ClientHttpResponse result = interceptor.intercept(null, new byte[0], execution);
+        ClientHttpResponse result = interceptor.intercept(
+                new MockClientHttpRequest(HttpMethod.GET, URI.create("http://localhost/quote")),
+                new byte[0],
+                execution);
 
         assertThat(result).isSameAs(success);
         assertThat(serverError.closed).isTrue();
@@ -215,6 +226,26 @@ class TransientFailureRetryInterceptorTest {
         @Override
         public HttpHeaders getHeaders() {
             return new HttpHeaders();
+        }
+    }
+
+    @Test
+    void logsEachRetryWithoutStack() {
+        Logger logger = (Logger) LoggerFactory.getLogger(TransientFailureRetryInterceptor.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        stubSequence(aResponse().withStatus(503), ok("price"));
+        try {
+            assertThat(call()).isEqualTo("price");
+
+            assertThat(appender.list).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage()).isEqualTo("GET localhost answered 503, retry 1/2 in 1000 ms");
+                assertThat(event.getThrowableProxy()).isNull();
+            });
+        } finally {
+            logger.detachAppender(appender);
         }
     }
 
