@@ -98,3 +98,34 @@ envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
 
 The bot token never appears in the logs, not even on a failed send: `docker logs cairn-worker-1`
 must never show it.
+
+## Reading the logs
+
+Logs stay in Docker; their rotation is the host's concern (infra repository). In prod every line is
+ECS JSON (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` in `compose.prod.yaml`), local runs stay plain text.
+
+```bash
+cd /srv/cairn
+docker compose -f compose.prod.yaml logs --no-log-prefix api | jq -R 'fromjson? | select(.log.level != "INFO")'
+docker compose -f compose.prod.yaml logs --no-log-prefix api worker | jq -R 'fromjson? | select(.traceId == "<trace id>")'
+docker compose -f compose.prod.yaml logs --no-log-prefix api | jq -R 'fromjson? | select(.useCase) | {useCase, method, outcome, durationMs}'
+```
+
+`fromjson?` skips the few non-JSON lines printed before Logback starts. Every call to an inbound port
+produces one `cairn.usecase` line with `useCase`, `method`, `outcome` (`success` or `failure`),
+`durationMs` and, on failure, the `exception` class. Arguments, results and the exception message are
+never logged there, since a domain message can carry a quantity.
+
+Every line carries `traceId` and `spanId`. The trace id follows an event from `api` to `worker`
+through the Kafka record headers, so the second command above shows both sides of a quote
+announcement. Batch use case lines carry a trace id too, but one per chunk or item, not one per job
+run. Nothing is exported: `management.tracing.export.otlp.enabled` and
+`management.otlp.metrics.export.enabled` are both `false`. Do not switch off
+`management.tracing.export.enabled` instead, which in Spring Boot 4 also stops the propagation and
+the `[traceId-spanId]` prefix of the text format.
+
+A stack trace appears once, where the failure leaves the application: a 502 in the API, a skipped
+item or a failed job in a batch, a Kafka publish or consume, a scheduler run. A business refusal
+(422, 404) is a single WARN line without stack. A failed batch job is one ERROR line without stack;
+the stack is Spring Batch's own step failure line just above it. An asynchronous Kafka send failure
+is logged by Spring Kafka's `LoggingProducerListener`, in its own wording.
