@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Runs one batch job from the deploy user's crontab, then pings its Uptime Kuma push monitor:
-#   run-batch.sh <heartbeat variable in /srv/cairn/.env> <batch arguments...>
 set -euo pipefail
 
 HEARTBEAT="${1:?heartbeat variable required}"
