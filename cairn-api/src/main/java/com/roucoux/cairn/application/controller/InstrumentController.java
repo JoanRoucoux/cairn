@@ -6,7 +6,7 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.in.ManageInstrumentUseCase;
-import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
+import com.roucoux.cairn.domain.port.in.SearchInstrumentsUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.generated.api.InstrumentApi;
@@ -14,7 +14,7 @@ import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
 import com.roucoux.cairn.generated.model.InstrumentCandidateResponse;
 import com.roucoux.cairn.generated.model.InstrumentDetailResponse;
 import com.roucoux.cairn.generated.model.InstrumentResponse;
-import com.roucoux.cairn.generated.model.ResolveInstrumentRequest;
+import com.roucoux.cairn.generated.model.SearchableSource;
 import com.roucoux.cairn.generated.model.UpdateInstrumentRequest;
 import com.roucoux.cairn.infrastructure.transaction.InstrumentDeletionTransaction;
 import java.util.List;
@@ -30,7 +30,7 @@ class InstrumentController implements InstrumentApi {
     private final LoadHoldingsPort loadHoldings;
     private final ManageInstrumentUseCase manageInstrument;
     private final InstrumentDeletionTransaction deleteInstrumentTransaction;
-    private final ResolveInstrumentUseCase resolveInstrument;
+    private final SearchInstrumentsUseCase searchInstruments;
     private final InstrumentRestMapper mapper;
 
     InstrumentController(
@@ -38,13 +38,13 @@ class InstrumentController implements InstrumentApi {
             LoadHoldingsPort loadHoldings,
             ManageInstrumentUseCase manageInstrument,
             InstrumentDeletionTransaction deleteInstrumentTransaction,
-            ResolveInstrumentUseCase resolveInstrument,
+            SearchInstrumentsUseCase searchInstruments,
             InstrumentRestMapper mapper) {
         this.loadInstruments = loadInstruments;
         this.loadHoldings = loadHoldings;
         this.manageInstrument = manageInstrument;
         this.deleteInstrumentTransaction = deleteInstrumentTransaction;
-        this.resolveInstrument = resolveInstrument;
+        this.searchInstruments = searchInstruments;
         this.mapper = mapper;
     }
 
@@ -97,10 +97,9 @@ class InstrumentController implements InstrumentApi {
     }
 
     @Override
-    public ResponseEntity<List<InstrumentCandidateResponse>> resolveInstrument(
-            ResolveInstrumentRequest resolveInstrumentRequest) {
+    public ResponseEntity<List<InstrumentCandidateResponse>> searchInstruments(SearchableSource source, String query) {
         List<InstrumentCandidateResponse> candidates =
-                resolveInstrument.resolve(resolveInstrumentRequest.getQuery()).stream()
+                searchInstruments.search(PriceSource.valueOf(source.name()), query).stream()
                         .map(mapper::toCandidateResponse)
                         .toList();
         return ResponseEntity.ok(candidates);

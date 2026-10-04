@@ -11,12 +11,16 @@ import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
+import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -46,8 +50,7 @@ class InstrumentResolutionServiceTest {
 
     @Test
     void returnsEveryCandidateFoundAcrossSources() {
-        InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(resolver(ETF_CANDIDATE), resolver()), List.of());
+        InstrumentResolutionService service = service(List.of(resolver(ETF_CANDIDATE), resolver()), List.of());
 
         assertThat(service.resolve("LU0000000010")).containsExactly(ETF_CANDIDATE);
     }
@@ -55,22 +58,21 @@ class InstrumentResolutionServiceTest {
     @Test
     void keepsCandidatesFromEverySourceThatAnswers() {
         InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(resolver(ETF_CANDIDATE), resolver(SG_CANDIDATE)), List.of());
+                service(List.of(resolver(ETF_CANDIDATE), resolver(SG_CANDIDATE)), List.of());
 
         assertThat(service.resolve("QS0000000010")).containsExactly(ETF_CANDIDATE, SG_CANDIDATE);
     }
 
     @Test
     void ignoresASourceThatFailsRatherThanLosingTheOthers() {
-        InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(failingResolver(), resolver(SG_CANDIDATE)), List.of());
+        InstrumentResolutionService service = service(List.of(failingResolver(), resolver(SG_CANDIDATE)), List.of());
 
         assertThat(service.resolve("QS0000000010")).containsExactly(SG_CANDIDATE);
     }
 
     @Test
     void raisesWhenNoSourceKnowsTheInstrument() {
-        InstrumentResolutionService service = new InstrumentResolutionService(List.of(resolver()), List.of());
+        InstrumentResolutionService service = service(List.of(resolver()), List.of());
 
         assertThatThrownBy(() -> service.resolve("XX0000000000")).isInstanceOf(UnknownInstrumentException.class);
     }
@@ -90,7 +92,7 @@ class InstrumentResolutionServiceTest {
         FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> new BigDecimal("559.30"));
 
         List<InstrumentCandidate> candidates =
-                new InstrumentResolutionService(List.of(yahoo), List.of(quotes)).resolve("amundi world");
+                service(List.of(yahoo), List.of(quotes)).resolve("amundi world");
 
         assertThat(candidates).singleElement().satisfies(candidate -> {
             assertThat(candidate.exchange()).isEqualTo("Paris");
@@ -109,7 +111,7 @@ class InstrumentResolutionServiceTest {
         });
 
         List<InstrumentCandidate> candidates =
-                new InstrumentResolutionService(List.of(yahoo), List.of(failing)).resolve("accor");
+                service(List.of(yahoo), List.of(failing)).resolve("accor");
 
         assertThat(candidates)
                 .singleElement()
@@ -130,7 +132,7 @@ class InstrumentResolutionServiceTest {
         });
 
         List<InstrumentCandidate> candidates =
-                new InstrumentResolutionService(List.of(yahoo), List.of(slow), Duration.ofMillis(50)).resolve("accor");
+                service(List.of(yahoo), List.of(slow), Duration.ofMillis(50)).resolve("accor");
 
         assertThat(candidates)
                 .singleElement()
@@ -142,7 +144,7 @@ class InstrumentResolutionServiceTest {
         ResolveInstrumentPort yahoo = resolver(candidate("AAPL", null));
         FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> BigDecimal.TEN, "USD");
 
-        assertThat(new InstrumentResolutionService(List.of(yahoo), List.of(quotes)).resolve("aapl"))
+        assertThat(service(List.of(yahoo), List.of(quotes)).resolve("aapl"))
                 .singleElement()
                 .satisfies(candidate -> assertThat(candidate.currency()).isEqualTo("USD"));
     }
@@ -159,7 +161,7 @@ class InstrumentResolutionServiceTest {
                 },
                 "USD");
 
-        new InstrumentResolutionService(List.of(yahoo), List.of(quotes)).resolve("aapl");
+        service(List.of(yahoo), List.of(quotes)).resolve("aapl");
 
         assertThat(seen).isNotEmpty().doesNotContain("EUR");
     }
@@ -171,7 +173,7 @@ class InstrumentResolutionServiceTest {
             throw new MarketDataUnavailableException("yahoo down");
         });
 
-        assertThat(new InstrumentResolutionService(List.of(yahoo), List.of(failing)).resolve("accor"))
+        assertThat(service(List.of(yahoo), List.of(failing)).resolve("accor"))
                 .singleElement()
                 .satisfies(candidate -> assertThat(candidate.currency()).isNull());
     }
@@ -184,11 +186,25 @@ class InstrumentResolutionServiceTest {
         InstrumentCandidate unknown = candidate("UNK", null);
         InstrumentCandidate swiss = candidate("SWX", "CHF");
 
-        List<InstrumentCandidate> sorted = new InstrumentResolutionService(
-                        List.of(resolver(lse, xetra, swiss, unknown, amsterdam)), List.of())
+        List<InstrumentCandidate> sorted = service(List.of(resolver(lse, xetra, swiss, unknown, amsterdam)), List.of())
                 .resolve("world");
 
         assertThat(sorted).containsExactly(xetra, amsterdam, unknown, lse, swiss);
+    }
+
+    private static InstrumentResolutionService service(
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers) {
+        return service(resolvers, fetchers, List.of());
+    }
+
+    private static InstrumentResolutionService service(
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers, List<Instrument> tracked) {
+        return new InstrumentResolutionService(resolvers, fetchers, new StubLoadInstruments(tracked));
+    }
+
+    private static InstrumentResolutionService service(
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers, Duration probeTimeout) {
+        return new InstrumentResolutionService(resolvers, fetchers, new StubLoadInstruments(List.of()), probeTimeout);
     }
 
     private static InstrumentCandidate candidate(String ref, String currency) {
@@ -223,6 +239,54 @@ class InstrumentResolutionServiceTest {
 
     private static ResolveInstrumentPort resolver(InstrumentCandidate... candidates) {
         return new StubResolveInstrumentPort(List.of(candidates));
+    }
+
+    private static ResolveInstrumentPort resolverFor(PriceSource source, InstrumentCandidate... candidates) {
+        return new SourceResolveInstrumentPort(source, List.of(candidates));
+    }
+
+    private static ResolveInstrumentPort failingResolverFor(PriceSource source) {
+        return new SourceResolveInstrumentPort(source, null);
+    }
+
+    private static final class SourceResolveInstrumentPort implements ResolveInstrumentPort {
+        private final PriceSource source;
+        private final List<InstrumentCandidate> candidates;
+
+        private SourceResolveInstrumentPort(PriceSource source, List<InstrumentCandidate> candidates) {
+            this.source = source;
+            this.candidates = candidates;
+        }
+
+        @Override
+        public boolean supports(PriceSource candidate) {
+            return candidate == source;
+        }
+
+        @Override
+        public List<InstrumentCandidate> resolve(String query) {
+            if (candidates == null) {
+                throw new MarketDataUnavailableException("simulated failure for " + query);
+            }
+            return candidates;
+        }
+    }
+
+    private record StubLoadInstruments(List<Instrument> instruments) implements LoadInstrumentsPort {
+        @Override
+        public List<Instrument> findAll() {
+            return instruments;
+        }
+
+        @Override
+        public Optional<Instrument> findById(UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Instrument> findRefreshable(Set<AssetClass> assetClasses) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static ResolveInstrumentPort failingResolver() {
@@ -260,9 +324,109 @@ class InstrumentResolutionServiceTest {
     }
 
     @Test
-    void logsASourceThatIsUnavailable() {
+    void importResolutionNeverAsksCoinGecko() {
+        InstrumentCandidate coin = new InstrumentCandidate(
+                "Bitcoin", PriceSource.COINGECKO, "bitcoin", AssetClass.CRYPTO, null, null, "BTC", null, null);
+        InstrumentResolutionService service = service(
+                List.of(resolverFor(PriceSource.COINGECKO, coin), resolverFor(PriceSource.YAHOO, ETF_CANDIDATE)),
+                List.of());
+
+        assertThat(service.resolve("bitcoin")).containsExactly(ETF_CANDIDATE);
+    }
+
+    @Test
+    void searchAsksOnlyTheResolverOfTheRequestedSource() {
+        InstrumentCandidate fund = amundiFund(null);
+        InstrumentResolutionService service = service(
+                List.of(failingResolverFor(PriceSource.YAHOO), resolverFor(PriceSource.AMUNDI, fund)), List.of());
+
+        assertThat(service.search(PriceSource.AMUNDI, "QS0000000020")).containsExactly(fund);
+    }
+
+    @Test
+    void searchAnswersAnEmptyListRatherThanRaisingWhenTheSourceKnowsNothing() {
+        InstrumentResolutionService service = service(List.of(resolverFor(PriceSource.YAHOO)), List.of());
+
+        assertThat(service.search(PriceSource.YAHOO, "zzzz")).isEmpty();
+    }
+
+    @Test
+    void searchAnswersAnEmptyListForASourceWithoutResolver() {
         InstrumentResolutionService service =
-                new InstrumentResolutionService(List.of(failingResolver(), resolver(SG_CANDIDATE)), List.of());
+                service(List.of(resolverFor(PriceSource.YAHOO, ETF_CANDIDATE)), List.of());
+
+        assertThat(service.search(PriceSource.COINGECKO, "bitcoin")).isEmpty();
+    }
+
+    @Test
+    void searchPropagatesASourceThatIsDownInsteadOfLookingEmpty() {
+        InstrumentResolutionService service = service(List.of(failingResolverFor(PriceSource.YAHOO)), List.of());
+
+        assertThatThrownBy(() -> service.search(PriceSource.YAHOO, "accor"))
+                .isInstanceOf(MarketDataUnavailableException.class);
+    }
+
+    @Test
+    void searchProbesAndSortsEuroFirst() {
+        FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> BigDecimal.TEN, "EUR");
+        InstrumentCandidate usd = new InstrumentCandidate(
+                "Apple", PriceSource.YAHOO, "AAPL", AssetClass.EQUITY, "NASDAQ", null, "AAPL", BigDecimal.ONE, "USD");
+        InstrumentResolutionService service =
+                service(List.of(resolverFor(PriceSource.YAHOO, usd, candidate("AC.PA", null))), List.of(quotes));
+
+        List<InstrumentCandidate> found = service.search(PriceSource.YAHOO, "a");
+
+        assertThat(found).extracting(InstrumentCandidate::sourceRef).containsExactly("AC.PA", "AAPL");
+        assertThat(found.getFirst().probePrice()).isEqualByComparingTo("10");
+        assertThat(found.getFirst().probeAsOf()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void searchKeepsTheProbeDateTheSourceAlreadyGave() {
+        LocalDate navDate = LocalDate.of(2026, 9, 24);
+        InstrumentResolutionService service =
+                service(List.of(resolverFor(PriceSource.AMUNDI, amundiFund(navDate))), List.of());
+
+        assertThat(service.search(PriceSource.AMUNDI, "QS0000000020"))
+                .singleElement()
+                .satisfies(candidate -> assertThat(candidate.probeAsOf()).isEqualTo(navDate));
+    }
+
+    @Test
+    void searchMarksACandidateWhoseSourceAndReferenceAreAlreadyTracked() {
+        UUID trackedId = UUID.randomUUID();
+        Instrument tracked = new Instrument(
+                trackedId, "Amundi MSCI World", null, "EUR", AssetClass.ETF, PriceSource.YAHOO, "ETF.PA", null);
+        Instrument otherSource = new Instrument(
+                UUID.randomUUID(), "Other", null, "EUR", AssetClass.ETF, PriceSource.AMUNDI, "AC.PA", null);
+        InstrumentResolutionService service = service(
+                List.of(resolverFor(PriceSource.YAHOO, ETF_CANDIDATE, candidate("AC.PA", "EUR"))),
+                List.of(),
+                List.of(tracked, otherSource));
+
+        assertThat(service.search(PriceSource.YAHOO, "etf"))
+                .extracting(InstrumentCandidate::trackedInstrumentId)
+                .containsExactly(trackedId, null);
+    }
+
+    private static InstrumentCandidate amundiFund(LocalDate navDate) {
+        return new InstrumentCandidate(
+                "Contoso Retraite Europe",
+                PriceSource.AMUNDI,
+                "QS0000000020",
+                AssetClass.FUND,
+                null,
+                "QS0000000020",
+                null,
+                new BigDecimal("99.38"),
+                "EUR",
+                navDate,
+                null);
+    }
+
+    @Test
+    void logsASourceThatIsUnavailable() {
+        InstrumentResolutionService service = service(List.of(failingResolver(), resolver(SG_CANDIDATE)), List.of());
 
         try (CapturedLog log = CapturedLog.of(InstrumentResolutionService.class)) {
             service.resolve("QS0000000010");
@@ -288,7 +452,7 @@ class InstrumentResolutionServiceTest {
         });
 
         try (CapturedLog log = CapturedLog.of(InstrumentResolutionService.class)) {
-            new InstrumentResolutionService(List.of(yahoo), List.of(slow), Duration.ofMillis(50)).resolve("woodgrove");
+            service(List.of(yahoo), List.of(slow), Duration.ofMillis(50)).resolve("woodgrove");
 
             assertThat(log.records()).singleElement().satisfies(record -> {
                 assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.WARNING);

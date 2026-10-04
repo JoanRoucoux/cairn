@@ -5,6 +5,9 @@ import com.roucoux.cairn.application.csv.LineError;
 import com.roucoux.cairn.domain.exception.business.BusinessException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.ConstraintViolationException;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -69,6 +72,11 @@ class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
         problem.setTitle("Upstream dependency failed");
         return problem;
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    void handleInvalidParameter(HttpServletResponse response) throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
     }
 
     @ExceptionHandler(LastPasskeyException.class)

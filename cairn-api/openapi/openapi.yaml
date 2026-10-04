@@ -872,34 +872,36 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-  /instruments/resolve:
-    post:
+  /instruments/search:
+    get:
       tags: [Instrument]
-      operationId: resolveInstrument
-      summary: Resolve a query into candidate price sources
+      operationId: searchInstruments
+      summary: Search one price source for instruments
       description: >-
-        Probes every price source that could know the query for a live price. A source that is
-        down is skipped rather than failing the whole call.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [query]
-              properties:
-                query:
-                  type: string
-                  description: An ISIN, a ticker or a name
-                  example: FR0011550185
-            example:
-              query: FR0011550185
+        One source per call, so each source gets its own loading, empty and error state. The web picks
+        the sources: by default YAHOO and COINGECKO, plus AMUNDI when the query is a full ISIN; an ISIN
+        starting with QS queries AMUNDI only; an ISIN never queries COINGECKO. AMUNDI answers a full
+        12-character ISIN only and returns an empty list otherwise. Each candidate is probed for a live
+        price. A candidate already tracked (same source and reference) carries `trackedInstrumentId`.
+        An empty list means the source knows nothing; a source that is down answers 502.
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/SearchableSource'
+        - name: query
+          in: query
+          required: true
+          description: An ISIN, a ticker or a name
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 64
+            example: FR0011550185
       responses:
         '200':
-          description: Candidate price sources, each probed for a live price
+          description: Candidates of this source, each probed for a live price, possibly none
           content:
             application/json:
               schema:
@@ -912,8 +914,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '422':
-          description: No source knows this instrument
+        '502':
+          description: The source did not answer
           content:
             application/problem+json:
               schema:
@@ -2068,10 +2070,14 @@ components:
           nullable: true
           description: Free text, up to 280 characters.
           example: Core equity ETF tracking the S&P 500.
+    SearchableSource:
+      type: string
+      enum: [YAHOO, COINGECKO, AMUNDI]
+      description: The price sources `GET /instruments/search` can query.
     InstrumentCandidateResponse:
       description: >-
         One price source's answer while resolving a query, with a live price fetched as a sanity
-        check. Returned by `POST /instruments/resolve`.
+        check. Returned by `GET /instruments/search`.
       type: object
       required: [name, source, sourceRef, assetClass]
       properties:
@@ -2126,6 +2132,21 @@ components:
             timed out, in which case the candidate stays selectable. Candidates are sorted EUR first,
             then unknown, then other currencies, in the source's order within each group.
           example: EUR
+        probeAsOf:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The date of the probe price (Amundi NAV date, CoinGecko last update, quote date for
+            Yahoo Finance). Null when the probe failed.
+          example: 2026-09-24
+        trackedInstrumentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            The instrument already tracked with this source and reference, else null; the web lists
+            such a candidate under "Déjà suivi".
     QuoteResponse:
       description: >-
         One recorded price point for an instrument. Returned by `GET /instruments/{id}/quotes` and

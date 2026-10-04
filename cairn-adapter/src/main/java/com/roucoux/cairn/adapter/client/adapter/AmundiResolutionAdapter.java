@@ -55,6 +55,8 @@ public class AmundiResolutionAdapter implements ResolveInstrumentPort {
                 isin,
                 null,
                 priced ? nav.value() : null,
-                priced && nav.currency() != null ? nav.currency().iso3Code() : null);
+                priced && nav.currency() != null ? nav.currency().iso3Code() : null,
+                priced ? nav.date() : null,
+                null);
     }
 }

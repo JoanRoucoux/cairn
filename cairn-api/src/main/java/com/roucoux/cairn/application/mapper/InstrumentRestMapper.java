@@ -52,6 +52,8 @@ public class InstrumentRestMapper {
         response.setSymbol(candidate.symbol());
         response.setProbePrice(candidate.probePrice());
         response.setCurrency(candidate.currency());
+        response.setProbeAsOf(candidate.probeAsOf());
+        response.setTrackedInstrumentId(candidate.trackedInstrumentId());
         return response;
     }
 }

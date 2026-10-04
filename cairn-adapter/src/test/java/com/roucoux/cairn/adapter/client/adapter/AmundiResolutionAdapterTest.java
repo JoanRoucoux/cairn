@@ -89,6 +89,7 @@ class AmundiResolutionAdapterTest {
             assertThat(candidate.symbol()).isNull();
             assertThat(candidate.probePrice()).isEqualByComparingTo("99.38");
             assertThat(candidate.currency()).isEqualTo("EUR");
+            assertThat(candidate.probeAsOf()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
         });
     }
 
@@ -99,6 +100,7 @@ class AmundiResolutionAdapterTest {
         assertThat(adapter.resolve("QS0000000020")).singleElement().satisfies(candidate -> {
             assertThat(candidate.probePrice()).isNull();
             assertThat(candidate.currency()).isNull();
+            assertThat(candidate.probeAsOf()).isNull();
         });
     }
 

@@ -18,8 +18,8 @@ class InstrumentDomainConfig {
 
     @Bean
     InstrumentResolutionService instrumentResolutionService(
-            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers) {
-        return new InstrumentResolutionService(resolvers, fetchers);
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers, LoadInstrumentsPort loadInstruments) {
+        return new InstrumentResolutionService(resolvers, fetchers, loadInstruments);
     }
 
     @Bean

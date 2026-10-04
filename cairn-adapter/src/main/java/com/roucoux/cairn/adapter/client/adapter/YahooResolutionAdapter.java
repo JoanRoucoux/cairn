@@ -1,6 +1,7 @@
 package com.roucoux.cairn.adapter.client.adapter;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
@@ -46,7 +47,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
                     .map(quote -> toCandidate(quote, isin))
                     .toList();
         } catch (RestClientException failure) {
-            return List.of();
+            throw new MarketDataUnavailableException("Yahoo search failed: " + failure.getMessage());
         }
     }
 
@@ -57,7 +58,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
 
     private static InstrumentCandidate toCandidate(SearchQuote quote, String isin) {
         return new InstrumentCandidate(
-                quote.longname(),
+                nameOf(quote),
                 PriceSource.YAHOO,
                 quote.symbol(),
                 assetClassOf(quote.quoteType()),
@@ -68,10 +69,21 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
                 null);
     }
 
+    private static String nameOf(SearchQuote quote) {
+        if (quote.longname() != null && !quote.longname().isBlank()) {
+            return quote.longname();
+        }
+        return quote.shortname() != null && !quote.shortname().isBlank() ? quote.shortname() : quote.symbol();
+    }
+
     static AssetClass assetClassOf(String quoteType) {
+        if (quoteType == null) {
+            return AssetClass.EQUITY;
+        }
         return switch (quoteType) {
             case "ETF" -> AssetClass.ETF;
             case "MUTUALFUND" -> AssetClass.FUND;
+            case "CRYPTOCURRENCY" -> AssetClass.CRYPTO;
             default -> AssetClass.EQUITY;
         };
     }
@@ -80,5 +92,5 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
     private record SearchResponse(List<SearchQuote> quotes) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record SearchQuote(String symbol, String longname, String quoteType, String exchDisp) {}
+    private record SearchQuote(String symbol, String longname, String shortname, String quoteType, String exchDisp) {}
 }
