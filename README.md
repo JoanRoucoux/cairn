@@ -41,8 +41,8 @@ The data shown is fictional.
 
 - **Dashboard**: net worth, day change, unrealized gain, and performance over 1D, 7D, 1M, 1Y, 5Y and max. 5Y and max are rebuilt at constant composition: today's holdings repriced over past quotes.
 - **Allocation** by asset class and by account.
-- **Holdings**: add a line (an existing title or a new one searched per price source, or priced by hand), buy and sell, cash balance per account, manual quotes. A title exists only while a line holds it: deleting or selling the last line of a title, or deleting its account, removes the title and its quotes.
-- **Instrument search**: `GET /instruments/search` queries one price source at a time (Yahoo Finance, CoinGecko, Amundi); prices come from Yahoo Finance, CoinGecko, SG Sirius, Amundi or are entered by hand. There is no title management endpoint: a title is created with the line that first holds it.
+- **Holdings**: add a line (an existing title, a new one searched per price source, or priced by hand), buy and sell, cash balance per account, manual quotes. A title lives only while a line holds it.
+- **Instrument search**: `GET /instruments/search` queries one price source at a time (Yahoo Finance, CoinGecko, Amundi). There is no title management endpoint.
 - **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
 - **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
 - **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.

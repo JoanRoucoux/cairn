@@ -20,8 +20,8 @@ listing, with intraday prices, rather than as a fund priced once a day, unless Y
 times out during the lookup, in which case Amundi's priced answer wins. A CoinGecko coin, an SG
 Sirius fund or a manually priced instrument is not created by the import: add its line in the app first
 ("Ajouter une ligne"), and the import then finds it by its source reference. When several titles share
-one ISIN, the import picks the one the account already holds, else the first EUR Yahoo one, else the
-finds it by its source reference. Leave `averageCost` empty for a holding
+one ISIN, the import picks the one the account already holds, else the
+first EUR Yahoo one, else the first. Leave `averageCost` empty for a holding
 with no known cost basis.
 
 Two properties worth knowing before running it:

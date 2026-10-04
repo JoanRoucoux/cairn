@@ -81,6 +81,14 @@ not drift.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 
+## Titles
+
+There is no title management endpoint: a title exists only while a line holds it, created with the
+first line (`POST /holdings` with an inline `instrument`, or an `instrumentId` already tracked) and
+removed with the last. `GET /instruments/search` queries one price source (`SearchInstrumentsUseCase`,
+over the `ResolveInstrumentPort` resolvers, which the import also uses through
+`InstrumentResolutionService`) and marks the results already tracked.
+
 ## Portfolio import
 
 `POST /portfolio/import` is one of several places where writes must succeed or fail together. Each
@@ -93,12 +101,6 @@ rather than implementing it, on purpose: `useCasesAreImplementedByDomainServices
 rejects an inbound port implemented outside `..domain.service..`, and a wrapper that implemented it
 was the first shape tried for the import. The corresponding controller depends on the wrapper class,
 not on the port, so the transaction cannot be bypassed by accident.
-
-There is no title management endpoint: a title exists only while a line holds it, created with the
-first line (`POST /holdings` with an inline `instrument`, or an `instrumentId` already tracked) and
-removed with the last. `GET /instruments/search` queries one price source (`SearchInstrumentsUseCase`,
-over the `ResolveInstrumentPort` resolvers, which the import also uses through
-`InstrumentResolutionService`) and marks the results already tracked.
 
 Validation happens twice on purpose: `PortfolioCsvReader` checks shape, types and enums, the domain
 checks business rules. Both refuse with **every** offending row, never just the first, and both
@@ -116,7 +118,9 @@ files, never from the server, so a message built here could not be shown. Adding
 means adding a code to the enum, to the contract's `ImportErrorResponse`, and to the consumer's
 translations — deliberately three visible places rather than one silent string.
 
-An import matches an existing instrument by ISIN **or** source reference before resolving (several titles may share an ISIN: the one the account holds, else the first EUR Yahoo one, else the first), which is
+An import matches an existing instrument by ISIN **or** source reference before resolving
+(several titles may share an ISIN: the one the account holds, else the first EUR Yahoo one, else the
+first), which is
 what lets `import.feature` exercise the whole HTTP path without calling Yahoo or CoinGecko. Keep
 new import scenarios on already-existing instruments for the same reason.
 
