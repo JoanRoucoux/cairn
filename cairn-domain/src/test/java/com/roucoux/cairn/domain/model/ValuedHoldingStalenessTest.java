@@ -84,6 +84,23 @@ class ValuedHoldingStalenessTest {
     }
 
     @Test
+    void aManualPriceIsNeverStaleWhateverTheClass() {
+        for (AssetClass assetClass : AssetClass.values()) {
+            assertThat(manualLine(assetClass).isStale(CLOCK)).isFalse();
+        }
+    }
+
+    @Test
+    void bondsAndOtherAreStaleLikeAFundWhenAutomaticallyPriced() {
+        for (AssetClass assetClass : new AssetClass[] {AssetClass.BOND, AssetClass.OTHER}) {
+            assertThat(line(assetClass, LocalDate.of(2026, 8, 21), FRIDAY_NOON).isStale(CLOCK))
+                    .isFalse();
+            assertThat(line(assetClass, LocalDate.of(2026, 8, 10), FRIDAY_NOON).isStale(CLOCK))
+                    .isTrue();
+        }
+    }
+
+    @Test
     void aHoldingWithNoQuoteIsNeverStale() {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument = new Instrument(
@@ -94,6 +111,23 @@ class ValuedHoldingStalenessTest {
 
         assertThat(new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty()).isStale(CLOCK))
                 .isFalse();
+    }
+
+    private static ValuedHolding manualLine(AssetClass assetClass) {
+        UUID instrumentId = UUID.randomUUID();
+        Instrument instrument =
+                new Instrument(instrumentId, "Test", null, "EUR", assetClass, PriceSource.MANUAL, null, null);
+        Account account = new Account(UUID.randomUUID(), "Test", AccountType.CTO, "Test");
+        Holding holding =
+                new Holding(UUID.randomUUID(), account.id(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH);
+        Quote quote = new Quote(
+                instrumentId,
+                LocalDate.of(2020, 1, 1),
+                BigDecimal.TEN,
+                "EUR",
+                PriceSource.MANUAL,
+                FRIDAY_NOON.minus(Duration.ofDays(900)));
+        return new ValuedHolding(holding, instrument, account, Optional.of(quote), Optional.empty());
     }
 
     private static ValuedHolding line(AssetClass assetClass, LocalDate asOf, Instant fetchedAt) {

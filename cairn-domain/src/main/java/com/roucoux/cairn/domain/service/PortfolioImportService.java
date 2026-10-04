@@ -24,10 +24,13 @@ import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
 import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -38,6 +41,11 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
 
     private static final String EUR = "EUR";
+
+    private static final Comparator<Instrument> DETERMINISTIC = Comparator.comparing(
+                    (Instrument instrument) -> instrument.priceSource().name())
+            .thenComparing(Instrument::sourceRef, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(Instrument::id);
 
     private final LoadAccountsPort loadAccounts;
     private final SaveAccountPort saveAccount;
@@ -71,8 +79,10 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     public ImportReport importPortfolio(List<ImportRow> rows) {
         Map<String, Account> accountsByName = new HashMap<>();
         loadAccounts.findAll().forEach(account -> accountsByName.put(account.name(), account));
-        Map<String, Instrument> instrumentsByRef = new HashMap<>();
-        loadInstruments.findAll().forEach(instrument -> index(instrumentsByRef, instrument));
+        Map<String, List<Instrument>> instrumentsByRef = new HashMap<>();
+        loadInstruments.findAll().stream()
+                .sorted(DETERMINISTIC)
+                .forEach(instrument -> index(instrumentsByRef, instrument));
 
         Map<String, InstrumentCandidate> candidates;
         try {
@@ -99,7 +109,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
                 accountsCreated++;
             }
 
-            Instrument instrument = instrumentsByRef.get(row.isinOrTicker());
+            Instrument instrument = pick(instrumentsByRef.get(row.isinOrTicker()), account);
             if (instrument == null) {
                 instrument = saveInstrument.save(
                         account.type() == AccountType.SAVINGS
@@ -126,7 +136,7 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     }
 
     private Map<String, InstrumentCandidate> validate(
-            List<ImportRow> rows, Map<String, Account> accountsByName, Map<String, Instrument> known) {
+            List<ImportRow> rows, Map<String, Account> accountsByName, Map<String, List<Instrument>> known) {
         List<ImportError> errors = new ArrayList<>();
         Map<String, InstrumentCandidate> candidates = new HashMap<>();
 
@@ -201,12 +211,35 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return ISIN.matcher(isinOrTicker).matches() ? isinOrTicker : null;
     }
 
-    private static void index(Map<String, Instrument> instrumentsByRef, Instrument instrument) {
+    private Instrument pick(List<Instrument> titles, Account account) {
+        if (titles == null) {
+            return null;
+        }
+        if (titles.size() > 1 && account.id() != null) {
+            Set<UUID> held = new HashSet<>();
+            loadHoldings.findByAccount(account.id()).forEach(holding -> held.add(holding.instrumentId()));
+            Optional<Instrument> alreadyHeld =
+                    titles.stream().filter(title -> held.contains(title.id())).findFirst();
+            if (alreadyHeld.isPresent()) {
+                return alreadyHeld.get();
+            }
+        }
+        return titles.stream()
+                .filter(title -> title.priceSource() == PriceSource.YAHOO && EUR.equals(title.currency()))
+                .findFirst()
+                .orElse(titles.get(0));
+    }
+
+    private static void index(Map<String, List<Instrument>> instrumentsByRef, Instrument instrument) {
         if (instrument.isin() != null) {
-            instrumentsByRef.put(instrument.isin(), instrument);
+            add(instrumentsByRef, instrument.isin(), instrument);
         }
-        if (instrument.sourceRef() != null) {
-            instrumentsByRef.put(instrument.sourceRef(), instrument);
+        if (instrument.sourceRef() != null && !instrument.sourceRef().equals(instrument.isin())) {
+            add(instrumentsByRef, instrument.sourceRef(), instrument);
         }
+    }
+
+    private static void add(Map<String, List<Instrument>> instrumentsByRef, String key, Instrument instrument) {
+        instrumentsByRef.computeIfAbsent(key, ignored -> new ArrayList<>()).add(instrument);
     }
 }

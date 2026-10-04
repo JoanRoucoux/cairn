@@ -53,6 +53,9 @@ public class HoldingRestMapper {
         response.setInstrumentName(instrument.name());
         response.setIsin(instrument.isin());
         response.setSymbol(instrument.symbol());
+        response.setSourceRef(instrument.sourceRef());
+        response.setDescription(instrument.description());
+        instrument.externalUrl().ifPresent(response::setExternalUrl);
         response.setAssetClass(AssetClass.valueOf(instrument.assetClass().name()));
         response.setQuantity(holding.quantity());
         holding.costBasis().ifPresent(cost -> response.setAverageCost(scaledAmount(cost)));

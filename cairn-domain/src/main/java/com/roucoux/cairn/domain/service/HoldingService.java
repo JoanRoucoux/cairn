@@ -2,6 +2,7 @@ package com.roucoux.cairn.domain.service;
 
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
+import com.roucoux.cairn.domain.exception.business.InvalidInstrumentException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.exception.business.ZeroQuantityException;
@@ -10,24 +11,37 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.NewInstrument;
+import com.roucoux.cairn.domain.model.PriceSource;
+import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
+import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
+import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class HoldingService implements ManageHoldingUseCase {
+
+    private static final String EUR = "EUR";
+    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{9}[0-9]");
 
     private final LoadHoldingsPort loadHoldings;
     private final SaveHoldingPort saveHolding;
     private final DeleteHoldingPort deleteHolding;
     private final LoadAccountsPort loadAccounts;
     private final LoadInstrumentsPort loadInstruments;
+    private final SaveInstrumentPort saveInstrument;
+    private final SaveQuotePort saveQuote;
     private final Clock clock;
 
     public HoldingService(
@@ -36,13 +50,131 @@ public class HoldingService implements ManageHoldingUseCase {
             DeleteHoldingPort deleteHolding,
             LoadAccountsPort loadAccounts,
             LoadInstrumentsPort loadInstruments,
+            SaveInstrumentPort saveInstrument,
+            SaveQuotePort saveQuote,
             Clock clock) {
         this.loadHoldings = loadHoldings;
         this.saveHolding = saveHolding;
         this.deleteHolding = deleteHolding;
         this.loadAccounts = loadAccounts;
         this.loadInstruments = loadInstruments;
+        this.saveInstrument = saveInstrument;
+        this.saveQuote = saveQuote;
         this.clock = clock;
+    }
+
+    @Override
+    public Holding createWithNewInstrument(
+            UUID accountId, NewInstrument newInstrument, BigDecimal quantity, BigDecimal averageCost) {
+        requireNonZero(quantity);
+        Account account =
+                loadAccounts.findById(accountId).orElseThrow(() -> new NotFoundException("account", accountId));
+        if (account.type() == AccountType.SAVINGS) {
+            throw new SavingsAccountLineException();
+        }
+        NewInstrument normalised = normalised(newInstrument);
+        Optional<Instrument> tracked = tracked(normalised);
+        tracked.ifPresent(instrument -> loadHoldings
+                .findByAccountAndInstrument(accountId, instrument.id())
+                .ifPresent(existing -> {
+                    throw new DuplicateHoldingException(accountId, instrument.id());
+                }));
+        Instrument instrument = tracked.orElseGet(() -> createInstrument(normalised));
+        return saveHolding.save(
+                new Holding(UUID.randomUUID(), accountId, instrument.id(), quantity, averageCost, clock.instant()));
+    }
+
+    private Optional<Instrument> tracked(NewInstrument newInstrument) {
+        if (newInstrument.priceSource() == PriceSource.MANUAL) {
+            return Optional.empty();
+        }
+        return loadInstruments.findAll().stream()
+                .filter(instrument -> instrument.priceSource() == newInstrument.priceSource()
+                        && newInstrument.sourceRef().equals(instrument.sourceRef()))
+                .findFirst();
+    }
+
+    private Instrument createInstrument(NewInstrument newInstrument) {
+        Instrument instrument = saveInstrument.save(new Instrument(
+                UUID.randomUUID(),
+                newInstrument.name(),
+                newInstrument.isin(),
+                newInstrument.symbol(),
+                EUR,
+                newInstrument.assetClass(),
+                newInstrument.priceSource(),
+                newInstrument.sourceRef(),
+                null));
+        if (newInstrument.priceSource() == PriceSource.MANUAL) {
+            saveQuote.upsert(new Quote(
+                    instrument.id(),
+                    LocalDate.now(clock),
+                    newInstrument.price(),
+                    EUR,
+                    PriceSource.MANUAL,
+                    clock.instant()));
+        }
+        return instrument;
+    }
+
+    private static NewInstrument normalised(NewInstrument request) {
+        if (request.priceSource() != PriceSource.SG_SIRIUS
+                && (request.name() == null || request.name().isBlank())) {
+            throw new InvalidInstrumentException("name is required");
+        }
+        if (request.assetClass() == AssetClass.CASH) {
+            throw new InvalidInstrumentException("a cash instrument cannot be created here");
+        }
+        PriceSource source = request.priceSource();
+        if (source != PriceSource.MANUAL && request.price() != null) {
+            throw new InvalidInstrumentException("price is only accepted for a MANUAL instrument");
+        }
+        return switch (source) {
+            case MANUAL -> {
+                if (request.price() == null || request.price().signum() <= 0) {
+                    throw new InvalidInstrumentException("price must be positive for a MANUAL instrument");
+                }
+                yield new NewInstrument(
+                        request.name(),
+                        request.assetClass(),
+                        source,
+                        null,
+                        request.isin(),
+                        request.symbol(),
+                        request.price());
+            }
+            case SG_SIRIUS -> {
+                String isin = validIsin(request);
+                yield new NewInstrument(isin, AssetClass.FUND, source, isin, isin, request.symbol(), null);
+            }
+            case AMUNDI -> {
+                String isin = validIsin(request);
+                yield new NewInstrument(
+                        request.name(), request.assetClass(), source, isin, isin, request.symbol(), null);
+            }
+            case YAHOO, COINGECKO -> {
+                if (request.sourceRef() == null || request.sourceRef().isBlank()) {
+                    throw new InvalidInstrumentException("sourceRef is required unless priceSource is MANUAL");
+                }
+                yield new NewInstrument(
+                        request.name(),
+                        request.assetClass(),
+                        source,
+                        request.sourceRef().strip(),
+                        request.isin(),
+                        request.symbol(),
+                        null);
+            }
+        };
+    }
+
+    private static String validIsin(NewInstrument request) {
+        String candidate = request.isin() != null && !request.isin().isBlank() ? request.isin() : request.sourceRef();
+        String isin = candidate == null ? "" : candidate.strip().toUpperCase(Locale.ROOT);
+        if (!ISIN.matcher(isin).matches()) {
+            throw new InvalidInstrumentException("a valid ISIN is required for " + request.priceSource());
+        }
+        return isin;
     }
 
     @Override

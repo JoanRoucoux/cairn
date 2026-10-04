@@ -27,11 +27,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 public class InstrumentResolutionService implements ResolveInstrumentUseCase, SearchInstrumentsUseCase {
 
     private static final System.Logger LOG = System.getLogger(InstrumentResolutionService.class.getName());
 
+    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
     private static final String UNKNOWN_CURRENCY = "XXX";
     private static final Set<PriceSource> IMPORT_SOURCES = Set.of(PriceSource.YAHOO, PriceSource.AMUNDI);
     private static final Duration DEFAULT_PROBE_TIMEOUT = Duration.ofSeconds(4);
@@ -64,9 +66,23 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase, Se
                 .flatMap(resolver -> safeResolve(resolver, query).stream())
                 .toList();
         if (candidates.isEmpty()) {
+            candidates = exactCoinGeckoMatch(query);
+        }
+        if (candidates.isEmpty()) {
             throw new UnknownInstrumentException(query);
         }
         return probedAndSorted(candidates);
+    }
+
+    private List<InstrumentCandidate> exactCoinGeckoMatch(String query) {
+        if (ISIN.matcher(query).matches()) {
+            return List.of();
+        }
+        return resolvers.stream()
+                .filter(resolver -> resolver.supports(PriceSource.COINGECKO))
+                .flatMap(resolver -> safeResolve(resolver, query).stream())
+                .filter(candidate -> query.equalsIgnoreCase(candidate.sourceRef()))
+                .toList();
     }
 
     @Override

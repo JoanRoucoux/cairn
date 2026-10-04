@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.SaveHoldingPort;
 import com.roucoux.cairn.domain.port.out.SaveInstrumentPort;
+import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.service.CashBalanceService;
 import com.roucoux.cairn.domain.service.HoldingService;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
@@ -26,8 +27,18 @@ class HoldingDomainConfig {
             DeleteHoldingPort deleteHolding,
             LoadAccountsPort loadAccounts,
             LoadInstrumentsPort loadInstruments,
+            SaveInstrumentPort saveInstrument,
+            SaveQuotePort saveQuote,
             Clock clock) {
-        return new HoldingService(loadHoldings, saveHolding, deleteHolding, loadAccounts, loadInstruments, clock);
+        return new HoldingService(
+                loadHoldings,
+                saveHolding,
+                deleteHolding,
+                loadAccounts,
+                loadInstruments,
+                saveInstrument,
+                saveQuote,
+                clock);
     }
 
     @Bean

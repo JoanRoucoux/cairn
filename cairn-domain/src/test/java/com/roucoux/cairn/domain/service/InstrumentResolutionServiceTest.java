@@ -324,7 +324,7 @@ class InstrumentResolutionServiceTest {
     }
 
     @Test
-    void importResolutionNeverAsksCoinGecko() {
+    void importResolutionKeepsYahooAndAmundiAheadOfCoinGecko() {
         InstrumentCandidate coin = new InstrumentCandidate(
                 "Bitcoin", PriceSource.COINGECKO, "bitcoin", AssetClass.CRYPTO, null, null, "BTC", null, null);
         InstrumentResolutionService service = service(
@@ -332,6 +332,57 @@ class InstrumentResolutionServiceTest {
                 List.of());
 
         assertThat(service.resolve("bitcoin")).containsExactly(ETF_CANDIDATE);
+    }
+
+    @Test
+    void importResolutionFallsBackToACoinGeckoIdMatchedExactly() {
+        InstrumentCandidate bitcoin = new InstrumentCandidate(
+                "Bitcoin", PriceSource.COINGECKO, "bitcoin", AssetClass.CRYPTO, null, null, "BTC", null, "EUR");
+        InstrumentCandidate cash = new InstrumentCandidate(
+                "Bitcoin Cash",
+                PriceSource.COINGECKO,
+                "bitcoin-cash",
+                AssetClass.CRYPTO,
+                null,
+                null,
+                "BCH",
+                null,
+                "EUR");
+        InstrumentResolutionService service = service(
+                List.of(resolverFor(PriceSource.COINGECKO, cash, bitcoin), resolverFor(PriceSource.YAHOO)), List.of());
+
+        assertThat(service.resolve("Bitcoin")).containsExactly(bitcoin);
+    }
+
+    @Test
+    void importResolutionNeverAsksCoinGeckoForAnIsin() {
+        InstrumentCandidate coin = new InstrumentCandidate(
+                "Odd", PriceSource.COINGECKO, "LU0000000010", AssetClass.CRYPTO, null, null, null, null, "EUR");
+        InstrumentResolutionService service =
+                service(List.of(resolverFor(PriceSource.COINGECKO, coin), resolverFor(PriceSource.YAHOO)), List.of());
+
+        assertThatThrownBy(() -> service.resolve("LU0000000010")).isInstanceOf(UnknownInstrumentException.class);
+    }
+
+    @Test
+    void importResolutionStaysUnknownWhenCoinGeckoHasNoExactIdOrIsDown() {
+        InstrumentCandidate cash = new InstrumentCandidate(
+                "Bitcoin Cash",
+                PriceSource.COINGECKO,
+                "bitcoin-cash",
+                AssetClass.CRYPTO,
+                null,
+                null,
+                "BCH",
+                null,
+                "EUR");
+
+        assertThatThrownBy(() -> service(List.of(resolverFor(PriceSource.COINGECKO, cash)), List.of())
+                        .resolve("bitcoin"))
+                .isInstanceOf(UnknownInstrumentException.class);
+        assertThatThrownBy(() -> service(List.of(failingResolverFor(PriceSource.COINGECKO)), List.of())
+                        .resolve("bitcoin"))
+                .isInstanceOf(UnknownInstrumentException.class);
     }
 
     @Test

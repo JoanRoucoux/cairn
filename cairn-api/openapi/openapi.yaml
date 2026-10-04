@@ -234,7 +234,11 @@ paths:
       tags: [Holding]
       operationId: createHolding
       summary: Create a holding
-      description: An account can only hold one position per instrument; use the update endpoint to change its quantity.
+      description: >-
+        Creates a holding on an existing instrument (`instrumentId`) or on a new one (`instrument`),
+        exactly one of the two. A new instrument whose source and reference are already tracked is
+        reused rather than duplicated. A MANUAL instrument needs `price`, recorded as today's quote.
+        An account can only hold one position per instrument; use the update endpoint to change its quantity.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -270,9 +274,11 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '422':
           description: >-
-            The account already holds this instrument, the quantity is zero, or the account is a
+            The account already holds this instrument, the quantity is zero, the account is a
             savings account and the instrument is not the EUR cash balance (a savings account holds
-            one balance, not lines)
+            one balance, not lines), both or neither of `instrumentId` and `instrument` are given, or
+            the new instrument is invalid: no `sourceRef` unless MANUAL, MANUAL without a positive
+            `price`, a `price` on another source, SG_SIRIUS or AMUNDI without a valid ISIN, or CASH
           content:
             application/problem+json:
               schema:
@@ -1246,8 +1252,9 @@ components:
       type: string
       description: >-
         The kind of instrument. `EQUITY` is a single stock, `ETF` an exchange-traded fund, `FUND`
-        a non-traded fund, `CRYPTO` a cryptocurrency, and `CASH` a currency balance priced at par.
-      enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        a non-traded fund, `CRYPTO` a cryptocurrency, `BOND` a bond, `OTHER` anything else, and
+        `CASH` a currency balance priced at par.
+      enum: [EQUITY, ETF, FUND, CRYPTO, BOND, OTHER, CASH]
     PriceSource:
       type: string
       description: >-
@@ -1607,9 +1614,11 @@ components:
           description: The number of holdings in this account, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 4
     CreateHoldingRequest:
-      description: The body of `POST /holdings`, a new position of an instrument in an account.
+      description: >-
+        The body of `POST /holdings`, a new position in an account. Exactly one of `instrumentId` and
+        `instrument` is given.
       type: object
-      required: [accountId, instrumentId, quantity]
+      required: [accountId, quantity]
       properties:
         accountId:
           type: string
@@ -1619,8 +1628,11 @@ components:
         instrumentId:
           type: string
           format: uuid
-          description: The instrument the holding is a position of.
+          nullable: true
+          description: An instrument that already exists.
           example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        instrument:
+          $ref: '#/components/schemas/NewInstrumentRequest'
         quantity:
           type: number
           description: Must not be zero.
@@ -1630,6 +1642,49 @@ components:
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
           example: 26.65
+    NewInstrumentRequest:
+      description: >-
+        An instrument created together with its first holding. It is stored in EUR. When an instrument
+        with the same `priceSource` and `sourceRef` already exists it is reused and the other fields
+        are ignored.
+      type: object
+      required: [name, assetClass, priceSource]
+      properties:
+        name:
+          type: string
+          maxLength: 160
+          description: The instrument's display name. Ignored for SG_SIRIUS, whose name is its ISIN.
+          example: Contoso Global Equity
+        assetClass:
+          description: The kind of instrument. CASH is refused. SG_SIRIUS is always stored as FUND, which is what the daily fund refresh prices.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
+        priceSource:
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
+        sourceRef:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: Required unless MANUAL (ignored then). For SG_SIRIUS and AMUNDI it is the ISIN, taken from `isin` when absent.
+          example: SXR8.DE
+        isin:
+          type: string
+          nullable: true
+          description: The instrument's ISIN. Required and checked (12 characters) for SG_SIRIUS and AMUNDI. Several instruments may share one ISIN.
+          example: FR0011550185
+        symbol:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: The instrument's ticker as people read it.
+          example: AAPL
+        price:
+          type: number
+          nullable: true
+          description: The price in EUR. Required and positive for MANUAL, recorded as today's quote; refused for every other source.
+          example: 42.10
     UpdateHoldingRequest:
       description: The body of `PATCH /holdings/{id}`, replacing a holding's quantity and cost basis.
       type: object
@@ -1736,6 +1791,20 @@ components:
           description: The instrument's asset class.
           allOf:
             - $ref: '#/components/schemas/AssetClass'
+        sourceRef:
+          type: string
+          nullable: true
+          description: The instrument's reference at its price source. Absent for a MANUAL instrument.
+          example: SXR8.DE
+        description:
+          type: string
+          nullable: true
+          description: Free text kept on the instrument, read-only. Absent when none.
+        externalUrl:
+          type: string
+          nullable: true
+          description: A page of the instrument at its price source. Absent for AMUNDI and MANUAL.
+          example: https://finance.yahoo.com/quote/SXR8.DE
         quantity:
           type: number
           description: The number of units held, never zero.
@@ -1787,7 +1856,7 @@ components:
           description: >-
             True when the latest quote is older than its asset class allows: an equity or ETF quote dated
             before the previous business day, a crypto quote fetched more than 6 hours ago, a fund quote
-            fetched more than 4 days ago or dated more than 10 days ago. Never true for cash or an
+            fetched more than 4 days ago or dated more than 10 days ago. Never true for cash, a manual price or an
             instrument with no quote yet.
           example: false
         marketValueEur:
@@ -2002,7 +2071,7 @@ components:
         isin:
           type: string
           nullable: true
-          description: The instrument's ISIN. Must be unique across every instrument when given.
+          description: The instrument's ISIN. Several instruments may share one ISIN.
           example: FR0011550185
         symbol:
           type: string
@@ -2052,7 +2121,7 @@ components:
         isin:
           type: string
           nullable: true
-          description: The instrument's ISIN. Must be unique across every instrument when given.
+          description: The instrument's ISIN. Several instruments may share one ISIN.
           example: FR0011550185
         symbol:
           type: string
