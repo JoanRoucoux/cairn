@@ -16,7 +16,8 @@ account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
 `bitcoin`. The import first looks for an existing instrument with that ISIN or source reference.
 Failing that, it asks Yahoo Finance, then Amundi (ISINs only), the only price sources able to look
 an instrument up, and keeps the first EUR answer: an Amundi ETF known to both comes in as its Yahoo
-listing, with intraday prices, rather than as a fund priced once a day. A CoinGecko coin, an SG
+listing, with intraday prices, rather than as a fund priced once a day, unless Yahoo's price check
+times out during the lookup, in which case Amundi's priced answer wins. A CoinGecko coin, an SG
 Sirius fund or a manually priced instrument must therefore be created before the import, which then
 finds it by its source reference. Leave `averageCost` empty for a holding
 with no known cost basis.
