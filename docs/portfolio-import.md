@@ -14,9 +14,12 @@ account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
 
 `isinOrTicker` is whatever identifies the instrument: an ISIN, a ticker, or a provider id such as
 `bitcoin`. The import first looks for an existing instrument with that ISIN or source reference.
-Failing that, it asks Yahoo Finance, the only price source able to look an instrument up. A
-CoinGecko coin, an SG Sirius fund or a manually priced instrument must therefore be created before
-the import, which then finds it by its source reference. Leave `averageCost` empty for a holding
+Failing that, it asks Yahoo Finance, then Amundi (ISINs only), the only price sources able to look
+an instrument up, and keeps the first EUR answer: an Amundi ETF known to both comes in as its Yahoo
+listing, with intraday prices, rather than as a fund priced once a day, unless Yahoo's price check
+times out during the lookup, in which case Amundi's priced answer wins. A CoinGecko coin, an SG
+Sirius fund or a manually priced instrument must therefore be created before the import, which then
+finds it by its source reference. Leave `averageCost` empty for a holding
 with no known cost basis.
 
 Two properties worth knowing before running it:

@@ -75,6 +75,11 @@ app:
       connect-timeout: 5s
       read-timeout: 30s
       user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    amundi:
+      base-url: https://www.amundi-ee.com
+      connect-timeout: 5s
+      read-timeout: 30s
+      user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
   telegram:
     base-url: https://api.telegram.org
     bot-token: ${TELEGRAM_BOT_TOKEN:}

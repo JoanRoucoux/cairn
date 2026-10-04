@@ -121,7 +121,7 @@ broker stopped.
 - **Unit tests** (`*Test`, surefire): domain services with plain JUnit and Mockito, controllers with `@WebMvcTest` and spring-security-test's `user()` post-processor (the security is session-based, not JWT), external clients against WireMock.
 - **Integration tests** (`*IT`, failsafe): full application boot with `@SpringBootTest`, and Testcontainers PostgreSQL wherever a database is involved.
 - **Business scenarios** (`CucumberIT`, failsafe): the `.feature` files under `cairn-api/src/test/resources/features/` run over real HTTP through the full Spring context. `trade.feature` is a good model for adding your own, with a step-definition class in the `cucumber/` package.
-- **External providers**: tests tagged `external` run against the real Yahoo Finance, CoinGecko and SG Sirius with `./mvnw verify -pl cairn-adapter -am -Pexternal`. The nightly workflow runs them.
+- **External providers**: tests tagged `external` run against the real Yahoo Finance, CoinGecko, SG Sirius and Amundi with `./mvnw verify -pl cairn-adapter -am -Pexternal`. The nightly workflow runs them.
 - **Architecture**: the hexagonal rules, checked on every build by ArchUnit.
 - **Coverage**: JaCoCo gate at 70 % of lines per module. `./mvnw verify -DskipITs` skips the Testcontainers tests, and `cairn-adapter`'s gate then fails, which is expected.
 

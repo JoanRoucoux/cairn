@@ -4,5 +4,6 @@ public enum PriceSource {
     YAHOO,
     COINGECKO,
     SG_SIRIUS,
+    AMUNDI,
     MANUAL
 }

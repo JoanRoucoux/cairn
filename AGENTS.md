@@ -76,8 +76,8 @@ not drift.
    carried by a cookie, which the browser does attach automatically, so CSRF protection stays on.
 3. **`@Tag("external")` tests.** A Maven profile (`external`) and a nightly CI job, absent from
    the starter, run these tests against the real upstream providers (Yahoo Finance, CoinGecko,
-   Societe Generale Sirius). They are the only tests that catch a provider changing its response
-   format; everything else runs against WireMock.
+   Societe Generale Sirius, Amundi). They are the only tests that catch a provider changing its
+   response format; everything else runs against WireMock.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 
