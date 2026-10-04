@@ -4,6 +4,7 @@ import com.roucoux.cairn.application.csv.ImportFileRejectedException;
 import com.roucoux.cairn.application.csv.LineError;
 import com.roucoux.cairn.domain.exception.business.BusinessException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
@@ -63,6 +64,14 @@ class ApiExceptionHandler {
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
         problem.setTitle("Business rule violated");
+        return problem;
+    }
+
+    @ExceptionHandler(MarketDataRateLimitedException.class)
+    ProblemDetail handleRateLimited(MarketDataRateLimitedException exception) {
+        log.warn("upstream dependency throttled: {}", exception.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
+        problem.setTitle("Upstream dependency failed");
         return problem;
     }
 

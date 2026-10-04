@@ -93,6 +93,23 @@ public class AddLineSteps {
         add(accountIds.get(0), quantity, yahoo(ref, isin));
     }
 
+    @When("I add {int} unit of the {word} Yahoo listing {string} with the ISIN {word} to the second account")
+    public void iAddACurrencyYahooListingToTheSecondAccount(int quantity, String currency, String ref, String isin) {
+        NewInstrumentRequest instrument = yahoo(ref, isin);
+        instrument.setCurrency(currency);
+        add(accountIds.get(1), quantity, instrument);
+    }
+
+    @Then("the account {string} holds the title {string}")
+    public void theAccountHoldsTheTitle(String account, String sourceRef) {
+        assertThat(jdbc.queryForObject("""
+                        select count(*) from holdings h
+                          join accounts a on a.id = h.account_id
+                          join instruments i on i.id = h.instrument_id
+                         where a.name = ? and i.source_ref = ?
+                        """, Integer.class, account, sourceRef)).isEqualTo(1);
+    }
+
     @When("I add {int} unit of the Yahoo listing {string} priced at {bigdecimal}")
     public void iAddAPricedYahooListing(int quantity, String ref, BigDecimal price) {
         NewInstrumentRequest instrument = yahoo(ref, null);

@@ -6,11 +6,15 @@ import static org.assertj.core.groups.Tuple.tuple;
 import com.roucoux.cairn.generated.model.AccountAllocationResponse;
 import com.roucoux.cairn.generated.model.AccountResponse;
 import com.roucoux.cairn.generated.model.AccountType;
+import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.AssetClassAllocationResponse;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
+import com.roucoux.cairn.generated.model.HoldingResponse;
+import com.roucoux.cairn.generated.model.NewInstrumentRequest;
 import com.roucoux.cairn.generated.model.PerformanceResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
+import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.RecordQuoteRequest;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
@@ -33,6 +37,7 @@ public class PortfolioSteps {
 
     private UUID accountId;
     private UUID instrumentId;
+    private NewInstrumentRequest pendingInstrument;
     private PortfolioResponse portfolio;
     private AssetClassAllocationResponse classAllocation;
     private AccountAllocationResponse accountAllocation;
@@ -59,12 +64,12 @@ public class PortfolioSteps {
 
     @Given("an instrument {string} quoted by {word} as {string}")
     public void anInstrumentQuotedByAs(String name, String priceSource, String sourceRef) {
-        instrumentId = insertInstrument(name, "EUR", "ETF", priceSource, sourceRef);
+        pendingInstrument = pending(name, "EUR", AssetClass.ETF, priceSource, sourceRef);
     }
 
     @Given("a USD instrument {string} quoted by {word} as {string}")
     public void aUsdInstrumentQuotedByAs(String name, String priceSource, String sourceRef) {
-        instrumentId = insertInstrument(name, "USD", "EQUITY", priceSource, sourceRef);
+        pendingInstrument = pending(name, "USD", AssetClass.EQUITY, priceSource, sourceRef);
     }
 
     @Given("a holding of {int} units bought at {bigdecimal}")
@@ -227,22 +232,36 @@ public class PortfolioSteps {
                         .toList());
     }
 
-    private UUID insertInstrument(
-            String name, String currency, String assetClass, String priceSource, String sourceRef) {
-        UUID id = UUID.randomUUID();
-        jdbc.update("""
-                insert into instruments (id, name, currency, asset_class, price_source, source_ref, created_at)
-                values (?, ?, ?, ?, ?, ?, now())
-                """, id, name, currency, assetClass, priceSource, sourceRef);
-        return id;
-    }
-
     private void createHolding(int quantity, BigDecimal averageCost) {
         CreateHoldingRequest request = new CreateHoldingRequest();
         request.setAccountId(accountId);
-        request.setInstrumentId(instrumentId);
+        if (pendingInstrument == null) {
+            request.setInstrumentId(instrumentId);
+        } else {
+            request.setInstrument(pendingInstrument);
+            pendingInstrument = null;
+        }
         request.setQuantity(BigDecimal.valueOf(quantity));
         request.setAverageCost(averageCost);
-        restTemplate.postForEntity("/holdings", request, Void.class);
+        instrumentId = restTemplate
+                .postForEntity("/holdings", request, HoldingResponse.class)
+                .getBody()
+                .getInstrumentId();
+    }
+
+    private static NewInstrumentRequest pending(
+            String name, String currency, AssetClass assetClass, String priceSource, String sourceRef) {
+        NewInstrumentRequest instrument = new NewInstrumentRequest(assetClass, PriceSource.fromValue(priceSource));
+        instrument.setName(name);
+        instrument.setCurrency(currency);
+        instrument.setSourceRef(sourceRef);
+        return instrument;
+    }
+
+    @Then("the instrument {string} is stored in {word}")
+    public void theInstrumentIsStoredIn(String sourceRef, String currency) {
+        assertThat(jdbc.queryForObject(
+                        "select currency from instruments where source_ref = ?", String.class, sourceRef))
+                .isEqualTo(currency);
     }
 }

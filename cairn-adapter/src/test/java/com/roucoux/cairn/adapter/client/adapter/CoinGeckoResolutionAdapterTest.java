@@ -6,12 +6,14 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
+import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
@@ -119,6 +121,13 @@ class CoinGeckoResolutionAdapterTest {
         wireMock.stubFor(get(anyUrl()).willReturn(serverError()));
 
         assertThatThrownBy(() -> adapter.resolve("sol")).isInstanceOf(MarketDataUnavailableException.class);
+    }
+
+    @Test
+    void raisesARateLimitedFailureWhenCoinGeckoThrottles() {
+        wireMock.stubFor(get(anyUrl()).willReturn(status(429)));
+
+        assertThatThrownBy(() -> adapter.resolve("sol")).isInstanceOf(MarketDataRateLimitedException.class);
     }
 
     @Test

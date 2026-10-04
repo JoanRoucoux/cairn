@@ -2,6 +2,7 @@ package com.roucoux.cairn.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.roucoux.cairn.domain.exception.business.CashHoldingTradeException;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
@@ -401,6 +402,42 @@ class HoldingServiceTest {
                     .isInstanceOf(InvalidInstrumentException.class);
         }
         assertThat(fixture.instruments()).hasSize(1);
+    }
+
+    @Test
+    void aListedInstrumentKeepsTheCurrencyItIsSentWithAndOtherSourcesAreForcedToEuro() {
+        Fixture fixture = Fixture.withKnownAccountAndInstrument();
+        NewInstrument usd = new NewInstrument(
+                "Northwind Index", AssetClass.EQUITY, PriceSource.YAHOO, "NWD.US", null, null, null, "usd");
+        NewInstrument noCurrency = listed(PriceSource.COINGECKO, "northwind-coin", null);
+        NewInstrument sirius =
+                new NewInstrument("x", AssetClass.FUND, PriceSource.SG_SIRIUS, null, "QS0009876543", null, null, "USD");
+        NewInstrument manual = new NewInstrument(
+                "Notes", AssetClass.BOND, PriceSource.MANUAL, null, null, null, BigDecimal.TEN, "USD");
+
+        for (NewInstrument request : List.of(usd, noCurrency, sirius, manual)) {
+            fixture.service().createWithNewInstrument(fixture.accountId(), request, BigDecimal.ONE, null);
+        }
+
+        assertThat(fixture.instruments())
+                .filteredOn(i -> i.sourceRef() != null || i.priceSource() == PriceSource.MANUAL)
+                .extracting(Instrument::name, Instrument::currency)
+                .contains(tuple("Northwind Index", "USD"), tuple("QS0009876543", "EUR"), tuple("Notes", "EUR"));
+        assertThat(fixture.instruments())
+                .filteredOn(i -> "northwind-coin".equals(i.sourceRef()))
+                .extracting(Instrument::currency)
+                .containsExactly("EUR");
+    }
+
+    @Test
+    void aMalformedCurrencyIsRefused() {
+        Fixture fixture = Fixture.withKnownAccountAndInstrument();
+        NewInstrument bad = new NewInstrument(
+                "Northwind Index", AssetClass.EQUITY, PriceSource.YAHOO, "NWD.US", null, null, null, "DOLLAR");
+
+        assertThatThrownBy(
+                        () -> fixture.service().createWithNewInstrument(fixture.accountId(), bad, BigDecimal.ONE, null))
+                .isInstanceOf(InvalidInstrumentException.class);
     }
 
     @Test

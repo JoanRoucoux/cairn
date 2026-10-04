@@ -1,6 +1,7 @@
 package com.roucoux.cairn.adapter.client.adapter;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -50,6 +52,8 @@ public class CoinGeckoResolutionAdapter implements ResolveInstrumentPort {
             return coins.stream()
                     .map(coin -> toCandidate(coin, prices.get(coin.id())))
                     .toList();
+        } catch (HttpClientErrorException.TooManyRequests throttled) {
+            throw new MarketDataRateLimitedException("CoinGecko search throttled");
         } catch (RestClientException failure) {
             throw new MarketDataUnavailableException("CoinGecko search failed: " + failure.getMessage());
         }

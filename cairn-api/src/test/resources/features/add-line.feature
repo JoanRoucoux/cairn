@@ -59,3 +59,16 @@ Feature: Adding a line with its title in one call
     And I add 2 units of the Sirius product LU0000000001
     Then the add answers 201
     And the portfolio holds 2 titles and 2 lines
+
+  Scenario: the import picks the EUR Yahoo listing of a shared ISIN the account does not hold
+    Given a brokerage account
+    And a second brokerage account
+    When I add 1 unit of the USD Yahoo listing "NWD.NY" with the ISIN LU0000000001 to the second account
+    And I add 1 unit of the EUR Yahoo listing "NWD.PA" with the ISIN LU0000000001 to the second account
+    And I import:
+      """
+      account;accountType;institution;instrument;isinOrTicker;quantity;averageCost
+      Sample Broker;CTO;Sample Broker;Northwind Index;LU0000000001;5;
+      """
+    Then the import reports 1 created and 0 updated holdings
+    And the account "Sample Broker" holds the title "NWD.PA"

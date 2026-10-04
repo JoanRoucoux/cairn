@@ -9,4 +9,17 @@ public record NewInstrument(
         String sourceRef,
         String isin,
         String symbol,
-        BigDecimal price) {}
+        BigDecimal price,
+        String currency) {
+
+    public NewInstrument(
+            String name,
+            AssetClass assetClass,
+            PriceSource priceSource,
+            String sourceRef,
+            String isin,
+            String symbol,
+            BigDecimal price) {
+        this(name, assetClass, priceSource, sourceRef, isin, symbol, price, null);
+    }
+}

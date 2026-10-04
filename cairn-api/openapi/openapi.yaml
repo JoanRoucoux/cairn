@@ -695,8 +695,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
         '502':
           description: The source did not answer
           content:
@@ -1421,7 +1419,7 @@ components:
           example: 26.65
     NewInstrumentRequest:
       description: >-
-        An instrument created together with its first holding. It is stored in EUR. When an instrument
+        An instrument created together with its first holding. It is stored in EUR unless `currency` says otherwise (YAHOO and COINGECKO only). When an instrument
         with the same `priceSource` and `sourceRef` already exists it is reused and the other fields
         are ignored.
       type: object
@@ -1463,6 +1461,14 @@ components:
           nullable: true
           description: The price in EUR. Required and positive for MANUAL, recorded as today's quote; refused for every other source.
           example: 42.10
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          nullable: true
+          description: >-
+            The currency the instrument is priced in (ISO 4217), taken from the search candidate. Stored as sent for
+            YAHOO and COINGECKO, EUR when absent; always EUR for AMUNDI, SG_SIRIUS and MANUAL.
+          example: USD
     UpdateHoldingRequest:
       description: The body of `PATCH /holdings/{id}`, replacing a holding's quantity and cost basis.
       type: object

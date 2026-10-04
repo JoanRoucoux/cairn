@@ -105,7 +105,8 @@ class HoldingController implements HoldingApi {
                         instrument.getSourceRef(),
                         instrument.getIsin(),
                         instrument.getSymbol(),
-                        instrument.getPrice()),
+                        instrument.getPrice(),
+                        instrument.getCurrency()),
                 request.getQuantity(),
                 request.getAverageCost());
     }

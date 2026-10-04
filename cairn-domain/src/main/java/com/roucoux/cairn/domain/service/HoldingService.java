@@ -30,10 +30,12 @@ import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class HoldingService implements ManageHoldingUseCase {
 
     private static final String EUR = "EUR";
+    private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
 
     private final LoadHoldingsPort loadHoldings;
     private final SaveHoldingPort saveHolding;
@@ -103,7 +105,7 @@ public class HoldingService implements ManageHoldingUseCase {
                 newInstrument.name(),
                 newInstrument.isin(),
                 newInstrument.symbol(),
-                EUR,
+                newInstrument.currency(),
                 newInstrument.assetClass(),
                 newInstrument.priceSource(),
                 newInstrument.sourceRef(),
@@ -149,16 +151,17 @@ public class HoldingService implements ManageHoldingUseCase {
                         null,
                         request.isin(),
                         request.symbol(),
-                        request.price());
+                        request.price(),
+                        EUR);
             }
             case SG_SIRIUS -> {
                 String isin = validIsin(request);
-                yield new NewInstrument(isin, AssetClass.FUND, source, isin, isin, request.symbol(), null);
+                yield new NewInstrument(isin, AssetClass.FUND, source, isin, isin, request.symbol(), null, EUR);
             }
             case AMUNDI -> {
                 String isin = validIsin(request);
                 yield new NewInstrument(
-                        request.name(), request.assetClass(), source, isin, isin, request.symbol(), null);
+                        request.name(), request.assetClass(), source, isin, isin, request.symbol(), null, EUR);
             }
             case YAHOO, COINGECKO -> {
                 if (request.sourceRef() == null || request.sourceRef().isBlank()) {
@@ -171,9 +174,21 @@ public class HoldingService implements ManageHoldingUseCase {
                         request.sourceRef().strip(),
                         request.isin(),
                         request.symbol(),
-                        null);
+                        null,
+                        currency(request));
             }
         };
+    }
+
+    private static String currency(NewInstrument request) {
+        if (request.currency() == null || request.currency().isBlank()) {
+            return EUR;
+        }
+        String currency = request.currency().strip().toUpperCase(Locale.ROOT);
+        if (!CURRENCY.matcher(currency).matches()) {
+            throw new InvalidInstrumentException("currency must be an ISO 4217 code");
+        }
+        return currency;
     }
 
     private static String validIsin(NewInstrument request) {

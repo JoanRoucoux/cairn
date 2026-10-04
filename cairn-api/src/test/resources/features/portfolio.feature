@@ -39,4 +39,5 @@ Feature: Portfolio valuation
     And the non-EUR count is 1
     And the unvalued count is 0
     And the portfolio lists the USD holding priced in USD without a value in EUR
+    And the instrument "WST" is stored in USD
     And the one day performance totals 500 EUR
