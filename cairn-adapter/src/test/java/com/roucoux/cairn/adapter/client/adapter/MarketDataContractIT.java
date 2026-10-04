@@ -74,6 +74,24 @@ class MarketDataContractIT {
                         assertThat(realCoinGecko().fetch(crypto(id)).price()).isPositive());
     }
 
+    @Test
+    void coinGeckoStillSearchesCoinsAndPricesThemInOneCall() {
+        assertThat(realCoinGeckoResolver().resolve("solana"))
+                .hasSizeLessThanOrEqualTo(8)
+                .anySatisfy(candidate -> {
+                    assertThat(candidate.sourceRef()).isEqualTo("solana");
+                    assertThat(candidate.symbol()).isEqualTo("SOL");
+                    assertThat(candidate.probePrice()).isPositive();
+                    assertThat(candidate.currency()).isEqualTo("EUR");
+                    assertThat(candidate.probeAsOf()).isAfter(LocalDate.now().minusDays(2));
+                });
+    }
+
+    private static CoinGeckoResolutionAdapter realCoinGeckoResolver() {
+        return new CoinGeckoResolutionAdapter(
+                RestClient.builder().baseUrl("https://api.coingecko.com").build());
+    }
+
     private static YahooQuoteAdapter realYahoo() {
         return new YahooQuoteAdapter(
                 RestClient.builder()

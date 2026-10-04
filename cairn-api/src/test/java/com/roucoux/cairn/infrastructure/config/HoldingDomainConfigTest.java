@@ -1,24 +1,30 @@
 package com.roucoux.cairn.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.NewInstrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
+import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
+import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import com.roucoux.cairn.domain.service.HoldingService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -163,7 +169,7 @@ class HoldingDomainConfigTest {
                         return List.of();
                     }
                 };
-        List<Holding> saved = new java.util.ArrayList<>();
+        List<Holding> saved = new ArrayList<>();
         com.roucoux.cairn.domain.port.out.SaveHoldingPort saveHolding = holding -> {
             saved.add(holding);
             return holding;
@@ -177,5 +183,84 @@ class HoldingDomainConfigTest {
 
         assertThat(saved).hasSize(1);
         assertThat(saved.get(0).quantity()).isEqualByComparingTo("732.40");
+    }
+
+    @Test
+    void wiresTheHoldingServiceWithTheInstrumentAndQuotePortsSoANewManualTitleIsPricedToday() {
+        Account brokerage = new Account(UUID.randomUUID(), "Contoso Trading", AccountType.CTO, "Contoso Securities");
+        LoadAccountsPort loadAccounts = new LoadAccountsPort() {
+            @Override
+            public List<Account> findAll() {
+                return List.of(brokerage);
+            }
+
+            @Override
+            public Optional<Account> findById(UUID id) {
+                return brokerage.id().equals(id) ? Optional.of(brokerage) : Optional.empty();
+            }
+        };
+        LoadInstrumentsPort loadInstruments = new LoadInstrumentsPort() {
+            @Override
+            public List<Instrument> findAll() {
+                return List.of();
+            }
+
+            @Override
+            public Optional<Instrument> findById(UUID id) {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<Instrument> findRefreshable(Set<AssetClass> assetClasses) {
+                return List.of();
+            }
+        };
+        List<Instrument> savedInstruments = new ArrayList<>();
+        List<Quote> savedQuotes = new ArrayList<>();
+        SaveQuotePort saveQuote = new SaveQuotePort() {
+            @Override
+            public void upsert(Quote quote) {
+                savedQuotes.add(quote);
+            }
+
+            @Override
+            public void upsertAll(List<Quote> quotes) {
+                savedQuotes.addAll(quotes);
+            }
+        };
+        LoadHoldingsPort loadHoldings = mock(LoadHoldingsPort.class);
+
+        HoldingService service = new HoldingDomainConfig()
+                .holdingService(
+                        loadHoldings,
+                        holding -> holding,
+                        id -> {},
+                        loadAccounts,
+                        loadInstruments,
+                        instrument -> {
+                            savedInstruments.add(instrument);
+                            return instrument;
+                        },
+                        saveQuote,
+                        id -> {},
+                        CLOCK);
+        service.createWithNewInstrument(
+                brokerage.id(),
+                new NewInstrument(
+                        "Woodgrove Notes",
+                        AssetClass.BOND,
+                        PriceSource.MANUAL,
+                        null,
+                        null,
+                        null,
+                        new BigDecimal("42.10")),
+                BigDecimal.ONE,
+                null);
+
+        assertThat(savedInstruments).hasSize(1);
+        assertThat(savedQuotes).singleElement().satisfies(quote -> {
+            assertThat(quote.price()).isEqualByComparingTo("42.10");
+            assertThat(quote.asOf()).isEqualTo(LocalDate.now(CLOCK));
+        });
     }
 }

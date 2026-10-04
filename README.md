@@ -41,8 +41,8 @@ The data shown is fictional.
 
 - **Dashboard**: net worth, day change, unrealized gain, and performance over 1D, 7D, 1M, 1Y, 5Y and max. 5Y and max are rebuilt at constant composition: today's holdings repriced over past quotes.
 - **Allocation** by asset class and by account.
-- **Holdings**: buy and sell, cash balance per account, manual quotes, and change of listing (`PUT /holdings/{id}/instrument`).
-- **Instruments**: lookup by ISIN through Yahoo Finance and Amundi, with prices from Yahoo Finance, CoinGecko, SG Sirius, Amundi or entered by hand.
+- **Holdings**: add a line (an existing title, a new one searched per price source, or priced by hand), buy and sell, cash balance per account, manual quotes. A title lives only while a line holds it.
+- **Instrument search**: `GET /instruments/search` queries one price source at a time (Yahoo Finance, CoinGecko, Amundi). There is no title management endpoint.
 - **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
 - **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
 - **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.
@@ -67,14 +67,14 @@ flowchart LR
     api -- "manual quote" --> kafka
     kafka -- "refresh.completed" --> worker
 
-    api -- "instrument lookup" --> providers
+    api -- "instrument search" --> providers
     batch -- "end-of-day refresh" --> providers
     worker -- "intraday refresh" --> providers
     providers["Price providers<br/>Yahoo Finance, CoinGecko, SG Sirius, Amundi"]
     worker -- "daily summary" --> telegram[Telegram]
 ```
 
-The API calls the providers only to look an instrument up (ISIN or ticker) when one is created. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The batch jobs and the worker publish after a refresh. The API publishes only when a quote is entered by hand: a `price.updated` on `cairn.prices` and a `refresh.completed` with the `MANUAL` trigger on `cairn.portfolio`. The worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point, so a manual quote gets one too.
+The API calls the providers only to search a source for an instrument when a line is added. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The batch jobs and the worker publish after a refresh. The API publishes only when a quote is entered by hand: a `price.updated` on `cairn.prices` and a `refresh.completed` with the `MANUAL` trigger on `cairn.portfolio`. The worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point, so a manual quote gets one too.
 
 ### Modules
 

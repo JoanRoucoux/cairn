@@ -4,12 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.generated.model.AccountResponse;
 import com.roucoux.cairn.generated.model.AccountType;
-import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
-import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
-import com.roucoux.cairn.generated.model.InstrumentResponse;
-import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.SetCashBalanceRequest;
 import com.roucoux.cairn.generated.model.UpdateAccountRequest;
 import io.cucumber.java.Before;
@@ -72,15 +68,11 @@ public class AccountSteps {
 
     @Given("it holds {int} units of a manual cash instrument {string}")
     public void itHoldsUnitsOfAManualCashInstrument(int quantity, String instrumentName) {
-        CreateInstrumentRequest instrumentRequest = new CreateInstrumentRequest();
-        instrumentRequest.setName(instrumentName);
-        instrumentRequest.setCurrency("EUR");
-        instrumentRequest.setAssetClass(AssetClass.CASH);
-        instrumentRequest.setPriceSource(PriceSource.MANUAL);
-        UUID instrumentId = restTemplate
-                .postForEntity("/instruments", instrumentRequest, InstrumentResponse.class)
-                .getBody()
-                .getId();
+        UUID instrumentId = UUID.randomUUID();
+        jdbc.update("""
+                insert into instruments (id, name, currency, asset_class, price_source, created_at)
+                values (?, ?, 'EUR', 'CASH', 'MANUAL', now())
+                """, instrumentId, instrumentName);
 
         CreateHoldingRequest holdingRequest = new CreateHoldingRequest();
         holdingRequest.setAccountId(lastAccountId);

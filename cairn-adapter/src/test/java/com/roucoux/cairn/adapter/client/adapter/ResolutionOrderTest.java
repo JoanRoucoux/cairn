@@ -14,13 +14,15 @@ class ResolutionOrderTest {
     @Test
     void yahooListingsComeBeforeAmundiNavsSoTheImportKeepsPickingTheListing() {
         RestClient client = RestClient.create();
-        List<ResolveInstrumentPort> resolvers =
-                new ArrayList<>(List.of(new AmundiResolutionAdapter(client), new YahooResolutionAdapter(client)));
+        List<ResolveInstrumentPort> resolvers = new ArrayList<>(List.of(
+                new CoinGeckoResolutionAdapter(client),
+                new AmundiResolutionAdapter(client),
+                new YahooResolutionAdapter(client)));
 
         AnnotationAwareOrderComparator.sort(resolvers);
 
         assertThat(resolvers)
                 .extracting(resolver -> resolver.getClass().getSimpleName())
-                .containsExactly("YahooResolutionAdapter", "AmundiResolutionAdapter");
+                .containsExactly("YahooResolutionAdapter", "AmundiResolutionAdapter", "CoinGeckoResolutionAdapter");
     }
 }

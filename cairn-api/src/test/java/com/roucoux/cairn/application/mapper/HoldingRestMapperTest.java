@@ -49,6 +49,38 @@ class HoldingRestMapperTest {
     }
 
     @Test
+    void exposesTheSourceReferenceDescriptionAndExternalUrl() {
+        Instrument ether = new Instrument(
+                UUID.randomUUID(),
+                "Ethereum",
+                null,
+                "ETH",
+                "EUR",
+                AssetClass.CRYPTO,
+                PriceSource.COINGECKO,
+                "ethereum",
+                "Held long term");
+
+        var response = mapper.toResponse(valued(ether));
+
+        assertThat(response.getSourceRef()).isEqualTo("ethereum");
+        assertThat(response.getDescription()).isEqualTo("Held long term");
+        assertThat(response.getExternalUrl()).isEqualTo("https://www.coingecko.com/en/coins/ethereum");
+    }
+
+    @Test
+    void leavesTheSourceReferenceAndExternalUrlEmptyForAManualInstrument() {
+        Instrument notes = new Instrument(
+                UUID.randomUUID(), "Woodgrove Notes", null, "EUR", AssetClass.BOND, PriceSource.MANUAL, null, null);
+
+        var response = mapper.toResponse(valued(notes));
+
+        assertThat(response.getSourceRef()).isNull();
+        assertThat(response.getDescription()).isNull();
+        assertThat(response.getExternalUrl()).isNull();
+    }
+
+    @Test
     void doesNotMarkASavingsBooklet() {
         Instrument livretA = new Instrument(
                 UUID.randomUUID(), "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, null);

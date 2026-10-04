@@ -111,7 +111,13 @@ class AccountDomainConfigTest {
 
         ManageAccountUseCase useCase = new AccountDomainConfig()
                 .manageAccountUseCase(
-                        loadAccounts, saveAccount, deleteAccount, loadHoldings, deleteHolding, loadInstruments);
+                        loadAccounts,
+                        saveAccount,
+                        deleteAccount,
+                        loadHoldings,
+                        deleteHolding,
+                        loadInstruments,
+                        id -> {});
         useCase.delete(ACCOUNT.id());
 
         assertThat(deletedAccountIds).containsExactly(ACCOUNT.id());
@@ -186,7 +192,13 @@ class AccountDomainConfigTest {
 
         ManageAccountUseCase useCase = new AccountDomainConfig()
                 .manageAccountUseCase(
-                        loadAccounts, saveAccount, deleteAccount, loadHoldings, deleteHolding, loadInstruments);
+                        loadAccounts,
+                        saveAccount,
+                        deleteAccount,
+                        loadHoldings,
+                        deleteHolding,
+                        loadInstruments,
+                        id -> {});
 
         assertThatThrownBy(() -> useCase.delete(ACCOUNT.id())).isInstanceOf(AccountNotEmptyException.class);
     }

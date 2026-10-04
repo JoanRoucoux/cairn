@@ -1,46 +1,26 @@
 package com.roucoux.cairn.application.controller;
 
-import static org.hamcrest.Matchers.startsWith;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.InstrumentRestMapper;
-import com.roucoux.cairn.domain.exception.business.InvalidInstrumentException;
-import com.roucoux.cairn.domain.exception.business.NotFoundException;
-import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
+import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
-import com.roucoux.cairn.domain.model.Holding;
-import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
-import com.roucoux.cairn.domain.port.in.ManageInstrumentUseCase;
-import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
-import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
-import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
+import com.roucoux.cairn.domain.port.in.SearchInstrumentsUseCase;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
-import com.roucoux.cairn.infrastructure.transaction.InstrumentDeletionTransaction;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -52,90 +32,19 @@ import org.springframework.test.web.servlet.MockMvc;
 class InstrumentControllerTest {
 
     private static final UUID INSTRUMENT_ID = UUID.randomUUID();
-    private static final UUID LIVRET_A_ID = UUID.randomUUID();
-    private static final Instrument SP500 = new Instrument(
-            INSTRUMENT_ID,
-            "Amundi ETF PEA S&P 500",
-            "FR0011550185",
-            "PSP5",
-            "EUR",
-            AssetClass.ETF,
-            PriceSource.YAHOO,
-            "ETF3.PA",
-            "ETF sur le S&P 500, les 500 plus grandes capitalisations americaines");
-    private static final Instrument LIVRET_A = new Instrument(
-            LIVRET_A_ID, "Livret A", null, "EUR", AssetClass.CASH, PriceSource.MANUAL, null, "Livret d'epargne");
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private LoadInstrumentsPort loadInstruments;
-
-    @MockitoBean
-    private LoadHoldingsPort loadHoldings;
-
-    @MockitoBean
-    private ManageInstrumentUseCase manageInstrument;
-
-    @MockitoBean
-    private InstrumentDeletionTransaction deleteInstrumentTransaction;
-
-    @MockitoBean
-    private ResolveInstrumentUseCase resolveInstrument;
+    private SearchInstrumentsUseCase searchInstruments;
 
     @MockitoBean
     private JdbcOperations jdbcOperations;
 
-    @BeforeEach
-    void stubDefaults() {
-        when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
-        when(loadHoldings.findByInstrument(any())).thenReturn(List.of());
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(SP500);
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(SP500);
-    }
-
     @Test
-    void listsEveryInstrument() throws Exception {
-        when(loadInstruments.findAll()).thenReturn(List.of(SP500));
-
-        mockMvc.perform(get("/instruments").with(user("alex")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].isin").value("FR0011550185"))
-                .andExpect(jsonPath("$[0].symbol").value("PSP5"));
-    }
-
-    @Test
-    void createsAnInstrument() throws Exception {
-        mockMvc.perform(post("/instruments")
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"Amundi ETF PEA S&P 500","isin":"FR0011550185","symbol":"PSP5",
-                                 "currency":"EUR","assetClass":"ETF","priceSource":"YAHOO","sourceRef":"ETF3.PA"}
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sourceRef").value("ETF3.PA"))
-                .andExpect(jsonPath("$.symbol").value("PSP5"));
-
-        verify(manageInstrument)
-                .create(
-                        "Amundi ETF PEA S&P 500",
-                        "FR0011550185",
-                        "PSP5",
-                        "EUR",
-                        AssetClass.ETF,
-                        PriceSource.YAHOO,
-                        "ETF3.PA",
-                        null);
-    }
-
-    @Test
-    void proposesCandidateSourcesForAnIsin() throws Exception {
-        when(resolveInstrument.resolve("FR0000000010"))
+    void searchesOneSourceAndReturnsItsCandidates() throws Exception {
+        when(searchInstruments.search(PriceSource.YAHOO, "FR0000000010"))
                 .thenReturn(List.of(new InstrumentCandidate(
                         "Fonds Exemple Diversifie",
                         PriceSource.YAHOO,
@@ -145,206 +54,77 @@ class InstrumentControllerTest {
                         "FR0000000010",
                         "0P0000000A.F",
                         new BigDecimal("131.57"),
-                        "USD")));
+                        "USD",
+                        LocalDate.of(2026, 9, 24),
+                        INSTRUMENT_ID)));
 
-        mockMvc.perform(post("/instruments/resolve")
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"query\":\"FR0000000010\"}"))
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "YAHOO")
+                        .param("query", "FR0000000010")
+                        .with(user("alex")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].sourceRef").value("0P0000000A.F"))
                 .andExpect(jsonPath("$[0].exchange").value("Frankfurt"))
                 .andExpect(jsonPath("$[0].isin").value("FR0000000010"))
                 .andExpect(jsonPath("$[0].symbol").value("0P0000000A.F"))
                 .andExpect(jsonPath("$[0].probePrice").value(131.57))
-                .andExpect(jsonPath("$[0].currency").value("USD"));
+                .andExpect(jsonPath("$[0].currency").value("USD"))
+                .andExpect(jsonPath("$[0].probeAsOf").value("2026-09-24"))
+                .andExpect(jsonPath("$[0].trackedInstrumentId").value(INSTRUMENT_ID.toString()));
     }
 
     @Test
-    void reportsAnUnresolvableIsinAs422() throws Exception {
-        when(resolveInstrument.resolve("XX0000000000")).thenThrow(new UnknownInstrumentException("XX0000000000"));
+    void answersAnEmptyListWhenTheSourceKnowsNothing() throws Exception {
+        when(searchInstruments.search(PriceSource.COINGECKO, "zzzz")).thenReturn(List.of());
 
-        mockMvc.perform(post("/instruments/resolve")
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"query\":\"XX0000000000\"}"))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
-    @Test
-    void returnsTheDescriptionAndTheLinkToTheProviderSheet() throws Exception {
-        when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
-
-        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("alex")))
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "COINGECKO")
+                        .param("query", "zzzz")
+                        .with(user("alex")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.description").value(startsWith("ETF sur le S&P 500")))
-                .andExpect(jsonPath("$.externalUrl").value("https://finance.yahoo.com/quote/ETF3.PA"));
+                .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test
-    void reportsTheHoldingCount() throws Exception {
-        when(loadInstruments.findById(INSTRUMENT_ID)).thenReturn(Optional.of(SP500));
-        when(loadHoldings.findByInstrument(INSTRUMENT_ID))
-                .thenReturn(List.of(
-                        new Holding(
-                                UUID.randomUUID(),
-                                UUID.randomUUID(),
-                                INSTRUMENT_ID,
-                                BigDecimal.ONE,
-                                null,
-                                Instant.EPOCH),
-                        new Holding(
-                                UUID.randomUUID(),
-                                UUID.randomUUID(),
-                                INSTRUMENT_ID,
-                                BigDecimal.TEN,
-                                null,
-                                Instant.EPOCH)));
+    void reportsASourceThatIsDownAs502() throws Exception {
+        when(searchInstruments.search(PriceSource.AMUNDI, "FR0000000010"))
+                .thenThrow(new MarketDataUnavailableException("Amundi call failed"));
 
-        mockMvc.perform(get("/instruments/{id}", INSTRUMENT_ID).with(user("alex")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.holdingCount").value(2));
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "AMUNDI")
+                        .param("query", "FR0000000010")
+                        .with(user("alex")))
+                .andExpect(status().isBadGateway());
     }
 
     @Test
-    void reportsNoExternalUrlForAManuallyPricedInstrument() throws Exception {
-        when(loadInstruments.findById(LIVRET_A_ID)).thenReturn(Optional.of(LIVRET_A));
-
-        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("alex")))
-                .andExpect(jsonPath("$.externalUrl").doesNotExist());
+    void refusesAQueryOutsideTwoToSixtyFourCharacters() throws Exception {
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "YAHOO")
+                        .param("query", "a")
+                        .with(user("alex")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "YAHOO")
+                        .param("query", "a".repeat(65))
+                        .with(user("alex")))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void fullyUpdatesAnInstrument() throws Exception {
-        Instrument updated = new Instrument(
-                INSTRUMENT_ID,
-                "Amundi ETF PEA S&P 500",
-                "FR0011550185",
-                "PSP5",
-                "EUR",
-                AssetClass.ETF,
-                PriceSource.YAHOO,
-                "ETF4.PA",
-                "Les 500 plus grandes capitalisations americaines");
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(updated);
-
-        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO",
-                                 "isin":"FR0011550185","symbol":"PSP5","sourceRef":"ETF4.PA",
-                                 "description":"Les 500 plus grandes capitalisations americaines"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sourceRef").value("ETF4.PA"))
-                .andExpect(jsonPath("$.symbol").value("PSP5"))
-                .andExpect(jsonPath("$.description").value("Les 500 plus grandes capitalisations americaines"));
+    void refusesASourceThatCannotBeSearched() throws Exception {
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "SG_SIRIUS")
+                        .param("query", "QS0000000010")
+                        .with(user("alex")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/instruments/search").param("query", "apple").with(user("alex")))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void reportsAnUnknownInstrumentAs404() throws Exception {
-        when(loadInstruments.findById(LIVRET_A_ID)).thenReturn(Optional.empty());
-
-        mockMvc.perform(get("/instruments/{id}", LIVRET_A_ID).with(user("alex")))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void reportsAnUnknownInstrumentOnUpdateAs404() throws Exception {
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new NotFoundException("instrument", LIVRET_A_ID));
-
-        mockMvc.perform(put("/instruments/{id}", LIVRET_A_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"Livret A","assetClass":"CASH","priceSource":"MANUAL"}
-                                """))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void reportsADuplicateOnUpdateAsAConflict() throws Exception {
-        when(manageInstrument.update(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
-
-        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO",
-                                 "sourceRef":"ETF3.PA"}
-                                """))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    void deletesAnInstrument() throws Exception {
-        mockMvc.perform(delete("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("alex"))
-                        .with(csrf()))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void reportsAnUnknownInstrumentOnDeleteAs404() throws Exception {
-        doThrow(new NotFoundException("instrument", LIVRET_A_ID))
-                .when(deleteInstrumentTransaction)
-                .run(LIVRET_A_ID);
-
-        mockMvc.perform(delete("/instruments/{id}", LIVRET_A_ID)
-                        .with(user("alex"))
-                        .with(csrf()))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void refusesAWriteWithoutACsrfToken() throws Exception {
-        mockMvc.perform(put("/instruments/{id}", INSTRUMENT_ID)
-                        .with(user("alex"))
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"Amundi ETF PEA S&P 500","assetClass":"ETF","priceSource":"YAHOO"}
-                                """))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void reportsAnInstrumentTheDomainRefusesAs422() throws Exception {
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new InvalidInstrumentException("sourceRef is required unless priceSource is MANUAL"));
-
-        mockMvc.perform(post("/instruments")
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"BNB","currency":"EUR",
-                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":" "}
-                                """))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
-    @Test
-    void reportsAnInstrumentThatAlreadyExistsAsAConflict() throws Exception {
-        when(manageInstrument.create(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(new DataIntegrityViolationException("ux_instruments_source"));
-
-        mockMvc.perform(post("/instruments")
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"name":"BNB","currency":"EUR",
-                                 "assetClass":"CRYPTO","priceSource":"COINGECKO","sourceRef":"binancecoin"}
-                                """))
-                .andExpect(status().isConflict());
+    void requiresASessionToSearch() throws Exception {
+        mockMvc.perform(get("/instruments/search").param("source", "YAHOO").param("query", "apple"))
+                .andExpect(status().isUnauthorized());
     }
 }

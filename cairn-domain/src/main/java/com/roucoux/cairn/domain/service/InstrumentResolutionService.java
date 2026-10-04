@@ -4,15 +4,23 @@ import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Isin;
+import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
+import com.roucoux.cairn.domain.port.in.SearchInstrumentsUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
+import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
 import java.lang.System.Logger.Level;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -21,39 +29,94 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class InstrumentResolutionService implements ResolveInstrumentUseCase {
+public class InstrumentResolutionService implements ResolveInstrumentUseCase, SearchInstrumentsUseCase {
 
     private static final System.Logger LOG = System.getLogger(InstrumentResolutionService.class.getName());
 
     private static final String UNKNOWN_CURRENCY = "XXX";
+    private static final Set<PriceSource> IMPORT_SOURCES = Set.of(PriceSource.YAHOO, PriceSource.AMUNDI);
     private static final Duration DEFAULT_PROBE_TIMEOUT = Duration.ofSeconds(4);
 
     private final List<ResolveInstrumentPort> resolvers;
     private final List<FetchQuotePort> fetchers;
+    private final LoadInstrumentsPort loadInstruments;
     private final Duration probeTimeout;
 
-    public InstrumentResolutionService(List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers) {
-        this(resolvers, fetchers, DEFAULT_PROBE_TIMEOUT);
+    public InstrumentResolutionService(
+            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers, LoadInstrumentsPort loadInstruments) {
+        this(resolvers, fetchers, loadInstruments, DEFAULT_PROBE_TIMEOUT);
     }
 
     InstrumentResolutionService(
-            List<ResolveInstrumentPort> resolvers, List<FetchQuotePort> fetchers, Duration probeTimeout) {
+            List<ResolveInstrumentPort> resolvers,
+            List<FetchQuotePort> fetchers,
+            LoadInstrumentsPort loadInstruments,
+            Duration probeTimeout) {
         this.resolvers = List.copyOf(resolvers);
         this.fetchers = List.copyOf(fetchers);
+        this.loadInstruments = loadInstruments;
         this.probeTimeout = probeTimeout;
     }
 
     @Override
     public List<InstrumentCandidate> resolve(String query) {
         List<InstrumentCandidate> candidates = resolvers.stream()
+                .filter(resolver -> IMPORT_SOURCES.stream().anyMatch(resolver::supports))
                 .flatMap(resolver -> safeResolve(resolver, query).stream())
                 .toList();
         if (candidates.isEmpty()) {
+            candidates = exactCoinGeckoMatch(query);
+        }
+        if (candidates.isEmpty()) {
             throw new UnknownInstrumentException(query);
         }
+        return probedAndSorted(candidates);
+    }
+
+    private List<InstrumentCandidate> exactCoinGeckoMatch(String query) {
+        if (Isin.isValid(query)) {
+            return List.of();
+        }
+        return resolvers.stream()
+                .filter(resolver -> resolver.supports(PriceSource.COINGECKO))
+                .flatMap(resolver -> safeResolve(resolver, query).stream())
+                .filter(candidate -> query.equalsIgnoreCase(candidate.sourceRef()))
+                .toList();
+    }
+
+    @Override
+    public List<InstrumentCandidate> search(PriceSource source, String query) {
+        List<InstrumentCandidate> candidates = resolvers.stream()
+                .filter(resolver -> resolver.supports(source))
+                .findFirst()
+                .map(resolver -> resolver.resolve(query))
+                .orElse(List.of());
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        Map<String, UUID> tracked = trackedBy(source);
+        return probedAndSorted(candidates).stream()
+                .map(candidate -> candidate.withTrackedInstrumentId(tracked.get(candidate.sourceRef())))
+                .toList();
+    }
+
+    private Map<String, UUID> trackedBy(PriceSource source) {
+        Map<String, UUID> tracked = new HashMap<>();
+        for (Instrument instrument : loadInstruments.findAll()) {
+            if (instrument.priceSource() == source && instrument.sourceRef() != null) {
+                tracked.putIfAbsent(instrument.sourceRef(), instrument.id());
+            }
+        }
+        return tracked;
+    }
+
+    private List<InstrumentCandidate> probedAndSorted(List<InstrumentCandidate> candidates) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<InstrumentCandidate>> probes = candidates.stream()
-                    .map(candidate -> executor.submit(() -> probe(candidate)))
+                    .map(candidate -> {
+                        Optional<FetchQuotePort> fetcher = fetcherFor(candidate);
+                        return executor.submit(() -> probe(candidate, fetcher));
+                    })
                     .toList();
             List<InstrumentCandidate> probed = new ArrayList<>();
             for (int i = 0; i < probes.size(); i++) {
@@ -76,10 +139,16 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
         }
     }
 
-    private InstrumentCandidate probe(InstrumentCandidate candidate) {
-        if (candidate.probePrice() != null) {
-            return candidate;
+    private Optional<FetchQuotePort> fetcherFor(InstrumentCandidate candidate) {
+        if (candidate.probePrice() != null || candidate.source() == PriceSource.COINGECKO) {
+            return Optional.empty();
         }
+        return fetchers.stream()
+                .filter(fetcher -> fetcher.supports(candidate.source()))
+                .findFirst();
+    }
+
+    private InstrumentCandidate probe(InstrumentCandidate candidate, Optional<FetchQuotePort> fetcher) {
         Instrument transientInstrument = new Instrument(
                 UUID.randomUUID(),
                 candidate.name(),
@@ -89,10 +158,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
                 candidate.source(),
                 candidate.sourceRef(),
                 null);
-        return fetchers.stream()
-                .filter(fetcher -> fetcher.supports(candidate.source()))
-                .findFirst()
-                .map(fetcher -> withQuote(candidate, fetcher.fetch(transientInstrument)))
+        return fetcher.map(port -> withQuote(candidate, port.fetch(transientInstrument)))
                 .orElse(candidate);
     }
 
@@ -137,6 +203,8 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase {
                 candidate.isin(),
                 candidate.symbol(),
                 quote.price(),
-                quote.currency());
+                quote.currency(),
+                candidate.probeAsOf() != null ? candidate.probeAsOf() : quote.asOf(),
+                candidate.trackedInstrumentId());
     }
 }

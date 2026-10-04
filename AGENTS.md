@@ -81,13 +81,23 @@ not drift.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 
+## Titles
+
+There is no title management endpoint: a title exists only while a line holds it, created with the
+first line (`POST /holdings` with an inline `instrument`, or an `instrumentId` already tracked) and
+removed with the last. `GET /instruments/search` queries one price source (`SearchInstrumentsUseCase`,
+over the `ResolveInstrumentPort` resolvers, which the import also uses through
+`InstrumentResolutionService`) and marks the results already tracked.
+
 ## Portfolio import
 
-`POST /portfolio/import` is one of two places where several writes must succeed or fail together,
-each with its own transaction boundary in `infrastructure/transaction/`: `PortfolioImportTransaction`
-for the import, and `InstrumentDeletionTransaction` for deleting an instrument, which also deletes
-every one of its holdings first. Both exist because `cairn-domain` is plain Java and cannot open a
-transaction itself. Both call the use case rather than implementing it, on purpose: `useCasesAreImplementedByDomainServicesOnly`
+`POST /portfolio/import` is one of several places where writes must succeed or fail together. Each
+has its own transaction boundary in `infrastructure/transaction/`: `PortfolioImportTransaction` for
+the import, `AccountDeletionTransaction` for deleting an account, and `HoldingTransaction` for
+creating (with an inline new title), deleting and selling a line, where the title and its quotes go
+in the same transaction as the last line that held it (`InstrumentCleanup`, CASH exempt). All exist
+because `cairn-domain` is plain Java and cannot open a transaction itself. All call the use case
+rather than implementing it, on purpose: `useCasesAreImplementedByDomainServicesOnly`
 rejects an inbound port implemented outside `..domain.service..`, and a wrapper that implemented it
 was the first shape tried for the import. The corresponding controller depends on the wrapper class,
 not on the port, so the transaction cannot be bypassed by accident.
@@ -108,7 +118,9 @@ files, never from the server, so a message built here could not be shown. Adding
 means adding a code to the enum, to the contract's `ImportErrorResponse`, and to the consumer's
 translations — deliberately three visible places rather than one silent string.
 
-An import matches an existing instrument by ISIN **or** source reference before resolving, which is
+An import matches an existing instrument by ISIN **or** source reference before resolving
+(several titles may share an ISIN: the one the account holds, else the first EUR Yahoo one, else the
+first), which is
 what lets `import.feature` exercise the whole HTTP path without calling Yahoo or CoinGecko. Keep
 new import scenarios on already-existing instruments for the same reason.
 
@@ -268,9 +280,9 @@ holds. A rollback redeploys an already released commit and mints no version.
   two was accepted. Reads were unaffected, which made it look like a loading problem. When touching
   `WebAuthnConfig`, reason about both clients, and check against the deployed application.
 
-- **A blank string is not a value.** The unique indexes on `instruments` are partial (`WHERE isin IS NOT NULL`), so
-  rows without an ISIN or a source reference only coexist while the column is `null`. The web form posts
-  `""` for an untouched field, and two of those collide: the second crypto created without an ISIN answered
+- **A blank string is not a value.** The `(price_source, source_ref)` unique index on `instruments` is partial (`WHERE source_ref IS NOT NULL`), so
+  rows without a source reference only coexist while the column is `null`. The web form posts
+  `""` for an untouched field, and two of those collide: the second crypto created without a source reference answered
   500. `Instrument` now normalises blanks to `null`. Give any new nullable column the same treatment.
 - **A domain invariant throws a `BusinessException`, never an `IllegalArgumentException`**, which the advice
   would not map at all and would surface as a 500. `DataIntegrityViolationException` maps to 409.

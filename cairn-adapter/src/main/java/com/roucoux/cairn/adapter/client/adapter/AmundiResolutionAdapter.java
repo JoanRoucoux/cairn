@@ -2,11 +2,11 @@ package com.roucoux.cairn.adapter.client.adapter;
 
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Isin;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -15,8 +15,6 @@ import org.springframework.web.client.RestClient;
 @Component
 @Order(2)
 public class AmundiResolutionAdapter implements ResolveInstrumentPort {
-
-    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{9}[0-9]");
 
     private final AmundiShares shares;
 
@@ -32,7 +30,7 @@ public class AmundiResolutionAdapter implements ResolveInstrumentPort {
     @Override
     public List<InstrumentCandidate> resolve(String query) {
         String isin = query.strip().toUpperCase(Locale.ROOT);
-        if (!ISIN.matcher(isin).matches()) {
+        if (!Isin.isValid(isin)) {
             return List.of();
         }
         return shares
@@ -55,6 +53,8 @@ public class AmundiResolutionAdapter implements ResolveInstrumentPort {
                 isin,
                 null,
                 priced ? nav.value() : null,
-                priced && nav.currency() != null ? nav.currency().iso3Code() : null);
+                priced && nav.currency() != null ? nav.currency().iso3Code() : null,
+                priced ? nav.date() : null,
+                null);
     }
 }

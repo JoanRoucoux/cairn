@@ -2,6 +2,8 @@ package com.roucoux.cairn.application.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -9,13 +11,13 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roucoux.cairn.application.mapper.HoldingRestMapper;
 import com.roucoux.cairn.domain.exception.business.DuplicateHoldingException;
 import com.roucoux.cairn.domain.exception.business.InsufficientQuantityException;
+import com.roucoux.cairn.domain.exception.business.InvalidInstrumentException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.business.SavingsAccountLineException;
 import com.roucoux.cairn.domain.model.Account;
@@ -23,6 +25,7 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.NewInstrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
@@ -30,6 +33,7 @@ import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
+import com.roucoux.cairn.infrastructure.transaction.HoldingTransaction;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -70,6 +74,9 @@ class HoldingControllerTest {
     private ManageHoldingUseCase manageHolding;
 
     @MockitoBean
+    private HoldingTransaction holdingTransaction;
+
+    @MockitoBean
     private LoadHoldingsPort loadHoldings;
 
     @MockitoBean
@@ -88,7 +95,7 @@ class HoldingControllerTest {
 
     @Test
     void createsAHolding() throws Exception {
-        when(manageHolding.create(any(), any(), any(), any())).thenReturn(A_HOLDING);
+        when(holdingTransaction.create(any(), any(), any(), any())).thenReturn(A_HOLDING);
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
 
         mockMvc.perform(post("/holdings")
@@ -104,6 +111,9 @@ class HoldingControllerTest {
                 .andExpect(jsonPath("$.price").value(123.45))
                 .andExpect(jsonPath("$.priceCurrency").value("USD"))
                 .andExpect(jsonPath("$.priceFetchedAt").value("2026-08-26T20:00:00Z"))
+                .andExpect(jsonPath("$.sourceRef").value("AAPL"))
+                .andExpect(jsonPath("$.externalUrl").value("https://finance.yahoo.com/quote/AAPL"))
+                .andExpect(jsonPath("$.description").doesNotExist())
                 .andExpect(jsonPath("$.priceSource").value("YAHOO"))
                 .andExpect(jsonPath("$.stale").value(false))
                 .andExpect(jsonPath("$.marketValueEur").doesNotExist())
@@ -114,7 +124,7 @@ class HoldingControllerTest {
 
     @Test
     void fallsBackToTheBareHoldingWhenItCannotBeValuedYet() throws Exception {
-        when(manageHolding.create(any(), any(), any(), any())).thenReturn(A_HOLDING);
+        when(holdingTransaction.create(any(), any(), any(), any())).thenReturn(A_HOLDING);
         when(valueHolding.value(A_HOLDING)).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/holdings")
@@ -187,7 +197,7 @@ class HoldingControllerTest {
     void reportsAnAbsentAverageCostAsNullNotZero() throws Exception {
         Holding holdingWithoutCostBasis =
                 new Holding(HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, new BigDecimal("4"), null, Instant.EPOCH);
-        when(manageHolding.create(any(), any(), any(), any())).thenReturn(holdingWithoutCostBasis);
+        when(holdingTransaction.create(any(), any(), any(), any())).thenReturn(holdingWithoutCostBasis);
         when(valueHolding.value(holdingWithoutCostBasis))
                 .thenReturn(Optional.of(aValuedHolding(holdingWithoutCostBasis)));
 
@@ -201,8 +211,73 @@ class HoldingControllerTest {
     }
 
     @Test
+    void createsAHoldingOnANewInstrumentInOneCall() throws Exception {
+        when(holdingTransaction.createWithNewInstrument(any(), any(), any(), any()))
+                .thenReturn(A_HOLDING);
+        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
+
+        mockMvc.perform(post("/holdings")
+                        .with(user("alex"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"accountId":"%s","quantity":4,"instrument":{"name":"Woodgrove Notes","assetClass":"BOND","priceSource":"MANUAL","price":42.10}}
+                                """.formatted(ACCOUNT_ID)))
+                .andExpect(status().isCreated());
+
+        verify(holdingTransaction)
+                .createWithNewInstrument(
+                        ACCOUNT_ID,
+                        new NewInstrument(
+                                "Woodgrove Notes",
+                                AssetClass.BOND,
+                                PriceSource.MANUAL,
+                                null,
+                                null,
+                                null,
+                                new BigDecimal("42.10")),
+                        new BigDecimal("4"),
+                        null);
+    }
+
+    @Test
+    void refusesABodyWithBothOrNeitherOfInstrumentIdAndInstrumentAs422() throws Exception {
+        String both = """
+                {"accountId":"%s","instrumentId":"%s","quantity":4,"instrument":{"name":"Woodgrove Notes","assetClass":"BOND","priceSource":"MANUAL","price":1}}
+                """.formatted(ACCOUNT_ID, INSTRUMENT_ID);
+        String neither = """
+                {"accountId":"%s","quantity":4}
+                """.formatted(ACCOUNT_ID);
+
+        for (String body : List.of(both, neither)) {
+            mockMvc.perform(post("/holdings")
+                            .with(user("alex"))
+                            .with(csrf())
+                            .contentType(APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isUnprocessableEntity());
+        }
+        verifyNoInteractions(holdingTransaction);
+    }
+
+    @Test
+    void reportsAnInvalidNewInstrumentAs422() throws Exception {
+        when(holdingTransaction.createWithNewInstrument(any(), any(), any(), any()))
+                .thenThrow(new InvalidInstrumentException("price must be positive for a MANUAL instrument"));
+
+        mockMvc.perform(post("/holdings")
+                        .with(user("alex"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"accountId":"%s","quantity":4,"instrument":{"name":"Woodgrove Notes","assetClass":"BOND","priceSource":"MANUAL"}}
+                                """.formatted(ACCOUNT_ID)))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
     void reportsALineOnASavingsAccountAs422() throws Exception {
-        when(manageHolding.create(any(), any(), any(), any())).thenThrow(new SavingsAccountLineException());
+        when(holdingTransaction.create(any(), any(), any(), any())).thenThrow(new SavingsAccountLineException());
 
         mockMvc.perform(post("/holdings")
                         .with(user("alex"))
@@ -215,7 +290,7 @@ class HoldingControllerTest {
 
     @Test
     void reportsADuplicateAs422() throws Exception {
-        when(manageHolding.create(any(), any(), any(), any()))
+        when(holdingTransaction.create(any(), any(), any(), any()))
                 .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
 
         mockMvc.perform(post("/holdings")
@@ -229,7 +304,7 @@ class HoldingControllerTest {
     @Test
     void reportsAnUnknownHoldingAs404() throws Exception {
         doThrow(new NotFoundException("holding", HOLDING_ID))
-                .when(manageHolding)
+                .when(holdingTransaction)
                 .delete(HOLDING_ID);
 
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
@@ -240,6 +315,8 @@ class HoldingControllerTest {
     void deletesAHolding() throws Exception {
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
                 .andExpect(status().isNoContent());
+
+        verify(holdingTransaction).delete(HOLDING_ID);
     }
 
     @Test
@@ -266,50 +343,6 @@ class HoldingControllerTest {
     }
 
     @Test
-    void changingTheInstrumentAnswersTheMovedHolding() throws Exception {
-        UUID target = UUID.randomUUID();
-        Holding moved = new Holding(
-                HOLDING_ID, ACCOUNT_ID, target, new BigDecimal("12"), new BigDecimal("101.5"), Instant.EPOCH);
-        when(manageHolding.changeInstrument(HOLDING_ID, target)).thenReturn(moved);
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + target + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(HOLDING_ID.toString()))
-                .andExpect(jsonPath("$.instrumentId").value(target.toString()))
-                .andExpect(jsonPath("$.quantity").value(12));
-    }
-
-    @Test
-    void changingToAHeldInstrumentIs422() throws Exception {
-        when(manageHolding.changeInstrument(any(), any()))
-                .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
-    @Test
-    void changingToAnUnknownInstrumentIs404() throws Exception {
-        when(manageHolding.changeInstrument(any(), any()))
-                .thenThrow(new NotFoundException("instrument", INSTRUMENT_ID));
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
     void sellingPartAnswersTheRemainder() throws Exception {
         UUID id = UUID.randomUUID();
         Holding remaining = new Holding(
@@ -319,7 +352,7 @@ class HoldingControllerTest {
                 new BigDecimal("400"),
                 new BigDecimal("24.12"),
                 Instant.EPOCH);
-        when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
+        when(holdingTransaction.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
                         .with(user("alex"))
@@ -333,7 +366,7 @@ class HoldingControllerTest {
     @Test
     void sellingEverythingAnswersNoContent() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageHolding.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
+        when(holdingTransaction.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
                         .with(user("alex"))
@@ -346,7 +379,7 @@ class HoldingControllerTest {
     @Test
     void sellingTooMuchIsABusinessRefusal() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageHolding.sell(id, new BigDecimal("501")))
+        when(holdingTransaction.sell(id, new BigDecimal("501")))
                 .thenThrow(new InsufficientQuantityException(new BigDecimal("500"), new BigDecimal("501")));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)

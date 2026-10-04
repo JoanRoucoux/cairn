@@ -58,7 +58,7 @@ every weekend. A weekday failure is noticed the same evening anyway, when no mes
 
 `backfillQuotesJob` loads the daily close history of instruments from their price provider and
 upserts it into `quotes`, one row per instrument and day. It has no cron entry and no push monitor:
-it is run by hand. Run it after adding an instrument whose history you want on the charts, or after
+it is run by hand. Run it after adding a line with a new title whose history you want on the charts, or after
 an outage that left gaps in the daily closes. It is idempotent, since an existing day is overwritten
 with the provider's close, so running it twice is harmless. Instruments priced by hand (`MANUAL`)
 are skipped.

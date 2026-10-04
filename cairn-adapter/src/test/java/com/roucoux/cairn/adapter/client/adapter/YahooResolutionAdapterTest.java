@@ -6,8 +6,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
@@ -96,6 +98,8 @@ class YahooResolutionAdapterTest {
         assertThat(YahooResolutionAdapter.assetClassOf("EQUITY")).isEqualTo(AssetClass.EQUITY);
         assertThat(YahooResolutionAdapter.assetClassOf("ETF")).isEqualTo(AssetClass.ETF);
         assertThat(YahooResolutionAdapter.assetClassOf("MUTUALFUND")).isEqualTo(AssetClass.FUND);
+        assertThat(YahooResolutionAdapter.assetClassOf("CRYPTOCURRENCY")).isEqualTo(AssetClass.CRYPTO);
+        assertThat(YahooResolutionAdapter.assetClassOf(null)).isEqualTo(AssetClass.EQUITY);
     }
 
     @Test
@@ -106,9 +110,26 @@ class YahooResolutionAdapterTest {
     }
 
     @Test
-    void returnsNothingRatherThanFailingWhenYahooIsDown() {
+    void fallsBackToTheShortNameWhenThereIsNoLongName() {
+        stub("/v1/finance/search", "fixtures/yahoo-search-shortname-crypto.json");
+
+        List<InstrumentCandidate> candidates = adapter.resolve("sol");
+
+        assertThat(candidates).hasSize(2);
+        assertThat(candidates.getFirst()).satisfies(candidate -> {
+            assertThat(candidate.name()).isEqualTo("Fidelity Solana Fund");
+            assertThat(candidate.assetClass()).isEqualTo(AssetClass.ETF);
+        });
+        assertThat(candidates.get(1)).satisfies(candidate -> {
+            assertThat(candidate.name()).isEqualTo("Solana USD");
+            assertThat(candidate.assetClass()).isEqualTo(AssetClass.CRYPTO);
+        });
+    }
+
+    @Test
+    void raisesRatherThanLookingEmptyWhenYahooIsDown() {
         wireMock.stubFor(get(urlPathEqualTo("/v1/finance/search")).willReturn(serverError()));
 
-        assertThat(adapter.resolve("FR0000000010")).isEmpty();
+        assertThatThrownBy(() -> adapter.resolve("FR0000000010")).isInstanceOf(MarketDataUnavailableException.class);
     }
 }

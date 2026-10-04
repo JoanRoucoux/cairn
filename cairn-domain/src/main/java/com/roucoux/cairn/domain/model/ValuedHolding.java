@@ -92,11 +92,14 @@ public record ValuedHolding(
         if (quote.isEmpty()) {
             return false;
         }
+        if (instrument.priceSource() == PriceSource.MANUAL) {
+            return false;
+        }
         Quote q = quote.get();
         return switch (instrument.assetClass()) {
             case CASH -> false;
             case CRYPTO -> q.fetchedAt().isBefore(clock.instant().minus(CRYPTO_FRESHNESS));
-            case FUND ->
+            case FUND, BOND, OTHER ->
                 q.fetchedAt().isBefore(clock.instant().minus(FUND_FETCH_FRESHNESS))
                         || q.asOf().isBefore(LocalDate.now(clock).minusDays(FUND_PUBLICATION_FRESHNESS_DAYS));
             case EQUITY, ETF -> q.asOf().isBefore(previousBusinessDay(LocalDate.now(clock)));

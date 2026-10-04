@@ -5,5 +5,7 @@ public enum AssetClass {
     ETF,
     FUND,
     CRYPTO,
+    BOND,
+    OTHER,
     CASH
 }

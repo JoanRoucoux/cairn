@@ -225,6 +225,62 @@ class PortfolioImportServiceTest {
                 .satisfies(h -> assertThat(h.quantity()).isEqualByComparingTo("500"));
     }
 
+    private Instrument titleOnIsin(PriceSource source, String sourceRef, String currency) {
+        Instrument instrument = new Instrument(
+                UUID.randomUUID(),
+                "Northwind Index",
+                "LU0000000001",
+                null,
+                currency,
+                AssetClass.ETF,
+                source,
+                sourceRef,
+                null);
+        instruments.add(instrument);
+        return instrument;
+    }
+
+    @Test
+    void anIsinSharedByTwoTitlesGoesToTheOneTheAccountAlreadyHolds() {
+        titleOnIsin(PriceSource.YAHOO, "NWI.PA", "EUR");
+        Instrument amundi = titleOnIsin(PriceSource.AMUNDI, "LU0000000001", "EUR");
+        Account account = new Account(UUID.randomUUID(), "Sample Broker", AccountType.PEA, "Sample Bank");
+        accounts.add(account);
+        holdings.add(new Holding(UUID.randomUUID(), account.id(), amundi.id(), BigDecimal.ONE, null, Instant.EPOCH));
+
+        ImportReport report = serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+
+        assertThat(report.holdingsUpdated()).isEqualTo(1);
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(holding -> assertThat(holding.instrumentId()).isEqualTo(amundi.id()));
+    }
+
+    @Test
+    void anIsinSharedByTwoTitlesGoesToTheFirstEuroYahooOneWhenNothingIsHeld() {
+        titleOnIsin(PriceSource.AMUNDI, "LU0000000001", "EUR");
+        titleOnIsin(PriceSource.YAHOO, "NWI.L", "USD");
+        Instrument yahooEur = titleOnIsin(PriceSource.YAHOO, "NWI.PA", "EUR");
+
+        serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(holding -> assertThat(holding.instrumentId()).isEqualTo(yahooEur.id()));
+    }
+
+    @Test
+    void anIsinSharedByTwoTitlesFallsBackToTheFirstOneInAStableOrder() {
+        titleOnIsin(PriceSource.YAHOO, "NWI.SW", "CHF");
+        Instrument first = titleOnIsin(PriceSource.YAHOO, "NWI.L", "USD");
+
+        serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(holding -> assertThat(holding.instrumentId()).isEqualTo(first.id()));
+    }
+
     private PortfolioImportService serviceResolvingTo(InstrumentCandidate... candidates) {
         return serviceResolving(query -> List.of(candidates));
     }

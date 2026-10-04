@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +41,17 @@ class ApiExceptionHandlerTest {
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getLevel()).isEqualTo(Level.ERROR);
             assertThat(event.getThrowableProxy()).isNotNull();
+        });
+    }
+
+    @Test
+    void logsAThrottledSourceAsAWarningWithoutAStack() {
+        var problem = handler.handleRateLimited(new MarketDataRateLimitedException("CoinGecko search throttled"));
+
+        assertThat(problem.getStatus()).isEqualTo(502);
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getThrowableProxy()).isNull();
         });
     }
 

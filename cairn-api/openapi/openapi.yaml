@@ -20,7 +20,7 @@ tags:
   - name: Account
     description: Manage the accounts holdings live in
   - name: Instrument
-    description: Manage instruments and resolve them from an ISIN
+    description: Search the price sources for instruments
   - name: Quote
     description: Read and record quote history
   - name: History
@@ -234,7 +234,11 @@ paths:
       tags: [Holding]
       operationId: createHolding
       summary: Create a holding
-      description: An account can only hold one position per instrument; use the update endpoint to change its quantity.
+      description: >-
+        Creates a holding on an existing instrument (`instrumentId`) or on a new one (`instrument`),
+        exactly one of the two. A new instrument whose source and reference are already tracked is
+        reused rather than duplicated. A MANUAL instrument needs `price`, recorded as today's quote.
+        An account can only hold one position per instrument; use the update endpoint to change its quantity.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -270,9 +274,11 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '422':
           description: >-
-            The account already holds this instrument, the quantity is zero, or the account is a
+            The account already holds this instrument, the quantity is zero, the account is a
             savings account and the instrument is not the EUR cash balance (a savings account holds
-            one balance, not lines)
+            one balance, not lines), both or neither of `instrumentId` and `instrument` are given, or
+            the new instrument is invalid: no `sourceRef` unless MANUAL, MANUAL without a positive
+            `price`, a `price` on another source, SG_SIRIUS or AMUNDI without a valid ISIN, or CASH
           content:
             application/problem+json:
               schema:
@@ -290,7 +296,7 @@ paths:
       tags: [Holding]
       operationId: updateHolding
       summary: Update a holding
-      description: Replaces the holding's quantity and cost basis. The account cannot be changed, and the instrument only through `PUT /holdings/{id}/instrument`.
+      description: Replaces the holding's quantity and cost basis. The account and the instrument cannot be changed.
       security:
         - sessionCookie: []
           csrfToken: []
@@ -345,60 +351,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           description: Unknown holding
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-  /holdings/{id}/instrument:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: The holding's id.
-        schema:
-          type: string
-          format: uuid
-    put:
-      tags: [Holding]
-      operationId: changeHoldingInstrument
-      summary: Move a holding to another instrument
-      description: >-
-        Points the holding at another instrument (typically the EUR listing of a line quoted in
-        another currency), keeping its id, quantity and average cost. Moving to the instrument the
-        holding already has changes nothing. The previous instrument stays in the catalogue. A
-        savings account only accepts the EUR cash balance.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChangeHoldingInstrumentRequest'
-            example:
-              instrumentId: 7c1d2b9e-3f4a-4e5b-8c6d-0a1b2c3d4e5f
-      responses:
-        '200':
-          description: The holding on its new instrument
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HoldingResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Unknown holding or instrument
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          description: The account already holds the target instrument, or a savings account would hold a non-cash instrument
           content:
             application/problem+json:
               schema:
@@ -703,203 +655,36 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-  /instruments:
+  /instruments/search:
     get:
       tags: [Instrument]
-      operationId: listInstruments
-      summary: List every instrument
-      description: Every instrument known to Cairn, whether or not any account currently holds it.
-      responses:
-        '200':
-          description: Every instrument
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InstrumentResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    post:
-      tags: [Instrument]
-      operationId: createInstrument
-      summary: Create an instrument
-      description: The ISIN and source reference, when given, must each be unique across every instrument.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInstrumentRequest'
-            example:
-              name: Sample S&P 500 ETF
-              isin: FR0011550185
-              currency: EUR
-              assetClass: ETF
-              priceSource: YAHOO
-              sourceRef: SXR8.DE
-      responses:
-        '201':
-          description: Instrument created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InstrumentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Another instrument already uses this ISIN or source reference
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          description: >-
-            Invalid instrument: `sourceRef` is required unless `priceSource` is `MANUAL`, or
-            `description` is over 280 characters
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-  /instruments/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: The instrument's id.
-        schema:
-          type: string
-          format: uuid
-    get:
-      tags: [Instrument]
-      operationId: getInstrument
-      summary: Get an instrument's detail
-      description: The full record, including the fields not shown in the list view, plus the number of holdings that would be deleted along with it.
-      responses:
-        '200':
-          description: Instrument detail
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InstrumentDetailResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: Unknown instrument
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-    put:
-      tags: [Instrument]
-      operationId: updateInstrument
-      summary: Replace an instrument's editable fields
-      description: The currency is not editable; it is kept from the existing instrument.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateInstrumentRequest'
-            example:
-              name: Sample S&P 500 ETF
-              assetClass: ETF
-              priceSource: YAHOO
-              isin: FR0011550185
-              sourceRef: SXR8.DE
-      responses:
-        '200':
-          description: Instrument updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InstrumentDetailResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Unknown instrument
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '409':
-          description: Another instrument already uses this ISIN or source reference
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '422':
-          description: >-
-            Invalid instrument: `sourceRef` is required unless `priceSource` is `MANUAL`, or
-            `description` is over 280 characters. Attempting to change the currency is silently
-            ignored rather than rejected.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-    delete:
-      tags: [Instrument]
-      operationId: deleteInstrument
-      summary: Delete an instrument and its holdings
-      description: Deletes the instrument and every holding of it, in one transaction.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      responses:
-        '204':
-          description: Instrument deleted
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Unknown instrument
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-  /instruments/resolve:
-    post:
-      tags: [Instrument]
-      operationId: resolveInstrument
-      summary: Resolve a query into candidate price sources
+      operationId: searchInstruments
+      summary: Search one price source for instruments
       description: >-
-        Probes every price source that could know the query for a live price. A source that is
-        down is skipped rather than failing the whole call.
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [query]
-              properties:
-                query:
-                  type: string
-                  description: An ISIN, a ticker or a name
-                  example: FR0011550185
-            example:
-              query: FR0011550185
+        One source per call, so each source gets its own loading, empty and error state. The web picks
+        the sources: by default YAHOO and COINGECKO, plus AMUNDI when the query is a full ISIN; an ISIN
+        starting with QS queries AMUNDI only; an ISIN never queries COINGECKO. AMUNDI answers a full
+        12-character ISIN only and returns an empty list otherwise. Each candidate is probed for a live
+        price. A candidate already tracked (same source and reference) carries `trackedInstrumentId`.
+        An empty list means the source knows nothing; a source that is down answers 502.
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/SearchableSource'
+        - name: query
+          in: query
+          required: true
+          description: An ISIN, a ticker or a name
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 64
+            example: FR0011550185
       responses:
         '200':
-          description: Candidate price sources, each probed for a live price
+          description: Candidates of this source, each probed for a live price, possibly none
           content:
             application/json:
               schema:
@@ -910,10 +695,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          description: No source knows this instrument
+        '502':
+          description: The source did not answer
           content:
             application/problem+json:
               schema:
@@ -1244,8 +1027,9 @@ components:
       type: string
       description: >-
         The kind of instrument. `EQUITY` is a single stock, `ETF` an exchange-traded fund, `FUND`
-        a non-traded fund, `CRYPTO` a cryptocurrency, and `CASH` a currency balance priced at par.
-      enum: [EQUITY, ETF, FUND, CRYPTO, CASH]
+        a non-traded fund, `CRYPTO` a cryptocurrency, `BOND` a bond, `OTHER` anything else, and
+        `CASH` a currency balance priced at par.
+      enum: [EQUITY, ETF, FUND, CRYPTO, BOND, OTHER, CASH]
     PriceSource:
       type: string
       description: >-
@@ -1605,9 +1389,11 @@ components:
           description: The number of holdings in this account, those with no quote yet or quoted in another currency than EUR included (they carry no value).
           example: 4
     CreateHoldingRequest:
-      description: The body of `POST /holdings`, a new position of an instrument in an account.
+      description: >-
+        The body of `POST /holdings`, a new position in an account. Exactly one of `instrumentId` and
+        `instrument` is given.
       type: object
-      required: [accountId, instrumentId, quantity]
+      required: [accountId, quantity]
       properties:
         accountId:
           type: string
@@ -1617,8 +1403,11 @@ components:
         instrumentId:
           type: string
           format: uuid
-          description: The instrument the holding is a position of.
+          nullable: true
+          description: An instrument that already exists.
           example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        instrument:
+          $ref: '#/components/schemas/NewInstrumentRequest'
         quantity:
           type: number
           description: Must not be zero.
@@ -1628,6 +1417,58 @@ components:
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
           example: 26.65
+    NewInstrumentRequest:
+      description: >-
+        An instrument created together with its first holding. It is stored in EUR unless `currency` says otherwise (YAHOO and COINGECKO only). When an instrument
+        with the same `priceSource` and `sourceRef` already exists it is reused and the other fields
+        are ignored.
+      type: object
+      required: [assetClass, priceSource]
+      properties:
+        name:
+          type: string
+          maxLength: 160
+          description: The instrument's display name. Required except for SG_SIRIUS, whose name is its ISIN.
+          example: Contoso Global Equity
+        assetClass:
+          description: The kind of instrument. CASH is refused, and BOND and OTHER are accepted for MANUAL only. SG_SIRIUS is always stored as FUND, which is what the daily fund refresh prices.
+          allOf:
+            - $ref: '#/components/schemas/AssetClass'
+        priceSource:
+          description: Where the instrument's price comes from.
+          allOf:
+            - $ref: '#/components/schemas/PriceSource'
+        sourceRef:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: Required unless MANUAL (ignored then). For SG_SIRIUS and AMUNDI it is the ISIN, taken from `isin` when absent.
+          example: SXR8.DE
+        isin:
+          type: string
+          maxLength: 12
+          nullable: true
+          description: The instrument's ISIN. Required and checked (12 characters) for SG_SIRIUS and AMUNDI. Several instruments may share one ISIN.
+          example: FR0011550185
+        symbol:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: The instrument's ticker as people read it.
+          example: AAPL
+        price:
+          type: number
+          nullable: true
+          description: The price in EUR. Required and positive for MANUAL, recorded as today's quote; refused for every other source.
+          example: 42.10
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          nullable: true
+          description: >-
+            The currency the instrument is priced in (ISO 4217), taken from the search candidate. Stored as sent for
+            YAHOO and COINGECKO, EUR when absent; always EUR for AMUNDI, SG_SIRIUS and MANUAL.
+          example: USD
     UpdateHoldingRequest:
       description: The body of `PATCH /holdings/{id}`, replacing a holding's quantity and cost basis.
       type: object
@@ -1642,15 +1483,6 @@ components:
           nullable: true
           description: The per-unit cost basis. Omit when unknown.
           example: 27.10
-    ChangeHoldingInstrumentRequest:
-      description: The body of `PUT /holdings/{id}/instrument`.
-      type: object
-      required: [instrumentId]
-      properties:
-        instrumentId:
-          type: string
-          format: uuid
-          description: The instrument the holding moves to.
     BuyHoldingRequest:
       description: The body of `POST /holdings/{id}/buy`.
       type: object
@@ -1734,6 +1566,20 @@ components:
           description: The instrument's asset class.
           allOf:
             - $ref: '#/components/schemas/AssetClass'
+        sourceRef:
+          type: string
+          nullable: true
+          description: The instrument's reference at its price source. Absent when the instrument has none.
+          example: SXR8.DE
+        description:
+          type: string
+          nullable: true
+          description: Free text kept on the instrument, read-only. Absent when none.
+        externalUrl:
+          type: string
+          nullable: true
+          description: A page of the instrument at its price source. Absent for AMUNDI and MANUAL.
+          example: https://finance.yahoo.com/quote/SXR8.DE
         quantity:
           type: number
           description: The number of units held, never zero.
@@ -1785,7 +1631,7 @@ components:
           description: >-
             True when the latest quote is older than its asset class allows: an equity or ETF quote dated
             before the previous business day, a crypto quote fetched more than 6 hours ago, a fund quote
-            fetched more than 4 days ago or dated more than 10 days ago. Never true for cash or an
+            fetched more than 4 days ago or dated more than 10 days ago. Never true for cash, a manual price or an
             instrument with no quote yet.
           example: false
         marketValueEur:
@@ -1886,192 +1732,14 @@ components:
           type: number
           description: The desired EUR cash balance. Must not be negative. Zero removes the cash holding of a securities account and keeps it at zero on a savings account, whose balance is never absent once set.
           example: 1500.00
-    InstrumentResponse:
-      description: >-
-        A tradable or holdable instrument as it appears in a list, priced from a market data
-        source or entered manually. Returned by `GET /instruments` and the instrument write
-        endpoints.
-      type: object
-      required: [id, name, currency, assetClass, priceSource]
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: The instrument's id.
-          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-        name:
-          type: string
-          description: The instrument's display name.
-          example: Sample S&P 500 ETF
-        isin:
-          type: string
-          nullable: true
-          description: The instrument's ISIN. Absent when the instrument has none.
-          example: FR0011550185
-        symbol:
-          type: string
-          nullable: true
-          description: The instrument's ticker as people read it. Absent when the instrument has none.
-          example: AAPL
-        currency:
-          type: string
-          description: The instrument's native pricing currency, as an ISO 4217 code.
-          example: EUR
-        assetClass:
-          description: The kind of instrument.
-          allOf:
-            - $ref: '#/components/schemas/AssetClass'
-        priceSource:
-          description: Where the instrument's price comes from.
-          allOf:
-            - $ref: '#/components/schemas/PriceSource'
-        sourceRef:
-          type: string
-          nullable: true
-          description: The ticker, contract identifier or ISIN the price source is queried with. Absent for MANUAL.
-          example: SXR8.DE
-    InstrumentDetailResponse:
-      description: >-
-        The full detail of one instrument, including fields not shown in the list view and the
-        number of holdings that would be deleted with it. Returned by `GET /instruments/{id}` and
-        the instrument write endpoints.
-      type: object
-      required: [id, name, currency, assetClass, priceSource, holdingCount]
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: The instrument's id.
-          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-        name:
-          type: string
-          description: The instrument's display name.
-          example: Sample S&P 500 ETF
-        isin:
-          type: string
-          nullable: true
-          description: The instrument's ISIN. Absent when the instrument has none.
-          example: FR0011550185
-        symbol:
-          type: string
-          nullable: true
-          description: The instrument's ticker as people read it. Absent when the instrument has none.
-          example: AAPL
-        currency:
-          type: string
-          description: The instrument's native pricing currency, as an ISO 4217 code. Not editable.
-          example: EUR
-        assetClass:
-          description: The kind of instrument.
-          allOf:
-            - $ref: '#/components/schemas/AssetClass'
-        priceSource:
-          description: Where the instrument's price comes from.
-          allOf:
-            - $ref: '#/components/schemas/PriceSource'
-        sourceRef:
-          type: string
-          nullable: true
-          description: The ticker, contract identifier or ISIN the price source is queried with. Absent for MANUAL.
-          example: SXR8.DE
-        description:
-          type: string
-          nullable: true
-          description: Free text, up to 280 characters.
-          example: Core equity ETF tracking the S&P 500.
-        externalUrl:
-          type: string
-          nullable: true
-          description: Absent for a manually priced instrument and for an Amundi fund, since Amundi has no public page for every share. Never a broken link.
-          example: https://finance.yahoo.com/quote/SXR8.DE
-        holdingCount:
-          type: integer
-          description: The number of holdings that will be deleted with the instrument.
-          example: 2
-    CreateInstrumentRequest:
-      description: The body of `POST /instruments`.
-      type: object
-      required: [name, currency, assetClass, priceSource]
-      properties:
-        name:
-          type: string
-          description: The instrument's display name.
-          example: Sample S&P 500 ETF
-        isin:
-          type: string
-          nullable: true
-          description: The instrument's ISIN. Must be unique across every instrument when given.
-          example: FR0011550185
-        symbol:
-          type: string
-          maxLength: 32
-          nullable: true
-          description: The instrument's ticker as people read it, for example the candidate's `symbol`. Free text up to 32 characters.
-          example: AAPL
-        currency:
-          type: string
-          description: The instrument's native pricing currency, as an ISO 4217 code.
-          example: EUR
-        assetClass:
-          description: The kind of instrument.
-          allOf:
-            - $ref: '#/components/schemas/AssetClass'
-        priceSource:
-          description: Where the instrument's price comes from.
-          allOf:
-            - $ref: '#/components/schemas/PriceSource'
-        sourceRef:
-          type: string
-          nullable: true
-          description: Required unless priceSource is MANUAL.
-          example: SXR8.DE
-        description:
-          type: string
-          nullable: true
-          description: Free text, up to 280 characters.
-          example: Core equity ETF tracking the S&P 500.
-    UpdateInstrumentRequest:
-      description: The body of `PUT /instruments/{id}`. The currency cannot be changed this way.
-      type: object
-      required: [name, assetClass, priceSource]
-      properties:
-        name:
-          type: string
-          description: The instrument's display name.
-          example: Sample S&P 500 ETF
-        assetClass:
-          description: The kind of instrument.
-          allOf:
-            - $ref: '#/components/schemas/AssetClass'
-        priceSource:
-          description: Where the instrument's price comes from.
-          allOf:
-            - $ref: '#/components/schemas/PriceSource'
-        isin:
-          type: string
-          nullable: true
-          description: The instrument's ISIN. Must be unique across every instrument when given.
-          example: FR0011550185
-        symbol:
-          type: string
-          maxLength: 32
-          nullable: true
-          description: The instrument's ticker as people read it. Replaced as sent, so omitting it clears the stored symbol. Up to 32 characters.
-          example: AAPL
-        sourceRef:
-          type: string
-          nullable: true
-          description: Required unless priceSource is MANUAL.
-          example: SXR8.DE
-        description:
-          type: string
-          nullable: true
-          description: Free text, up to 280 characters.
-          example: Core equity ETF tracking the S&P 500.
+    SearchableSource:
+      type: string
+      enum: [YAHOO, COINGECKO, AMUNDI]
+      description: The price sources `GET /instruments/search` can query.
     InstrumentCandidateResponse:
       description: >-
         One price source's answer while resolving a query, with a live price fetched as a sanity
-        check. Returned by `POST /instruments/resolve`.
+        check. Returned by `GET /instruments/search`.
       type: object
       required: [name, source, sourceRef, assetClass]
       properties:
@@ -2126,6 +1794,21 @@ components:
             timed out, in which case the candidate stays selectable. Candidates are sorted EUR first,
             then unknown, then other currencies, in the source's order within each group.
           example: EUR
+        probeAsOf:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The date of the probe price (Amundi NAV date, CoinGecko last update, quote date for
+            Yahoo Finance). Null when the probe failed.
+          example: 2026-09-24
+        trackedInstrumentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            The instrument already tracked with this source and reference, else null; the web lists
+            such a candidate under "Déjà suivi".
     QuoteResponse:
       description: >-
         One recorded price point for an instrument. Returned by `GET /instruments/{id}/quotes` and

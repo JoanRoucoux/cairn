@@ -4,7 +4,11 @@ import com.roucoux.cairn.application.csv.ImportFileRejectedException;
 import com.roucoux.cairn.application.csv.LineError;
 import com.roucoux.cairn.domain.exception.business.BusinessException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
+import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.ConstraintViolationException;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -63,12 +67,25 @@ class ApiExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(MarketDataRateLimitedException.class)
+    ProblemDetail handleRateLimited(MarketDataRateLimitedException exception) {
+        log.warn("upstream dependency throttled: {}", exception.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
+        problem.setTitle("Upstream dependency failed");
+        return problem;
+    }
+
     @ExceptionHandler(TechnicalException.class)
     ProblemDetail handleTechnical(TechnicalException exception) {
         log.error("upstream dependency failed: {}", exception.getMessage(), exception);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
         problem.setTitle("Upstream dependency failed");
         return problem;
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    void handleInvalidParameter(HttpServletResponse response) throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
     }
 
     @ExceptionHandler(LastPasskeyException.class)
