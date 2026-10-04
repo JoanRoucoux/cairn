@@ -357,8 +357,8 @@ class HoldingServiceTest {
     @Test
     void aSiriusInstrumentTakesItsIsinAsNameWhateverTheRequestSaysAndIsAFund() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
-        NewInstrument sirius =
-                new NewInstrument("Whatever", AssetClass.FUND, PriceSource.SG_SIRIUS, null, "qs0009876543", null, null);
+        NewInstrument sirius = new NewInstrument(
+                "Whatever", AssetClass.OTHER, PriceSource.SG_SIRIUS, null, "qs0009876543", null, null);
 
         Holding created = fixture.service().createWithNewInstrument(fixture.accountId(), sirius, BigDecimal.ONE, null);
 

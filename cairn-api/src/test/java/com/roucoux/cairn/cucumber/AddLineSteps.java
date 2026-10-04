@@ -66,7 +66,7 @@ public class AddLineSteps {
 
     @When("I add {int} units of the Sirius product {word}")
     public void iAddASiriusProduct(int quantity, String isin) {
-        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.FUND, PriceSource.SG_SIRIUS);
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.OTHER, PriceSource.SG_SIRIUS);
         instrument.setIsin(isin);
         add(accountIds.get(0), quantity, instrument);
     }

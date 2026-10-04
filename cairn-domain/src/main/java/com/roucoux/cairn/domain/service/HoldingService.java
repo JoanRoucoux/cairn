@@ -125,7 +125,8 @@ public class HoldingService implements ManageHoldingUseCase {
             throw new InvalidInstrumentException("a cash instrument cannot be created here");
         }
         if (request.priceSource() != PriceSource.MANUAL
-                && (request.assetClass() == AssetClass.BOND || request.assetClass() == AssetClass.OTHER)) {
+                && (request.assetClass() == AssetClass.BOND || request.assetClass() == AssetClass.OTHER)
+                && request.priceSource() != PriceSource.SG_SIRIUS) {
             throw new InvalidInstrumentException("BOND and OTHER are only accepted for a MANUAL instrument");
         }
         PriceSource source = request.priceSource();
