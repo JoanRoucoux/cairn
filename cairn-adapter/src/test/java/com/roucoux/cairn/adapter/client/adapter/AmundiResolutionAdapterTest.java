@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
 import com.roucoux.cairn.domain.model.PriceSource;
 import java.net.http.HttpClient;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,7 +90,7 @@ class AmundiResolutionAdapterTest {
             assertThat(candidate.symbol()).isNull();
             assertThat(candidate.probePrice()).isEqualByComparingTo("99.38");
             assertThat(candidate.currency()).isEqualTo("EUR");
-            assertThat(candidate.probeAsOf()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
+            assertThat(candidate.probeAsOf()).isEqualTo(LocalDate.of(2026, 9, 30));
         });
     }
 

@@ -335,6 +335,19 @@ class InstrumentResolutionServiceTest {
     }
 
     @Test
+    void importResolutionAsksYahooThenAmundiInThatOrder() {
+        InstrumentCandidate fund = amundiFund(null);
+        InstrumentResolutionService service = service(
+                List.of(
+                        resolverFor(PriceSource.COINGECKO),
+                        resolverFor(PriceSource.YAHOO, ETF_CANDIDATE),
+                        resolverFor(PriceSource.AMUNDI, fund)),
+                List.of());
+
+        assertThat(service.resolve("LU0000000010")).containsExactly(ETF_CANDIDATE, fund);
+    }
+
+    @Test
     void searchAsksOnlyTheResolverOfTheRequestedSource() {
         InstrumentCandidate fund = amundiFund(null);
         InstrumentResolutionService service = service(
@@ -368,7 +381,23 @@ class InstrumentResolutionServiceTest {
 
     @Test
     void searchProbesAndSortsEuroFirst() {
-        FetchQuotePort quotes = fetcher(PriceSource.YAHOO, instrument -> BigDecimal.TEN, "EUR");
+        LocalDate quoteDate = LocalDate.of(2026, 10, 2);
+        FetchQuotePort quotes = new FetchQuotePort() {
+            @Override
+            public boolean supports(PriceSource candidate) {
+                return candidate == PriceSource.YAHOO;
+            }
+
+            @Override
+            public Quote fetch(Instrument instrument) {
+                return new Quote(instrument.id(), quoteDate, BigDecimal.TEN, "EUR", PriceSource.YAHOO, Instant.now());
+            }
+
+            @Override
+            public List<Quote> fetchHistory(Instrument instrument, LocalDate from) {
+                return List.of();
+            }
+        };
         InstrumentCandidate usd = new InstrumentCandidate(
                 "Apple", PriceSource.YAHOO, "AAPL", AssetClass.EQUITY, "NASDAQ", null, "AAPL", BigDecimal.ONE, "USD");
         InstrumentResolutionService service =
@@ -378,7 +407,7 @@ class InstrumentResolutionServiceTest {
 
         assertThat(found).extracting(InstrumentCandidate::sourceRef).containsExactly("AC.PA", "AAPL");
         assertThat(found.getFirst().probePrice()).isEqualByComparingTo("10");
-        assertThat(found.getFirst().probeAsOf()).isEqualTo(LocalDate.now());
+        assertThat(found.getFirst().probeAsOf()).isEqualTo(quoteDate);
     }
 
     @Test

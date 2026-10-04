@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -97,7 +98,10 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase, Se
     private List<InstrumentCandidate> probedAndSorted(List<InstrumentCandidate> candidates) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<InstrumentCandidate>> probes = candidates.stream()
-                    .map(candidate -> executor.submit(() -> probe(candidate)))
+                    .map(candidate -> {
+                        Optional<FetchQuotePort> fetcher = fetcherFor(candidate);
+                        return executor.submit(() -> probe(candidate, fetcher));
+                    })
                     .toList();
             List<InstrumentCandidate> probed = new ArrayList<>();
             for (int i = 0; i < probes.size(); i++) {
@@ -120,10 +124,16 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase, Se
         }
     }
 
-    private InstrumentCandidate probe(InstrumentCandidate candidate) {
-        if (candidate.probePrice() != null) {
-            return candidate;
+    private Optional<FetchQuotePort> fetcherFor(InstrumentCandidate candidate) {
+        if (candidate.probePrice() != null || candidate.source() == PriceSource.COINGECKO) {
+            return Optional.empty();
         }
+        return fetchers.stream()
+                .filter(fetcher -> fetcher.supports(candidate.source()))
+                .findFirst();
+    }
+
+    private InstrumentCandidate probe(InstrumentCandidate candidate, Optional<FetchQuotePort> fetcher) {
         Instrument transientInstrument = new Instrument(
                 UUID.randomUUID(),
                 candidate.name(),
@@ -133,10 +143,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase, Se
                 candidate.source(),
                 candidate.sourceRef(),
                 null);
-        return fetchers.stream()
-                .filter(fetcher -> fetcher.supports(candidate.source()))
-                .findFirst()
-                .map(fetcher -> withQuote(candidate, fetcher.fetch(transientInstrument)))
+        return fetcher.map(port -> withQuote(candidate, port.fetch(transientInstrument)))
                 .orElse(candidate);
     }
 
