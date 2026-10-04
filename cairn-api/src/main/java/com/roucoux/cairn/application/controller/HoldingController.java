@@ -11,7 +11,6 @@ import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.generated.api.HoldingApi;
 import com.roucoux.cairn.generated.model.BuyHoldingRequest;
-import com.roucoux.cairn.generated.model.ChangeHoldingInstrumentRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
 import com.roucoux.cairn.generated.model.HoldingResponse;
 import com.roucoux.cairn.generated.model.NewInstrumentRequest;
@@ -66,11 +65,6 @@ class HoldingController implements HoldingApi {
         Holding holding =
                 manageHolding.update(id, updateHoldingRequest.getQuantity(), updateHoldingRequest.getAverageCost());
         return ResponseEntity.ok(toResponse(holding));
-    }
-
-    @Override
-    public ResponseEntity<HoldingResponse> changeHoldingInstrument(UUID id, ChangeHoldingInstrumentRequest request) {
-        return ResponseEntity.ok(toResponse(manageHolding.changeInstrument(id, request.getInstrumentId())));
     }
 
     @Override

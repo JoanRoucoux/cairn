@@ -18,7 +18,9 @@ Failing that, it asks Yahoo Finance, then Amundi (ISINs only), the only price so
 an instrument up, and keeps the first EUR answer: an Amundi ETF known to both comes in as its Yahoo
 listing, with intraday prices, rather than as a fund priced once a day, unless Yahoo's price check
 times out during the lookup, in which case Amundi's priced answer wins. A CoinGecko coin, an SG
-Sirius fund or a manually priced instrument must therefore be created before the import, which then
+Sirius fund or a manually priced instrument is not created by the import: add its line in the app first
+("Ajouter une ligne"), and the import then finds it by its source reference. When several titles share
+one ISIN, the import picks the one the account already holds, else the first EUR Yahoo one, else the
 finds it by its source reference. Leave `averageCost` empty for a holding
 with no known cost basis.
 

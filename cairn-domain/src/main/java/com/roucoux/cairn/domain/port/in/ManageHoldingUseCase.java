@@ -20,6 +20,4 @@ public interface ManageHoldingUseCase {
     Holding buy(UUID id, BigDecimal quantity, BigDecimal unitPrice);
 
     Optional<Holding> sell(UUID id, BigDecimal quantity);
-
-    Holding changeInstrument(UUID id, UUID instrumentId);
 }

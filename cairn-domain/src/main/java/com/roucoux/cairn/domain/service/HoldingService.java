@@ -236,35 +236,6 @@ public class HoldingService implements ManageHoldingUseCase {
         return Optional.of(saveHolding.save(remaining.get().withUpdatedAt(clock.instant())));
     }
 
-    @Override
-    public Holding changeInstrument(UUID id, UUID instrumentId) {
-        Holding existing = loadHoldings.findById(id).orElseThrow(() -> new NotFoundException("holding", id));
-        Instrument instrument = loadInstruments
-                .findById(instrumentId)
-                .orElseThrow(() -> new NotFoundException("instrument", instrumentId));
-        if (existing.instrumentId().equals(instrumentId)) {
-            return existing;
-        }
-        Account account = loadAccounts
-                .findById(existing.accountId())
-                .orElseThrow(() -> new NotFoundException("account", existing.accountId()));
-        if (account.type() == AccountType.SAVINGS && !instrument.isEurCash()) {
-            throw new SavingsAccountLineException();
-        }
-        loadHoldings
-                .findByAccountAndInstrument(existing.accountId(), instrumentId)
-                .ifPresent(held -> {
-                    throw new DuplicateHoldingException(existing.accountId(), instrumentId);
-                });
-        return saveHolding.save(new Holding(
-                existing.id(),
-                existing.accountId(),
-                instrumentId,
-                existing.quantity(),
-                existing.averageCost(),
-                clock.instant()));
-    }
-
     private Holding tradable(UUID id) {
         Holding existing = loadHoldings.findById(id).orElseThrow(() -> new NotFoundException("holding", id));
         loadInstruments

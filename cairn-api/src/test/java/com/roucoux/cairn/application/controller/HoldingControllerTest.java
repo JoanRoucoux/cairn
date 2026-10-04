@@ -11,7 +11,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -341,50 +340,6 @@ class HoldingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.quantity").value(540))
                 .andExpect(jsonPath("$.averageCost").value(24.49));
-    }
-
-    @Test
-    void changingTheInstrumentAnswersTheMovedHolding() throws Exception {
-        UUID target = UUID.randomUUID();
-        Holding moved = new Holding(
-                HOLDING_ID, ACCOUNT_ID, target, new BigDecimal("12"), new BigDecimal("101.5"), Instant.EPOCH);
-        when(manageHolding.changeInstrument(HOLDING_ID, target)).thenReturn(moved);
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + target + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(HOLDING_ID.toString()))
-                .andExpect(jsonPath("$.instrumentId").value(target.toString()))
-                .andExpect(jsonPath("$.quantity").value(12));
-    }
-
-    @Test
-    void changingToAHeldInstrumentIs422() throws Exception {
-        when(manageHolding.changeInstrument(any(), any()))
-                .thenThrow(new DuplicateHoldingException(ACCOUNT_ID, INSTRUMENT_ID));
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
-    @Test
-    void changingToAnUnknownInstrumentIs404() throws Exception {
-        when(manageHolding.changeInstrument(any(), any()))
-                .thenThrow(new NotFoundException("instrument", INSTRUMENT_ID));
-
-        mockMvc.perform(put("/holdings/{id}/instrument", HOLDING_ID)
-                        .with(user("alex"))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"instrumentId\":\"" + INSTRUMENT_ID + "\"}"))
-                .andExpect(status().isNotFound());
     }
 
     @Test

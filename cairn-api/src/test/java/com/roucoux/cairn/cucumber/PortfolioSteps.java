@@ -6,15 +6,11 @@ import static org.assertj.core.groups.Tuple.tuple;
 import com.roucoux.cairn.generated.model.AccountAllocationResponse;
 import com.roucoux.cairn.generated.model.AccountResponse;
 import com.roucoux.cairn.generated.model.AccountType;
-import com.roucoux.cairn.generated.model.AssetClass;
 import com.roucoux.cairn.generated.model.AssetClassAllocationResponse;
 import com.roucoux.cairn.generated.model.CreateAccountRequest;
 import com.roucoux.cairn.generated.model.CreateHoldingRequest;
-import com.roucoux.cairn.generated.model.CreateInstrumentRequest;
-import com.roucoux.cairn.generated.model.InstrumentResponse;
 import com.roucoux.cairn.generated.model.PerformanceResponse;
 import com.roucoux.cairn.generated.model.PortfolioResponse;
-import com.roucoux.cairn.generated.model.PriceSource;
 import com.roucoux.cairn.generated.model.RecordQuoteRequest;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
@@ -63,30 +59,12 @@ public class PortfolioSteps {
 
     @Given("an instrument {string} quoted by {word} as {string}")
     public void anInstrumentQuotedByAs(String name, String priceSource, String sourceRef) {
-        CreateInstrumentRequest request = new CreateInstrumentRequest();
-        request.setName(name);
-        request.setCurrency("EUR");
-        request.setAssetClass(AssetClass.ETF);
-        request.setPriceSource(PriceSource.valueOf(priceSource));
-        request.setSourceRef(sourceRef);
-        instrumentId = restTemplate
-                .postForEntity("/instruments", request, InstrumentResponse.class)
-                .getBody()
-                .getId();
+        instrumentId = insertInstrument(name, "EUR", "ETF", priceSource, sourceRef);
     }
 
     @Given("a USD instrument {string} quoted by {word} as {string}")
     public void aUsdInstrumentQuotedByAs(String name, String priceSource, String sourceRef) {
-        CreateInstrumentRequest request = new CreateInstrumentRequest();
-        request.setName(name);
-        request.setCurrency("USD");
-        request.setAssetClass(AssetClass.EQUITY);
-        request.setPriceSource(PriceSource.valueOf(priceSource));
-        request.setSourceRef(sourceRef);
-        instrumentId = restTemplate
-                .postForEntity("/instruments", request, InstrumentResponse.class)
-                .getBody()
-                .getId();
+        instrumentId = insertInstrument(name, "USD", "EQUITY", priceSource, sourceRef);
     }
 
     @Given("a holding of {int} units bought at {bigdecimal}")
@@ -247,6 +225,16 @@ public class PortfolioSteps {
                 .containsExactlyElementsOf(portfolio.getByAccount().stream()
                         .map(slice -> tuple(slice.getLabel(), slice.getValueEur(), slice.getShare()))
                         .toList());
+    }
+
+    private UUID insertInstrument(
+            String name, String currency, String assetClass, String priceSource, String sourceRef) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                insert into instruments (id, name, currency, asset_class, price_source, source_ref, created_at)
+                values (?, ?, ?, ?, ?, ?, now())
+                """, id, name, currency, assetClass, priceSource, sourceRef);
+        return id;
     }
 
     private void createHolding(int quantity, BigDecimal averageCost) {
