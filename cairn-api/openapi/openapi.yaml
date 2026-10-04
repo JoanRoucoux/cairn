@@ -1250,9 +1250,10 @@ components:
       type: string
       description: >-
         Where an instrument's price comes from. `YAHOO` is Yahoo Finance, `COINGECKO` is CoinGecko,
-        `SG_SIRIUS` is Societe Generale's structured-product pricing feed, and `MANUAL` means the
-        price is entered by hand rather than fetched.
-      enum: [YAHOO, COINGECKO, SG_SIRIUS, MANUAL]
+        `SG_SIRIUS` is Societe Generale's structured-product pricing feed, `AMUNDI` is Amundi's fund
+        data repository (Amundi, Societe Generale Gestion and the employee savings and retirement funds
+        they manage), and `MANUAL` means the price is entered by hand rather than fetched.
+      enum: [YAHOO, COINGECKO, SG_SIRIUS, AMUNDI, MANUAL]
     PerformanceRange:
       type: string
       description: >-
@@ -1981,7 +1982,7 @@ components:
         externalUrl:
           type: string
           nullable: true
-          description: Absent for a manually priced instrument. Never a broken link.
+          description: Absent for a manually priced instrument and for an Amundi fund, since Amundi has no public page for every share. Never a broken link.
           example: https://finance.yahoo.com/quote/SXR8.DE
         holdingCount:
           type: integer
@@ -2096,6 +2097,7 @@ components:
           description: >-
             The instrument's ISIN when the source can tell it, else null. Yahoo Finance does not
             return it, so it is set only when the query was itself an ISIN, which the source then matched.
+            Amundi candidates always carry it.
           example: US0378331005
         symbol:
           type: string

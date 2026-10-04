@@ -71,7 +71,7 @@ public record Instrument(
             case SG_SIRIUS ->
                 Optional.of("https://investmentsolutions.societegenerale.fr/fr/nos-fonds/autres-fonds/details/isin/"
                         + sourceRef + "/");
-            case MANUAL -> Optional.empty();
+            case AMUNDI, MANUAL -> Optional.empty();
         };
     }
 }

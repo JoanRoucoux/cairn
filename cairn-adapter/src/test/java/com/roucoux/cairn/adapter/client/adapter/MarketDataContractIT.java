@@ -56,6 +56,18 @@ class MarketDataContractIT {
     }
 
     @Test
+    void amundiStillPublishesNavsAndLabelsByIsin() {
+        List.of("FR0011082023", "LU1681043599").forEach(isin -> {
+            Quote quote = realAmundiQuotes().fetch(amundiFund(isin));
+            assertThat(quote.price()).isPositive();
+            assertThat(quote.asOf()).isAfter(LocalDate.now().minusDays(10));
+            assertThat(realAmundiResolver().resolve(isin))
+                    .singleElement()
+                    .satisfies(candidate -> assertThat(candidate.name()).isNotBlank());
+        });
+    }
+
+    @Test
     void coinGeckoStillPricesACoinInEuros() {
         List.of("bitcoin", "ethereum")
                 .forEach(id ->
@@ -88,6 +100,21 @@ class MarketDataContractIT {
                 .build());
     }
 
+    private static RestClient amundiClient() {
+        return RestClient.builder()
+                .baseUrl("https://www.amundi-ee.com")
+                .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
+                .build();
+    }
+
+    private static AmundiQuoteAdapter realAmundiQuotes() {
+        return new AmundiQuoteAdapter(amundiClient());
+    }
+
+    private static AmundiResolutionAdapter realAmundiResolver() {
+        return new AmundiResolutionAdapter(amundiClient());
+    }
+
     private static CoinGeckoQuoteAdapter realCoinGecko() {
         return new CoinGeckoQuoteAdapter(
                 RestClient.builder().baseUrl("https://api.coingecko.com").build(),
@@ -101,6 +128,10 @@ class MarketDataContractIT {
 
     private static Instrument fund(String isin) {
         return new Instrument(UUID.randomUUID(), isin, isin, "EUR", AssetClass.FUND, PriceSource.SG_SIRIUS, isin, null);
+    }
+
+    private static Instrument amundiFund(String isin) {
+        return new Instrument(UUID.randomUUID(), isin, isin, "EUR", AssetClass.FUND, PriceSource.AMUNDI, isin, null);
     }
 
     private static Instrument crypto(String coinGeckoId) {

@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
-Cairn is a single-owner wealth tracker. Every envelope (PEA, PEA-PME, CTO, PER, PEE, life insurance, savings, crypto) is valued line by line, from Yahoo Finance, CoinGecko, SG Sirius or a manual quote. A private instance runs at https://cairn.joanroucoux.fr behind passkey sign-in. This repository is the backend; the frontend and the design system live in their own repositories (see [The Cairn repositories](#the-cairn-repositories)).
+Cairn is a single-owner wealth tracker. Every envelope (PEA, PEA-PME, CTO, PER, PEE, life insurance, savings, crypto) is valued line by line, from Yahoo Finance, CoinGecko, SG Sirius, Amundi or a manual quote. A private instance runs at https://cairn.joanroucoux.fr behind passkey sign-in. This repository is the backend; the frontend and the design system live in their own repositories (see [The Cairn repositories](#the-cairn-repositories)).
 
 ## Screenshots
 
@@ -42,7 +42,7 @@ The data shown is fictional.
 - **Dashboard**: net worth, day change, unrealized gain, and performance over 1D, 7D, 1M, 1Y, 5Y and max. 5Y and max are rebuilt at constant composition: today's holdings repriced over past quotes.
 - **Allocation** by asset class and by account.
 - **Holdings**: buy and sell, cash balance per account, manual quotes, and change of listing (`PUT /holdings/{id}/instrument`).
-- **Instruments**: lookup by ISIN through Yahoo Finance, with prices from Yahoo Finance, CoinGecko, SG Sirius or entered by hand.
+- **Instruments**: lookup by ISIN through Yahoo Finance and Amundi, with prices from Yahoo Finance, CoinGecko, SG Sirius, Amundi or entered by hand.
 - **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
 - **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
 - **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.
@@ -70,7 +70,7 @@ flowchart LR
     api -- "instrument lookup" --> providers
     batch -- "end-of-day refresh" --> providers
     worker -- "intraday refresh" --> providers
-    providers["Price providers<br/>Yahoo Finance, CoinGecko, SG Sirius"]
+    providers["Price providers<br/>Yahoo Finance, CoinGecko, SG Sirius, Amundi"]
     worker -- "daily summary" --> telegram[Telegram]
 ```
 

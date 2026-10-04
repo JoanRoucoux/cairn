@@ -230,7 +230,7 @@
     <profile>
       <id>external</id>
       <properties>
-        <!-- Measures four contract tests only: gating on it failed every nightly whose tests passed. -->
+        <!-- Measures the contract tests only: gating on it failed every nightly whose tests passed. -->
         <jacoco.skip>true</jacoco.skip>
       </properties>
       <build>

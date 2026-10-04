@@ -80,8 +80,8 @@ docker compose -f compose.prod.yaml --profile batch run --rm -T batch \
 
 `deploy/run-batch.sh` is not used here: it insists on a push monitor variable and pings it, and this
 job has none. Each instrument goes to the provider that supports its price source, with its own
-depth: Yahoo returns its whole series (`range=max`), SG Sirius its whole NAV series, and CoinGecko
-only the last 90 days, whatever `from` says. `from` only trims what the provider returned. A
+depth: Yahoo returns its whole series (`range=max`), SG Sirius and Amundi their whole NAV series,
+and CoinGecko only the last 90 days, whatever `from` says. `from` only trims what the provider returned. A
 provider failure for one instrument fails the step and the job, and the instruments already
 processed keep their rows; fix the cause and rerun with a new `run.at`.
 

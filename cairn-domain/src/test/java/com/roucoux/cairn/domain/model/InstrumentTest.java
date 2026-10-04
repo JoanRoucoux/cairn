@@ -98,6 +98,11 @@ class InstrumentTest {
     }
 
     @Test
+    void anAmundiFundHasNoExternalLinkSinceAmundiShowsNoPageForEveryShare() {
+        assertThat(instrument(PriceSource.AMUNDI, "QS0000000020").externalUrl()).isEmpty();
+    }
+
+    @Test
     void treatsABlankIsinOrDescriptionAsAbsentSoTheyDoNotCollideInTheDatabase() {
         Instrument bnb = new Instrument(
                 UUID.randomUUID(), "BNB", "  ", "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "binancecoin", " ");
