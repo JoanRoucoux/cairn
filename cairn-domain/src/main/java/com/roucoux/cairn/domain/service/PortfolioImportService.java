@@ -12,6 +12,7 @@ import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Isin;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.in.ImportPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
@@ -32,13 +33,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 public class PortfolioImportService implements ImportPortfolioUseCase {
 
     private static final System.Logger LOG = System.getLogger(PortfolioImportService.class.getName());
-
-    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
 
     private static final String EUR = "EUR";
 
@@ -208,14 +206,14 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     }
 
     private static String isin(String isinOrTicker) {
-        return ISIN.matcher(isinOrTicker).matches() ? isinOrTicker : null;
+        return Isin.isValid(isinOrTicker) ? isinOrTicker : null;
     }
 
     private Instrument pick(List<Instrument> titles, Account account) {
         if (titles == null) {
             return null;
         }
-        if (titles.size() > 1 && account.id() != null) {
+        if (titles.size() > 1) {
             Set<UUID> held = new HashSet<>();
             loadHoldings.findByAccount(account.id()).forEach(holding -> held.add(holding.instrumentId()));
             Optional<Instrument> alreadyHeld =

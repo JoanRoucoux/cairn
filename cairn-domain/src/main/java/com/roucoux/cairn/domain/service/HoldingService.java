@@ -11,6 +11,7 @@ import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.Isin;
 import com.roucoux.cairn.domain.model.NewInstrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
@@ -28,12 +29,10 @@ import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 public class HoldingService implements ManageHoldingUseCase {
 
     private static final String EUR = "EUR";
-    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{9}[0-9]");
 
     private final LoadHoldingsPort loadHoldings;
     private final SaveHoldingPort saveHolding;
@@ -125,6 +124,10 @@ public class HoldingService implements ManageHoldingUseCase {
         if (request.assetClass() == AssetClass.CASH) {
             throw new InvalidInstrumentException("a cash instrument cannot be created here");
         }
+        if (request.priceSource() != PriceSource.MANUAL
+                && (request.assetClass() == AssetClass.BOND || request.assetClass() == AssetClass.OTHER)) {
+            throw new InvalidInstrumentException("BOND and OTHER are only accepted for a MANUAL instrument");
+        }
         PriceSource source = request.priceSource();
         if (source != PriceSource.MANUAL && request.price() != null) {
             throw new InvalidInstrumentException("price is only accepted for a MANUAL instrument");
@@ -171,7 +174,7 @@ public class HoldingService implements ManageHoldingUseCase {
     private static String validIsin(NewInstrument request) {
         String candidate = request.isin() != null && !request.isin().isBlank() ? request.isin() : request.sourceRef();
         String isin = candidate == null ? "" : candidate.strip().toUpperCase(Locale.ROOT);
-        if (!ISIN.matcher(isin).matches()) {
+        if (!Isin.isValid(isin)) {
             throw new InvalidInstrumentException("a valid ISIN is required for " + request.priceSource());
         }
         return isin;

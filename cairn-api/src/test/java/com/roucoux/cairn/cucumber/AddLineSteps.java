@@ -66,9 +66,16 @@ public class AddLineSteps {
 
     @When("I add {int} units of the Sirius product {word}")
     public void iAddASiriusProduct(int quantity, String isin) {
-        NewInstrumentRequest instrument = new NewInstrumentRequest("Ignored", AssetClass.OTHER, PriceSource.SG_SIRIUS);
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.FUND, PriceSource.SG_SIRIUS);
         instrument.setIsin(isin);
         add(accountIds.get(0), quantity, instrument);
+    }
+
+    @When("I add {int} units of the Sirius product {word} to the second account")
+    public void iAddASiriusProductToTheSecondAccount(int quantity, String isin) {
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.FUND, PriceSource.SG_SIRIUS);
+        instrument.setIsin(isin);
+        add(accountIds.get(1), quantity, instrument);
     }
 
     @When("I add {int} unit of the Yahoo listing {string} to the first account")
@@ -95,8 +102,8 @@ public class AddLineSteps {
 
     @When("I add {int} unit of the Amundi fund {word}")
     public void iAddAnAmundiFund(int quantity, String isin) {
-        NewInstrumentRequest instrument =
-                new NewInstrumentRequest("Northwind World", AssetClass.FUND, PriceSource.AMUNDI);
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.FUND, PriceSource.AMUNDI);
+        instrument.setName("Northwind World");
         instrument.setIsin(isin);
         add(accountIds.get(0), quantity, instrument);
     }
@@ -152,14 +159,15 @@ public class AddLineSteps {
     }
 
     private static NewInstrumentRequest manual(String name, BigDecimal price) {
-        NewInstrumentRequest instrument = new NewInstrumentRequest(name, AssetClass.BOND, PriceSource.MANUAL);
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.BOND, PriceSource.MANUAL);
+        instrument.setName(name);
         instrument.setPrice(price);
         return instrument;
     }
 
     private static NewInstrumentRequest yahoo(String ref, String isin) {
-        NewInstrumentRequest instrument =
-                new NewInstrumentRequest("Northwind Index", AssetClass.ETF, PriceSource.YAHOO);
+        NewInstrumentRequest instrument = new NewInstrumentRequest(AssetClass.ETF, PriceSource.YAHOO);
+        instrument.setName("Northwind Index");
         instrument.setSourceRef(ref);
         instrument.setIsin(isin);
         return instrument;

@@ -1648,15 +1648,15 @@ components:
         with the same `priceSource` and `sourceRef` already exists it is reused and the other fields
         are ignored.
       type: object
-      required: [name, assetClass, priceSource]
+      required: [assetClass, priceSource]
       properties:
         name:
           type: string
           maxLength: 160
-          description: The instrument's display name. Ignored for SG_SIRIUS, whose name is its ISIN.
+          description: The instrument's display name. Required except for SG_SIRIUS, whose name is its ISIN.
           example: Contoso Global Equity
         assetClass:
-          description: The kind of instrument. CASH is refused. SG_SIRIUS is always stored as FUND, which is what the daily fund refresh prices.
+          description: The kind of instrument. CASH is refused, and BOND and OTHER are accepted for MANUAL only. SG_SIRIUS is always stored as FUND, which is what the daily fund refresh prices.
           allOf:
             - $ref: '#/components/schemas/AssetClass'
         priceSource:
@@ -1671,6 +1671,7 @@ components:
           example: SXR8.DE
         isin:
           type: string
+          maxLength: 12
           nullable: true
           description: The instrument's ISIN. Required and checked (12 characters) for SG_SIRIUS and AMUNDI. Several instruments may share one ISIN.
           example: FR0011550185
@@ -1794,7 +1795,7 @@ components:
         sourceRef:
           type: string
           nullable: true
-          description: The instrument's reference at its price source. Absent for a MANUAL instrument.
+          description: The instrument's reference at its price source. Absent when the instrument has none.
           example: SXR8.DE
         description:
           type: string

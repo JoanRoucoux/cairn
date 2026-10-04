@@ -29,11 +29,33 @@ Feature: Adding a line with its title in one call
 
   Scenario: the same ISIN at Yahoo and at Amundi gives two titles in one account
     Given a brokerage account
-    When I add 1 unit of the Yahoo listing "CW8.PA" with the ISIN LU1681043599
-    And I add 1 unit of the Amundi fund LU1681043599
+    When I add 1 unit of the Yahoo listing "NWD.PA" with the ISIN LU0000000001
+    And I add 1 unit of the Amundi fund LU0000000001
     Then the portfolio holds 2 titles and 2 lines
 
   Scenario: a price is refused on a title that is not manual
     Given a brokerage account
     When I add 1 unit of the Yahoo listing "NWI.PA" priced at 10
     Then the add answers 422
+
+  Scenario: two Yahoo listings of one ISIN are both addable in one account
+    Given a brokerage account
+    When I add 1 unit of the Yahoo listing "NWD.DE" with the ISIN LU0000000001
+    And I add 1 unit of the Yahoo listing "NWD.AS" with the ISIN LU0000000001
+    Then the add answers 201
+    And the portfolio holds 2 titles and 2 lines
+
+  Scenario: a second add of the same Sirius ISIN reuses the title
+    Given a brokerage account
+    And a second brokerage account
+    When I add 2 units of the Sirius product QS0009876543
+    And I add 3 units of the Sirius product QS0009876543 to the second account
+    Then the add answers 201
+    And the portfolio holds 1 titles and 2 lines
+
+  Scenario: a Sirius ISIN equal to a Yahoo title's ISIN is a separate title
+    Given a brokerage account
+    When I add 1 unit of the Yahoo listing "NWD.DE" with the ISIN LU0000000001
+    And I add 2 units of the Sirius product LU0000000001
+    Then the add answers 201
+    And the portfolio holds 2 titles and 2 lines

@@ -26,6 +26,7 @@ import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -320,7 +321,7 @@ class HoldingServiceTest {
         assertThat(fixture.quotes()).singleElement().satisfies(quote -> {
             assertThat(quote.instrumentId()).isEqualTo(instrument.id());
             assertThat(quote.price()).isEqualByComparingTo("42.10");
-            assertThat(quote.asOf()).isEqualTo(java.time.LocalDate.of(2026, 9, 12));
+            assertThat(quote.asOf()).isEqualTo(LocalDate.of(2026, 9, 12));
             assertThat(quote.source()).isEqualTo(PriceSource.MANUAL);
             assertThat(quote.currency()).isEqualTo("EUR");
         });
@@ -356,8 +357,8 @@ class HoldingServiceTest {
     @Test
     void aSiriusInstrumentTakesItsIsinAsNameWhateverTheRequestSaysAndIsAFund() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
-        NewInstrument sirius = new NewInstrument(
-                "Whatever", AssetClass.OTHER, PriceSource.SG_SIRIUS, null, "qs0009876543", null, null);
+        NewInstrument sirius =
+                new NewInstrument("Whatever", AssetClass.FUND, PriceSource.SG_SIRIUS, null, "qs0009876543", null, null);
 
         Holding created = fixture.service().createWithNewInstrument(fixture.accountId(), sirius, BigDecimal.ONE, null);
 
@@ -399,6 +400,20 @@ class HoldingServiceTest {
     }
 
     @Test
+    void bondAndOtherAreRefusedOnAnythingButAManualInstrument() {
+        Fixture fixture = Fixture.withKnownAccountAndInstrument();
+
+        for (AssetClass assetClass : new AssetClass[] {AssetClass.BOND, AssetClass.OTHER}) {
+            NewInstrument listed =
+                    new NewInstrument("Northwind Index", assetClass, PriceSource.YAHOO, "NWD.PA", null, null, null);
+            assertThatThrownBy(() -> fixture.service()
+                            .createWithNewInstrument(fixture.accountId(), listed, BigDecimal.ONE, null))
+                    .isInstanceOf(InvalidInstrumentException.class);
+        }
+        assertThat(fixture.instruments()).hasSize(1);
+    }
+
+    @Test
     void aListedInstrumentNeedsASourceReferenceAndAName() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
         NewInstrument noReference = listed(PriceSource.YAHOO, " ", null);
@@ -415,7 +430,7 @@ class HoldingServiceTest {
     @Test
     void aTrackedSourceAndReferenceIsReusedRatherThanDuplicated() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
-        Instrument tracked = fixture.addListed(PriceSource.YAHOO, "NWI.PA", "FR0011871128");
+        Instrument tracked = fixture.addListed(PriceSource.YAHOO, "NWI.PA", "LU0000000002");
 
         Holding created = fixture.service()
                 .createWithNewInstrument(
@@ -443,7 +458,7 @@ class HoldingServiceTest {
     @Test
     void theSameIsinAtTwoSourcesGivesTwoInstruments() {
         Fixture fixture = Fixture.withKnownAccountAndInstrument();
-        fixture.addListed(PriceSource.YAHOO, "CW8.PA", "LU1681043599");
+        fixture.addListed(PriceSource.YAHOO, "NWD.PA", "LU0000000001");
 
         fixture.service()
                 .createWithNewInstrument(
@@ -453,14 +468,14 @@ class HoldingServiceTest {
                                 AssetClass.FUND,
                                 PriceSource.AMUNDI,
                                 null,
-                                "LU1681043599",
+                                "LU0000000001",
                                 null,
                                 null),
                         BigDecimal.ONE,
                         null);
 
         assertThat(fixture.instruments())
-                .filteredOn(i -> "LU1681043599".equals(i.isin()))
+                .filteredOn(i -> "LU0000000001".equals(i.isin()))
                 .hasSize(2);
     }
 

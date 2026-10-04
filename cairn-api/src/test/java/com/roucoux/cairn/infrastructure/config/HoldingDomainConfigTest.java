@@ -1,24 +1,30 @@
 package com.roucoux.cairn.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.NewInstrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
+import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
+import com.roucoux.cairn.domain.port.out.SaveQuotePort;
+import com.roucoux.cairn.domain.service.HoldingService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -163,7 +169,7 @@ class HoldingDomainConfigTest {
                         return List.of();
                     }
                 };
-        List<Holding> saved = new java.util.ArrayList<>();
+        List<Holding> saved = new ArrayList<>();
         com.roucoux.cairn.domain.port.out.SaveHoldingPort saveHolding = holding -> {
             saved.add(holding);
             return holding;
@@ -209,24 +215,22 @@ class HoldingDomainConfigTest {
                 return List.of();
             }
         };
-        List<Instrument> savedInstruments = new java.util.ArrayList<>();
-        List<Quote> savedQuotes = new java.util.ArrayList<>();
-        com.roucoux.cairn.domain.port.out.SaveQuotePort saveQuote =
-                new com.roucoux.cairn.domain.port.out.SaveQuotePort() {
-                    @Override
-                    public void upsert(Quote quote) {
-                        savedQuotes.add(quote);
-                    }
+        List<Instrument> savedInstruments = new ArrayList<>();
+        List<Quote> savedQuotes = new ArrayList<>();
+        SaveQuotePort saveQuote = new SaveQuotePort() {
+            @Override
+            public void upsert(Quote quote) {
+                savedQuotes.add(quote);
+            }
 
-                    @Override
-                    public void upsertAll(List<Quote> quotes) {
-                        savedQuotes.addAll(quotes);
-                    }
-                };
-        com.roucoux.cairn.domain.port.out.LoadHoldingsPort loadHoldings =
-                org.mockito.Mockito.mock(com.roucoux.cairn.domain.port.out.LoadHoldingsPort.class);
+            @Override
+            public void upsertAll(List<Quote> quotes) {
+                savedQuotes.addAll(quotes);
+            }
+        };
+        LoadHoldingsPort loadHoldings = mock(LoadHoldingsPort.class);
 
-        com.roucoux.cairn.domain.service.HoldingService service = new HoldingDomainConfig()
+        HoldingService service = new HoldingDomainConfig()
                 .holdingService(
                         loadHoldings,
                         holding -> holding,
@@ -241,7 +245,7 @@ class HoldingDomainConfigTest {
                         CLOCK);
         service.createWithNewInstrument(
                 brokerage.id(),
-                new com.roucoux.cairn.domain.model.NewInstrument(
+                new NewInstrument(
                         "Woodgrove Notes",
                         AssetClass.BOND,
                         PriceSource.MANUAL,

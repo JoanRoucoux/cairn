@@ -4,6 +4,7 @@ import com.roucoux.cairn.domain.exception.business.UnknownInstrumentException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Isin;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ResolveInstrumentUseCase;
@@ -27,13 +28,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
 
 public class InstrumentResolutionService implements ResolveInstrumentUseCase, SearchInstrumentsUseCase {
 
     private static final System.Logger LOG = System.getLogger(InstrumentResolutionService.class.getName());
 
-    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{10}");
     private static final String UNKNOWN_CURRENCY = "XXX";
     private static final Set<PriceSource> IMPORT_SOURCES = Set.of(PriceSource.YAHOO, PriceSource.AMUNDI);
     private static final Duration DEFAULT_PROBE_TIMEOUT = Duration.ofSeconds(4);
@@ -75,7 +74,7 @@ public class InstrumentResolutionService implements ResolveInstrumentUseCase, Se
     }
 
     private List<InstrumentCandidate> exactCoinGeckoMatch(String query) {
-        if (ISIN.matcher(query).matches()) {
+        if (Isin.isValid(query)) {
             return List.of();
         }
         return resolvers.stream()

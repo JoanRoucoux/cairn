@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.NewInstrument;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
+import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
@@ -51,7 +52,7 @@ class HoldingTransactionTest {
     @Test
     void everyWriteRunsInsideATransaction() {
         assertThat(Arrays.stream(HoldingTransaction.class.getDeclaredMethods())
-                        .filter(method -> java.lang.reflect.Modifier.isPublic(method.getModifiers()))
+                        .filter(method -> Modifier.isPublic(method.getModifiers()))
                         .allMatch(method -> method.isAnnotationPresent(Transactional.class)))
                 .isTrue();
     }

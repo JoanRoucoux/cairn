@@ -4,11 +4,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.roucoux.cairn.domain.exception.technical.MarketDataUnavailableException;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.InstrumentCandidate;
+import com.roucoux.cairn.domain.model.Isin;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -18,8 +18,6 @@ import org.springframework.web.client.RestClientException;
 @Component
 @Order(1)
 public class YahooResolutionAdapter implements ResolveInstrumentPort {
-
-    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{9}[0-9]");
 
     private final RestClient client;
 
@@ -53,7 +51,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
 
     private static String isinOf(String query) {
         String normalised = query.strip().toUpperCase(Locale.ROOT);
-        return ISIN.matcher(normalised).matches() ? normalised : null;
+        return Isin.isValid(normalised) ? normalised : null;
     }
 
     private static InstrumentCandidate toCandidate(SearchQuote quote, String isin) {
