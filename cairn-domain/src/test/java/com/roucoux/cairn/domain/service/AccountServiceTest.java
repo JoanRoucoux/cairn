@@ -89,6 +89,8 @@ class AccountServiceTest {
 
         assertThat(fixture.accounts).doesNotContainKey(id);
         assertThat(fixture.holdings).isEmpty();
+        assertThat(fixture.deletedInstruments).isEmpty();
+        assertThat(fixture.instruments).hasSize(1);
     }
 
     @Test
@@ -115,6 +117,7 @@ class AccountServiceTest {
 
         private final Map<UUID, Account> accounts = new HashMap<>();
         private final List<Holding> holdings = new ArrayList<>();
+        private final List<UUID> deletedInstruments = new ArrayList<>();
         private final Map<UUID, Instrument> instruments = new HashMap<>();
 
         UUID account(String name, AccountType type) {
@@ -154,7 +157,8 @@ class AccountServiceTest {
                     new InMemoryDeleteAccountPort(),
                     new InMemoryLoadHoldingsPort(),
                     new InMemoryDeleteHoldingPort(),
-                    new InMemoryLoadInstrumentsPort());
+                    new InMemoryLoadInstrumentsPort(),
+                    deletedInstruments::add);
         }
 
         private final class InMemoryLoadAccountsPort implements LoadAccountsPort {

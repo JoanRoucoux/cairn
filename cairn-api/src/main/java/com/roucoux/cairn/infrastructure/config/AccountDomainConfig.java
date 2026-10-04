@@ -3,6 +3,7 @@ package com.roucoux.cairn.infrastructure.config;
 import com.roucoux.cairn.domain.port.in.ManageAccountUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteAccountPort;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
+import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -21,8 +22,15 @@ class AccountDomainConfig {
             DeleteAccountPort deleteAccount,
             LoadHoldingsPort loadHoldings,
             DeleteHoldingPort deleteHolding,
-            LoadInstrumentsPort loadInstruments) {
+            LoadInstrumentsPort loadInstruments,
+            DeleteInstrumentPort deleteInstrument) {
         return new AccountService(
-                loadAccounts, saveAccount, deleteAccount, loadHoldings, deleteHolding, loadInstruments);
+                loadAccounts,
+                saveAccount,
+                deleteAccount,
+                loadHoldings,
+                deleteHolding,
+                loadInstruments,
+                deleteInstrument);
     }
 }

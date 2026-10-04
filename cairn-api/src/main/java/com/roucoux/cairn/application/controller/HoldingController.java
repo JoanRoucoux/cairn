@@ -75,7 +75,7 @@ class HoldingController implements HoldingApi {
 
     @Override
     public ResponseEntity<Void> deleteHolding(UUID id) {
-        manageHolding.delete(id);
+        holdingTransaction.delete(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -87,7 +87,7 @@ class HoldingController implements HoldingApi {
 
     @Override
     public ResponseEntity<HoldingResponse> sellHolding(UUID id, SellHoldingRequest sellHoldingRequest) {
-        return manageHolding
+        return holdingTransaction
                 .sell(id, sellHoldingRequest.getQuantity())
                 .map(remaining -> ResponseEntity.ok(toResponse(remaining)))
                 .orElseGet(() -> ResponseEntity.noContent().build());

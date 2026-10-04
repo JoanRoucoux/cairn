@@ -305,7 +305,7 @@ class HoldingControllerTest {
     @Test
     void reportsAnUnknownHoldingAs404() throws Exception {
         doThrow(new NotFoundException("holding", HOLDING_ID))
-                .when(manageHolding)
+                .when(holdingTransaction)
                 .delete(HOLDING_ID);
 
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
@@ -316,6 +316,8 @@ class HoldingControllerTest {
     void deletesAHolding() throws Exception {
         mockMvc.perform(delete("/holdings/{id}", HOLDING_ID).with(user("alex")).with(csrf()))
                 .andExpect(status().isNoContent());
+
+        verify(holdingTransaction).delete(HOLDING_ID);
     }
 
     @Test
@@ -395,7 +397,7 @@ class HoldingControllerTest {
                 new BigDecimal("400"),
                 new BigDecimal("24.12"),
                 Instant.EPOCH);
-        when(manageHolding.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
+        when(holdingTransaction.sell(id, new BigDecimal("100"))).thenReturn(Optional.of(remaining));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
                         .with(user("alex"))
@@ -409,7 +411,7 @@ class HoldingControllerTest {
     @Test
     void sellingEverythingAnswersNoContent() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageHolding.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
+        when(holdingTransaction.sell(id, new BigDecimal("500"))).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/holdings/{id}/sell", id)
                         .with(user("alex"))
@@ -422,7 +424,7 @@ class HoldingControllerTest {
     @Test
     void sellingTooMuchIsABusinessRefusal() throws Exception {
         UUID id = UUID.randomUUID();
-        when(manageHolding.sell(id, new BigDecimal("501")))
+        when(holdingTransaction.sell(id, new BigDecimal("501")))
                 .thenThrow(new InsufficientQuantityException(new BigDecimal("500"), new BigDecimal("501")));
 
         mockMvc.perform(post("/holdings/{id}/sell", id)

@@ -242,6 +242,7 @@ class HoldingDomainConfigTest {
                             return instrument;
                         },
                         saveQuote,
+                        id -> {},
                         CLOCK);
         service.createWithNewInstrument(
                 brokerage.id(),

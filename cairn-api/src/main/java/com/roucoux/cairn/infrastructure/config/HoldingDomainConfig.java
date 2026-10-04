@@ -3,6 +3,7 @@ package com.roucoux.cairn.infrastructure.config;
 import com.roucoux.cairn.domain.port.in.SetCashBalanceUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
+import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -29,6 +30,7 @@ class HoldingDomainConfig {
             LoadInstrumentsPort loadInstruments,
             SaveInstrumentPort saveInstrument,
             SaveQuotePort saveQuote,
+            DeleteInstrumentPort deleteInstrument,
             Clock clock) {
         return new HoldingService(
                 loadHoldings,
@@ -38,6 +40,7 @@ class HoldingDomainConfig {
                 loadInstruments,
                 saveInstrument,
                 saveQuote,
+                deleteInstrument,
                 clock);
     }
 

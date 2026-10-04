@@ -10,6 +10,7 @@ import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.port.in.ManageAccountUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteAccountPort;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
+import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -25,6 +26,7 @@ public class AccountService implements ManageAccountUseCase {
     private final LoadHoldingsPort loadHoldings;
     private final DeleteHoldingPort deleteHolding;
     private final LoadInstrumentsPort loadInstruments;
+    private final InstrumentCleanup instrumentCleanup;
 
     public AccountService(
             LoadAccountsPort loadAccounts,
@@ -32,13 +34,15 @@ public class AccountService implements ManageAccountUseCase {
             DeleteAccountPort deleteAccount,
             LoadHoldingsPort loadHoldings,
             DeleteHoldingPort deleteHolding,
-            LoadInstrumentsPort loadInstruments) {
+            LoadInstrumentsPort loadInstruments,
+            DeleteInstrumentPort deleteInstrument) {
         this.loadAccounts = loadAccounts;
         this.saveAccount = saveAccount;
         this.deleteAccount = deleteAccount;
         this.loadHoldings = loadHoldings;
         this.deleteHolding = deleteHolding;
         this.loadInstruments = loadInstruments;
+        this.instrumentCleanup = new InstrumentCleanup(loadHoldings, loadInstruments, deleteInstrument);
     }
 
     @Override
@@ -65,7 +69,10 @@ public class AccountService implements ManageAccountUseCase {
         if (others > 0) {
             throw new AccountNotEmptyException(id, others);
         }
-        eurCash.forEach(cash -> deleteHolding.delete(cash.id()));
+        eurCash.forEach(cash -> {
+            deleteHolding.delete(cash.id());
+            instrumentCleanup.releaseIfUnheld(cash.instrumentId());
+        });
         deleteAccount.delete(id);
     }
 

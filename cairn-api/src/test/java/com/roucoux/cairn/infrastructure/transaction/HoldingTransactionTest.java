@@ -2,6 +2,7 @@ package com.roucoux.cairn.infrastructure.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.roucoux.cairn.domain.model.AssetClass;
@@ -13,6 +14,7 @@ import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,20 @@ class HoldingTransactionTest {
 
         assertThat(transaction.createWithNewInstrument(ACCOUNT_ID, instrument, BigDecimal.ONE, null))
                 .isSameAs(holding);
+    }
+
+    @Test
+    void deletesThroughTheUseCase() {
+        transaction.delete(INSTRUMENT_ID);
+
+        verify(manageHolding).delete(INSTRUMENT_ID);
+    }
+
+    @Test
+    void sellsThroughTheUseCase() {
+        when(manageHolding.sell(INSTRUMENT_ID, BigDecimal.ONE)).thenReturn(Optional.empty());
+
+        assertThat(transaction.sell(INSTRUMENT_ID, BigDecimal.ONE)).isEmpty();
     }
 
     @Test

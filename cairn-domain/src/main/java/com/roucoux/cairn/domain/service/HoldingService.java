@@ -17,6 +17,7 @@ import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.port.in.ManageHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.DeleteHoldingPort;
+import com.roucoux.cairn.domain.port.out.DeleteInstrumentPort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
@@ -41,6 +42,7 @@ public class HoldingService implements ManageHoldingUseCase {
     private final LoadInstrumentsPort loadInstruments;
     private final SaveInstrumentPort saveInstrument;
     private final SaveQuotePort saveQuote;
+    private final InstrumentCleanup instrumentCleanup;
     private final Clock clock;
 
     public HoldingService(
@@ -51,6 +53,7 @@ public class HoldingService implements ManageHoldingUseCase {
             LoadInstrumentsPort loadInstruments,
             SaveInstrumentPort saveInstrument,
             SaveQuotePort saveQuote,
+            DeleteInstrumentPort deleteInstrument,
             Clock clock) {
         this.loadHoldings = loadHoldings;
         this.saveHolding = saveHolding;
@@ -59,6 +62,7 @@ public class HoldingService implements ManageHoldingUseCase {
         this.loadInstruments = loadInstruments;
         this.saveInstrument = saveInstrument;
         this.saveQuote = saveQuote;
+        this.instrumentCleanup = new InstrumentCleanup(loadHoldings, loadInstruments, deleteInstrument);
         this.clock = clock;
     }
 
@@ -209,8 +213,9 @@ public class HoldingService implements ManageHoldingUseCase {
 
     @Override
     public void delete(UUID id) {
-        loadHoldings.findById(id).orElseThrow(() -> new NotFoundException("holding", id));
+        Holding existing = loadHoldings.findById(id).orElseThrow(() -> new NotFoundException("holding", id));
         deleteHolding.delete(id);
+        instrumentCleanup.releaseIfUnheld(existing.instrumentId());
     }
 
     @Override
@@ -225,6 +230,7 @@ public class HoldingService implements ManageHoldingUseCase {
         Optional<Holding> remaining = existing.sell(quantity);
         if (remaining.isEmpty()) {
             deleteHolding.delete(id);
+            instrumentCleanup.releaseIfUnheld(existing.instrumentId());
             return Optional.empty();
         }
         return Optional.of(saveHolding.save(remaining.get().withUpdatedAt(clock.instant())));

@@ -169,6 +169,35 @@ class HoldingServiceTest {
     }
 
     @Test
+    void deletingTheLastLineOfATitleDeletesTheTitle() {
+        Fixture fixture = Fixture.withExistingHolding();
+
+        fixture.service().delete(fixture.holdingId());
+
+        assertThat(fixture.deletedInstruments()).containsExactly(fixture.instrumentId());
+    }
+
+    @Test
+    void deletingALineKeepsATitleAnotherLineStillHolds() {
+        Fixture fixture = Fixture.withExistingHolding();
+        fixture.holdOnAnotherAccount();
+
+        fixture.service().delete(fixture.holdingId());
+
+        assertThat(fixture.deletedInstruments()).isEmpty();
+    }
+
+    @Test
+    void deletingACashLineKeepsTheCashInstrument() {
+        Fixture fixture = Fixture.withExistingCashHolding();
+
+        fixture.service().delete(fixture.holdingId());
+
+        assertThat(fixture.deleted()).containsExactly(fixture.holdingId());
+        assertThat(fixture.deletedInstruments()).isEmpty();
+    }
+
+    @Test
     void rejectsDeletingAnUnknownHolding() {
         Fixture fixture = Fixture.withExistingHolding();
 
@@ -208,6 +237,26 @@ class HoldingServiceTest {
 
         assertThat(remaining).isEmpty();
         assertThat(fixture.holdings()).isEmpty();
+        assertThat(fixture.deletedInstruments()).containsExactly(fixture.instrumentId());
+    }
+
+    @Test
+    void sellingEverythingKeepsATitleAnotherLineStillHolds() {
+        Fixture fixture = Fixture.withHolding("500", "24.12");
+        fixture.holdOnAnotherAccount();
+
+        fixture.service().sell(fixture.holdingId(), new BigDecimal("500"));
+
+        assertThat(fixture.deletedInstruments()).isEmpty();
+    }
+
+    @Test
+    void sellingPartKeepsTheTitle() {
+        Fixture fixture = Fixture.withHolding("500", "24.12");
+
+        fixture.service().sell(fixture.holdingId(), new BigDecimal("100"));
+
+        assertThat(fixture.deletedInstruments()).isEmpty();
     }
 
     @Test
@@ -499,6 +548,7 @@ class HoldingServiceTest {
 
         private final List<Holding> holdings = new ArrayList<>();
         private final List<UUID> deletedIds = new ArrayList<>();
+        private final List<UUID> deletedInstrumentIds = new ArrayList<>();
         private final Map<UUID, Account> accounts;
         private final Map<UUID, Instrument> instruments;
         private final UUID accountId;
@@ -544,6 +594,11 @@ class HoldingServiceTest {
             fixture.holdings.add(new Holding(
                     fixture.holdingId, fixture.accountId, fixture.instrumentId, BigDecimal.ONE, null, Instant.EPOCH));
             return fixture;
+        }
+
+        void holdOnAnotherAccount() {
+            holdings.add(new Holding(
+                    UUID.randomUUID(), UUID.randomUUID(), instrumentId, BigDecimal.ONE, null, Instant.EPOCH));
         }
 
         static Fixture withExistingCashHolding() {
@@ -615,6 +670,10 @@ class HoldingServiceTest {
             return List.copyOf(instruments.values());
         }
 
+        List<UUID> deletedInstruments() {
+            return deletedInstrumentIds;
+        }
+
         List<UUID> deleted() {
             return deletedIds;
         }
@@ -645,6 +704,7 @@ class HoldingServiceTest {
                             quotes.addAll(toSave);
                         }
                     },
+                    deletedInstrumentIds::add,
                     CLOCK);
         }
 
