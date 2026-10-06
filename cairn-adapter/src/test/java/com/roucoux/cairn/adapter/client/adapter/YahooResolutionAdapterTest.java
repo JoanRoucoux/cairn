@@ -1,6 +1,8 @@
 package com.roucoux.cairn.adapter.client.adapter;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -109,7 +111,25 @@ class YahooResolutionAdapterTest {
 
         assertThat(adapter.resolve("CAC 40"))
                 .extracting(InstrumentCandidate::sourceRef)
-                .containsExactly("AI.PA", "CW8.PA", "BTC-EUR");
+                .containsExactly("AI.PA", "CW8.PA", "0P0000FUND.F", "BTC-EUR");
+    }
+
+    @Test
+    void keepsTheFirstFiveHoldableListingsWhenOthersCrowdTheTop() {
+        stub("/v1/finance/search", "fixtures/yahoo-search-crowded.json");
+
+        assertThat(adapter.resolve("air"))
+                .extracting(InstrumentCandidate::sourceRef)
+                .containsExactly("AI.PA", "F1.PA", "F2.PA", "F3.PA", "F4.PA");
+        wireMock.verify(
+                getRequestedFor(urlPathEqualTo("/v1/finance/search")).withQueryParam("quotesCount", equalTo("10")));
+    }
+
+    @Test
+    void offersNothingForAQuoteWithoutAType() {
+        stub("/v1/finance/search", "fixtures/yahoo-search-no-quote-type.json");
+
+        assertThat(adapter.resolve("Mystery")).isEmpty();
     }
 
     @Test

@@ -20,6 +20,8 @@ import org.springframework.web.client.RestClientException;
 @Order(1)
 public class YahooResolutionAdapter implements ResolveInstrumentPort {
 
+    private static final int MAX_CANDIDATES = 5;
+
     private final RestClient client;
 
     public YahooResolutionAdapter(@Qualifier("yahooRestClient") RestClient client) {
@@ -35,7 +37,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
     public List<InstrumentCandidate> resolve(String query) {
         try {
             SearchResponse response = client.get()
-                    .uri("/v1/finance/search?q={query}&quotesCount=5&newsCount=0", query)
+                    .uri("/v1/finance/search?q={query}&quotesCount=10&newsCount=0", query)
                     .retrieve()
                     .body(SearchResponse.class);
             if (response == null || response.quotes() == null) {
@@ -43,8 +45,11 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
             }
             String isin = isinOf(query);
             return response.quotes().stream()
-                    .filter(quote -> assetClassOf(quote.quoteType()).isPresent())
-                    .map(quote -> toCandidate(quote, isin))
+                    .flatMap(quote ->
+                            assetClassOf(quote.quoteType())
+                                    .map(assetClass -> toCandidate(quote, assetClass, isin))
+                                    .stream())
+                    .limit(MAX_CANDIDATES)
                     .toList();
         } catch (RestClientException failure) {
             throw new MarketDataUnavailableException("Yahoo search failed: " + failure.getMessage());
@@ -56,12 +61,12 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
         return Isin.isValid(normalised) ? normalised : null;
     }
 
-    private static InstrumentCandidate toCandidate(SearchQuote quote, String isin) {
+    private static InstrumentCandidate toCandidate(SearchQuote quote, AssetClass assetClass, String isin) {
         return new InstrumentCandidate(
                 nameOf(quote),
                 PriceSource.YAHOO,
                 quote.symbol(),
-                assetClassOf(quote.quoteType()).orElseThrow(),
+                assetClass,
                 quote.exchDisp(),
                 isin,
                 quote.symbol(),
