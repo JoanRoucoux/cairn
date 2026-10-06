@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.port.out.ResolveInstrumentPort;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -42,6 +43,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
             }
             String isin = isinOf(query);
             return response.quotes().stream()
+                    .filter(quote -> assetClassOf(quote.quoteType()).isPresent())
                     .map(quote -> toCandidate(quote, isin))
                     .toList();
         } catch (RestClientException failure) {
@@ -59,7 +61,7 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
                 nameOf(quote),
                 PriceSource.YAHOO,
                 quote.symbol(),
-                assetClassOf(quote.quoteType()),
+                assetClassOf(quote.quoteType()).orElseThrow(),
                 quote.exchDisp(),
                 isin,
                 quote.symbol(),
@@ -74,15 +76,16 @@ public class YahooResolutionAdapter implements ResolveInstrumentPort {
         return quote.shortname() != null && !quote.shortname().isBlank() ? quote.shortname() : quote.symbol();
     }
 
-    static AssetClass assetClassOf(String quoteType) {
+    static Optional<AssetClass> assetClassOf(String quoteType) {
         if (quoteType == null) {
-            return AssetClass.EQUITY;
+            return Optional.empty();
         }
         return switch (quoteType) {
-            case "ETF" -> AssetClass.ETF;
-            case "MUTUALFUND" -> AssetClass.FUND;
-            case "CRYPTOCURRENCY" -> AssetClass.CRYPTO;
-            default -> AssetClass.EQUITY;
+            case "EQUITY" -> Optional.of(AssetClass.EQUITY);
+            case "ETF" -> Optional.of(AssetClass.ETF);
+            case "MUTUALFUND" -> Optional.of(AssetClass.FUND);
+            case "CRYPTOCURRENCY" -> Optional.of(AssetClass.CRYPTO);
+            default -> Optional.empty();
         };
     }
 

@@ -1582,7 +1582,7 @@ components:
           example: https://finance.yahoo.com/quote/SXR8.DE
         quantity:
           type: number
-          description: The number of units held, never zero.
+          description: The number of units held, never zero except a savings account's balance, which can be 0.
           example: 12
         averageCost:
           type: number
@@ -1637,7 +1637,7 @@ components:
         marketValueEur:
           type: number
           nullable: true
-          description: Absent when the instrument has no quote yet or is quoted in another currency. Never 0.
+          description: Absent when the instrument has no quote yet or is quoted in another currency. Never 0 except a savings account's balance, which can be 0.
           example: 337.20
         unrealizedGainEur:
           type: number
