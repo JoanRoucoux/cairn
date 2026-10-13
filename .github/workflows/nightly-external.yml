@@ -34,18 +34,35 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const title = 'Market data contract broke';
+            const fs = require('fs');
+            const path = require('path');
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const reports = 'cairn-adapter/target/failsafe-reports';
+            const failed = [];
+            if (fs.existsSync(reports)) {
+              for (const file of fs.readdirSync(reports).filter((name) => name.endsWith('.xml'))) {
+                const xml = fs.readFileSync(path.join(reports, file), 'utf8');
+                for (const [, attrs, inner] of xml.matchAll(/<testcase\b([^>]*)>([\s\S]*?)<\/testcase>/g)) {
+                  const outcome = inner.match(/<(failure|error)\b([^>]*)>/);
+                  if (!outcome) continue;
+                  const name = attrs.match(/\bname="([^"]*)"/)?.[1];
+                  const cls = attrs.match(/\bclassname="([^"]*)"/)?.[1]?.split('.').pop();
+                  const raw = outcome[2].match(/\bmessage="([^"]*)"/)?.[1] || outcome[2].match(/\btype="([^"]*)"/)?.[1] || outcome[1];
+                  const message = raw.replace(/&#10;|&#13;/g, ' ').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+                  failed.push(`- \`${cls}.${name}\`: ${message}`);
+                }
+              }
+            }
+            // Facts only: failing tests and their assertion, never a guessed cause.
+            const body = failed.length > 0
+              ? `The nightly contract run failed after two retries:\n\n${failed.join('\n')}\n\nLog: ${run}`
+              : `The nightly contract run failed, but no contract test did: the build, the setup or a check broke. Log: ${run}`;
             const open = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'nightly-external',
             });
-            // Deliberately no diagnosis in the text: this step cannot tell a provider that
-            // changed its payload from a build that never started, and guessing sent the reader
-            // after the wrong cause for five nights.
-            const body = `The nightly contract run failed. What broke is in the log, not here: ${run}`;
             if (open.data.length > 0) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -57,8 +74,36 @@ jobs:
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title,
+                title: 'Market data contract broke',
                 labels: ['nightly-external'],
                 body,
+              });
+            }
+
+      - name: Close the report once green
+        if: success()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'nightly-external',
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Green again: ${run}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
               });
             }
