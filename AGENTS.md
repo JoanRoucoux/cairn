@@ -77,7 +77,9 @@ not drift.
 3. **`@Tag("external")` tests.** A Maven profile (`external`) and a nightly CI job, absent from
    the starter, run these tests against the real upstream providers (Yahoo Finance, CoinGecko,
    Societe Generale Sirius, Amundi). They are the only tests that catch a provider changing its
-   response format; everything else runs against WireMock.
+   response format; everything else runs against WireMock. A failing contract test is rerun twice
+   before it counts (providers have one-off blips); the nightly then opens or updates one
+   `nightly-external` issue listing the failing tests, and closes it on the next green run.
 4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
    column would round a Bitcoin holding's quantity to four decimal places.
 

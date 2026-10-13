@@ -241,6 +241,7 @@
             <configuration>
               <excludedGroups combine.self="override" />
               <groups>external</groups>
+              <rerunFailingTestsCount>2</rerunFailingTestsCount>
             </configuration>
           </plugin>
         </plugins>
