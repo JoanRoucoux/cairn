@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM maven:3-eclipse-temurin-26 AS build
+FROM maven:3-eclipse-temurin-27 AS build
 WORKDIR /build
 COPY . .
 RUN mvn -B -ntp -DskipTests package \
