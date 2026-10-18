@@ -27,12 +27,14 @@ import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.repository.support.ResourcelessJobRepository;
 import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -75,11 +77,29 @@ class SnapshotJobIT {
     @Autowired
     private SendNotificationPort sendNotification;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private JobRepository jobRepository;
+
     @Test
     void startsUpAndWiresTheTelegramAdapterWithoutAnyTelegramVariableSet() {
         assertThat(System.getenv("TELEGRAM_BOT_TOKEN")).isNull();
         assertThat(System.getenv("TELEGRAM_CHAT_ID")).isNull();
         assertThat(sendNotification).isNotNull();
+    }
+
+    @Test
+    void runsOnAnInMemoryJobRepositoryWithoutAnyMetadataTable() {
+        assertThat(jobRepository).isInstanceOf(ResourcelessJobRepository.class);
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from information_schema.tables where table_name ilike 'batch%'",
+                        Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from pg_sequences where sequencename ilike 'batch%'", Integer.class))
+                .isZero();
     }
 
     @TestConfiguration

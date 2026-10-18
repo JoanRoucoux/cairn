@@ -11,9 +11,9 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -107,6 +107,47 @@ class QuoteRefreshServiceTest {
     }
 
     @Test
+    void purgesOnceAfterTheLoopWhenAtLeastOneFailureWasRecorded() {
+        RecordingFailurePort failures = new RecordingFailurePort();
+        QuoteRefreshService service =
+                service(List.of(new FailingPort(PriceSource.YAHOO, ETF2.id(), ETF.id())), List.of(ETF2, ETF), failures);
+
+        service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+        assertThat(failures.recorded()).hasSize(2);
+        assertThat(failures.purges()).isEqualTo(1);
+    }
+
+    @Test
+    void doesNotPurgeWhenNothingFailed() {
+        RecordingFailurePort failures = new RecordingFailurePort();
+
+        service(List.of(), List.of(), failures).refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+        assertThat(failures.purges()).isZero();
+    }
+
+    @Test
+    void aFailingRecorderStopsNeitherTheOtherInstrumentsNorTheAnnouncement() {
+        RecordingFailurePort failures = new RecordingFailurePort();
+        failures.failOnRecord = true;
+        failures.failOnPurge = true;
+        RecordingAnnounceUseCase announce = new RecordingAnnounceUseCase(Map.of());
+        QuoteRefreshService service = new QuoteRefreshService(
+                List.of(new FailingPort(PriceSource.YAHOO, ETF2.id())),
+                new StubLoadInstrumentsPort(List.of(ETF2, ETF)),
+                new NoOpSaveQuotePort(),
+                failures,
+                announce);
+
+        RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
+
+        assertThat(report.refreshed()).isEqualTo(1);
+        assertThat(report.failures()).hasSize(1);
+        assertThat(announce.events()).contains("completed:1:1:MANUAL");
+    }
+
+    @Test
     void anInstrumentDeletedDuringTheRunIsNotRecordedAsAFailure() {
         RecordingFailurePort failures = new RecordingFailurePort();
         QuoteRefreshService service = new QuoteRefreshService(
@@ -180,7 +221,7 @@ class QuoteRefreshServiceTest {
     }
 
     private static QuoteRefreshService service(
-            List<FetchQuotePort> fetchers, List<Instrument> instruments, RecordQuoteFailurePort failurePort) {
+            List<FetchQuotePort> fetchers, List<Instrument> instruments, RecordQuoteFailureUseCase failurePort) {
         return new QuoteRefreshService(
                 fetchers,
                 new StubLoadInstrumentsPort(instruments),
@@ -221,11 +262,11 @@ class QuoteRefreshServiceTest {
 
     private static final class FailingPort implements FetchQuotePort {
         private final PriceSource source;
-        private final UUID failingInstrumentId;
+        private final Set<UUID> failingInstrumentIds;
 
-        private FailingPort(PriceSource source, UUID failingInstrumentId) {
+        private FailingPort(PriceSource source, UUID... failingInstrumentIds) {
             this.source = source;
-            this.failingInstrumentId = failingInstrumentId;
+            this.failingInstrumentIds = Set.of(failingInstrumentIds);
         }
 
         @Override
@@ -235,7 +276,7 @@ class QuoteRefreshServiceTest {
 
         @Override
         public Quote fetch(Instrument instrument) {
-            if (instrument.id().equals(failingInstrumentId)) {
+            if (failingInstrumentIds.contains(instrument.id())) {
                 throw new MarketDataUnavailableException("simulated failure for " + instrument.name());
             }
             return new Quote(
@@ -277,16 +318,34 @@ class QuoteRefreshServiceTest {
         }
     }
 
-    private static final class RecordingFailurePort implements RecordQuoteFailurePort {
+    private static final class RecordingFailurePort implements RecordQuoteFailureUseCase {
         private final List<UUID> recorded = new ArrayList<>();
+        private int purges;
+        private boolean failOnRecord;
+        private boolean failOnPurge;
 
         @Override
         public void record(UUID instrumentId, PriceSource source, String message) {
+            if (failOnRecord) {
+                throw new IllegalStateException("database down");
+            }
             recorded.add(instrumentId);
+        }
+
+        @Override
+        public void purgeExpired() {
+            if (failOnPurge) {
+                throw new IllegalStateException("database down");
+            }
+            purges++;
         }
 
         List<UUID> recorded() {
             return recorded;
+        }
+
+        int purges() {
+            return purges;
         }
     }
 

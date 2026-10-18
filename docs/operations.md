@@ -69,7 +69,7 @@ Parameters, all optional:
 | -------------- | --------------------------------------------------------------------------------------- |
 | `instrumentId` | UUID of one instrument. Without it, every non-manual instrument is backfilled.          |
 | `from`         | First day to keep, `YYYY-MM-DD`. Without it, `2015-01-01`.                              |
-| `run.at`       | Unique value that makes the run a new job instance, as for the other jobs.              |
+| `run.at`       | Unique value that keeps the run distinct in the logs, as for the other jobs.           |
 
 ```bash
 cd /srv/cairn
@@ -83,7 +83,7 @@ job has none. Each instrument goes to the provider that supports its price sourc
 depth: Yahoo returns its whole series (`range=max`), SG Sirius and Amundi their whole NAV series,
 and CoinGecko only the last 90 days, whatever `from` says. `from` only trims what the provider returned. A
 provider failure for one instrument fails the step and the job, and the instruments already
-processed keep their rows; fix the cause and rerun with a new `run.at`.
+processed keep their rows; fix the cause and rerun it.
 
 ## Telegram summary
 

@@ -1,6 +1,7 @@
 package com.roucoux.cairn.batch.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 
 import ch.qos.logback.classic.Level;
@@ -10,13 +11,28 @@ import ch.qos.logback.core.read.ListAppender;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.PriceSource;
+import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.slf4j.LoggerFactory;
 
 class QuoteFailureSkipListenerTest {
+
+    @Test
+    void purgesExpiredFailuresAfterRecordingOne() {
+        RecordQuoteFailureUseCase recordFailure = mock(RecordQuoteFailureUseCase.class);
+        Instrument northwind = new Instrument(
+                UUID.randomUUID(), "Northwind", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "NWD.PA", null);
+
+        new QuoteFailureSkipListener(recordFailure, mock(LoadInstrumentsPort.class))
+                .onSkipInProcess(northwind, new IllegalStateException("boom"));
+
+        InOrder order = inOrder(recordFailure);
+        order.verify(recordFailure).record(northwind.id(), PriceSource.YAHOO, "boom");
+        order.verify(recordFailure).purgeExpired();
+    }
 
     @Test
     void logsTheSkippedInstrumentWithTheStack() {
@@ -28,7 +44,7 @@ class QuoteFailureSkipListenerTest {
         Instrument northwind = new Instrument(
                 UUID.randomUUID(), "Northwind", null, "EUR", AssetClass.EQUITY, PriceSource.YAHOO, "NWD.PA", null);
         try {
-            new QuoteFailureSkipListener(mock(RecordQuoteFailurePort.class), mock(LoadInstrumentsPort.class))
+            new QuoteFailureSkipListener(mock(RecordQuoteFailureUseCase.class), mock(LoadInstrumentsPort.class))
                     .onSkipInProcess(northwind, new IllegalStateException("boom"));
 
             assertThat(appender.list).singleElement().satisfies(event -> {
