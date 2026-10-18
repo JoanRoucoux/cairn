@@ -2,6 +2,8 @@ package com.roucoux.cairn.application.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,9 +18,11 @@ import com.roucoux.cairn.domain.port.in.GetHistoryUseCase;
 import com.roucoux.cairn.domain.port.in.GetIntradayHistoryUseCase;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +57,11 @@ class HistoryControllerTest {
         @Bean
         ZoneId zone() {
             return ZoneId.of("Europe/Paris");
+        }
+
+        @Bean
+        Clock clock() {
+            return Clock.fixed(Instant.parse("2026-10-18T10:00:00Z"), ZoneOffset.UTC);
         }
     }
 
@@ -90,6 +99,66 @@ class HistoryControllerTest {
                         .param("mode", "constant-mix")
                         .param("from", "2026-08-21")
                         .param("to", "2026-08-01"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void readsADateAfterTodayAsToday() throws Exception {
+        when(getHistory.history(eq(HistoryMode.SNAPSHOT), any(), any())).thenReturn(List.of());
+        LocalDate today = LocalDate.of(2026, 10, 18);
+
+        mockMvc.perform(get("/history")
+                        .with(user("alex"))
+                        .param("mode", "snapshot")
+                        .param("from", "2026-08-01")
+                        .param("to", "2999-01-01"))
+                .andExpect(status().isOk());
+
+        verify(getHistory).history(HistoryMode.SNAPSHOT, LocalDate.of(2026, 8, 1), today);
+    }
+
+    @Test
+    void answersAnEmptySeriesWithoutCallingTheServiceWhenTheRangeIsEntirelyInTheFuture() throws Exception {
+        mockMvc.perform(get("/history")
+                        .with(user("alex"))
+                        .param("mode", "constant-mix")
+                        .param("from", "2026-10-19")
+                        .param("to", "2999-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.points").isEmpty());
+
+        verifyNoInteractions(getHistory);
+    }
+
+    @Test
+    void acceptsTheEarliestStartTheWebAppSendsForItsLongestRange() throws Exception {
+        when(getHistory.history(eq(HistoryMode.CONSTANT_MIX), any(), any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/history")
+                        .with(user("alex"))
+                        .param("mode", "constant-mix")
+                        .param("from", "1900-01-01")
+                        .param("to", "2026-08-21"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void rejectsAStartBeforeTheEarliestSupportedDate() throws Exception {
+        mockMvc.perform(get("/history")
+                        .with(user("alex"))
+                        .param("mode", "constant-mix")
+                        .param("from", "1899-12-31")
+                        .param("to", "2026-08-21"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnUnknownMode() throws Exception {
+        mockMvc.perform(get("/history")
+                        .with(user("alex"))
+                        .param("mode", "bogus")
+                        .param("from", "2026-08-01")
+                        .param("to", "2026-08-21"))
                 .andExpect(status().isBadRequest());
     }
 

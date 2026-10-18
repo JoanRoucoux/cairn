@@ -33,7 +33,7 @@ class Heartbeat {
         try {
             restClient.get().uri(url).retrieve().toBodilessEntity();
         } catch (RuntimeException e) {
-            log.warn("{} heartbeat ping failed", monitorName, e);
+            log.warn("{} heartbeat ping failed ({})", monitorName, e.getClass().getSimpleName());
         }
     }
 }

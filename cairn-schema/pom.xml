@@ -26,6 +26,20 @@
     <liquibase.password>app</liquibase.password>
   </properties>
 
+  <profiles>
+    <profile>
+      <id>password-from-environment</id>
+      <activation>
+        <property>
+          <name>env.LIQUIBASE_PASSWORD</name>
+        </property>
+      </activation>
+      <properties>
+        <liquibase.password>${env.LIQUIBASE_PASSWORD}</liquibase.password>
+      </properties>
+    </profile>
+  </profiles>
+
   <build>
     <plugins>
       <plugin>

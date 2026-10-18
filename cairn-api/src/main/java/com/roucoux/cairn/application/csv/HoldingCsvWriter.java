@@ -22,6 +22,8 @@ public class HoldingCsvWriter {
             "unrealizedGainEur",
             "priceAsOf");
 
+    private static final String FORMULA_TRIGGERS = "=+-@\t\r";
+
     public String write(List<HoldingResponse> holdings) {
         StringBuilder csv =
                 new StringBuilder(CsvFormat.BYTE_ORDER_MARK).append(HEADER).append(CsvFormat.LINE_ENDING);
@@ -51,6 +53,9 @@ public class HoldingCsvWriter {
         }
 
         String text = value instanceof BigDecimal number ? number.toPlainString() : value.toString();
+        if (value instanceof String && !text.isEmpty() && FORMULA_TRIGGERS.indexOf(text.charAt(0)) >= 0) {
+            text = "'" + text;
+        }
         boolean needsQuoting =
                 text.chars().anyMatch(c -> c == '"' || c == CsvFormat.SEPARATOR || c == '\r' || c == '\n');
 
