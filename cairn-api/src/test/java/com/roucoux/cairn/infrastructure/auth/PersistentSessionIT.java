@@ -56,7 +56,7 @@ class PersistentSessionIT {
         assertThat(maxInactive).isEqualTo(2_592_000);
 
         String setCookie = signIn.getResponse().getHeaders(HttpHeaders.SET_COOKIE).stream()
-                .filter(header -> header.startsWith("SESSION="))
+                .filter(header -> header.startsWith("__Host-SESSION="))
                 .findFirst()
                 .orElseThrow();
         assertThat(setCookie)
@@ -74,7 +74,7 @@ class PersistentSessionIT {
                         .with(csrf()))
                 .andExpect(status().isNoContent())
                 .andReturn();
-        Cookie session = signIn.getResponse().getCookie("SESSION");
+        Cookie session = signIn.getResponse().getCookie("__Host-SESSION");
 
         mockMvc.perform(get("/session").cookie(session)).andExpect(status().isOk());
     }
@@ -87,7 +87,7 @@ class PersistentSessionIT {
                         .with(csrf()))
                 .andExpect(status().isNoContent())
                 .andReturn();
-        Cookie session = signIn.getResponse().getCookie("SESSION");
+        Cookie session = signIn.getResponse().getCookie("__Host-SESSION");
         Integer before = jdbc.queryForObject("select count(*) from spring_session", Integer.class);
 
         mockMvc.perform(post("/logout").cookie(session).with(csrf())).andExpect(status().isNoContent());

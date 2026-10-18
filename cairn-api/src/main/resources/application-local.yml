@@ -2,6 +2,7 @@ server:
   servlet:
     session:
       cookie:
+        name: SESSION
         secure: false
 
 app:

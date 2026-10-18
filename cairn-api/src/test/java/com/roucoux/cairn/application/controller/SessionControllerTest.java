@@ -44,7 +44,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = {"app.security.password=test-password", "app.security.username=alex"})
 @WebMvcTest(SessionController.class)
-@Import({WebAuthnConfig.class, SessionRestMapper.class})
+@Import({WebAuthnConfig.class, SessionRestMapper.class, TestClockConfig.class})
 class SessionControllerTest {
 
     @Autowired

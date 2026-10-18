@@ -48,7 +48,7 @@ class AnonymousRequestIT {
                 .andReturn();
 
         assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
-                .noneMatch(header -> header.startsWith("SESSION="));
+                .noneMatch(header -> header.startsWith("__Host-SESSION="));
         assertThat(result.getRequest().getSession(false)).isNull();
         Integer after = jdbc.queryForObject("select count(*) from spring_session", Integer.class);
         assertThat(after).isEqualTo(before);

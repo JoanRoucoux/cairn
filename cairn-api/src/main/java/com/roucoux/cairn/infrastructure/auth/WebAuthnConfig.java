@@ -1,6 +1,9 @@
 package com.roucoux.cairn.infrastructure.auth;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +24,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
@@ -48,6 +53,8 @@ public class WebAuthnConfig {
             WebAuthnRelyingPartyOperations relyingParty,
             UserDetailsService userDetailsService,
             ObjectProvider<AuthenticationEventPublisher> eventPublisher,
+            PasswordGuessThrottle throttle,
+            @Value("${app.security.session-lifetime:30d}") Duration sessionLifetime,
             @Value("${app.security.permit-all:false}") boolean permitAll)
             throws Exception {
         if (permitAll) {
@@ -55,8 +62,13 @@ public class WebAuthnConfig {
                     .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                     .build();
         }
-        return http.webAuthn(webAuthn -> webAuthn.withObjectPostProcessor(
-                        rememberingTheCredential(relyingParty, userDetailsService, eventPublisher.getIfAvailable())))
+        return http.webAuthn(webAuthn -> webAuthn.withObjectPostProcessor(rememberingTheCredential(
+                        relyingParty,
+                        userDetailsService,
+                        eventPublisher.getIfAvailable(),
+                        () -> http.getSharedObject(SessionAuthenticationStrategy.class))))
+                .sessionManagement(sessions ->
+                        sessions.addSessionAuthenticationStrategy(new SignedInSessionLifetime(sessionLifetime)))
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 .requestCache(cache -> cache.requestCache(new NullRequestCache()))
@@ -69,21 +81,25 @@ public class WebAuthnConfig {
                         .authenticated())
                 // A login page this application does not serve switches off Spring's generated one.
                 .formLogin(form -> form.loginPage("/login")
-                        .loginProcessingUrl("/authenticate")
-                        .successHandler((request, response, authentication) ->
-                                response.setStatus(HttpStatus.NO_CONTENT.value()))
+                        .loginProcessingUrl(PasswordThrottleFilter.PASSWORD_SIGN_IN_URL)
+                        .successHandler((request, response, authentication) -> {
+                            throttle.recordSuccess(request.getRemoteAddr());
+                            response.setStatus(HttpStatus.NO_CONTENT.value());
+                        })
                         .failureHandler(
                                 (request, response, exception) -> response.setStatus(HttpStatus.UNAUTHORIZED.value())))
                 .logout(logout -> logout.logoutSuccessHandler(
                         (request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+                .addFilterBefore(new PasswordThrottleFilter(throttle), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
     static ObjectPostProcessor<WebAuthnAuthenticationFilter> rememberingTheCredential(
             WebAuthnRelyingPartyOperations relyingParty,
             UserDetailsService userDetailsService,
-            AuthenticationEventPublisher eventPublisher) {
+            AuthenticationEventPublisher eventPublisher,
+            Supplier<SessionAuthenticationStrategy> sessionStrategy) {
         return new ObjectPostProcessor<>() {
             @Override
             public <O extends WebAuthnAuthenticationFilter> O postProcess(O filter) {
@@ -93,9 +109,15 @@ public class WebAuthnConfig {
                     manager.setAuthenticationEventPublisher(eventPublisher);
                 }
                 filter.setAuthenticationManager(manager);
+                filter.setSessionAuthenticationStrategy(sessionStrategy.get());
                 return filter;
             }
         };
+    }
+
+    @Bean
+    PasswordGuessThrottle passwordGuessThrottle(Clock clock) {
+        return new PasswordGuessThrottle(clock);
     }
 
     @Bean

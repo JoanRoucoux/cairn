@@ -68,7 +68,25 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 Authentication is session-based WebAuthn, not a bearer token: the passkey ceremony needs
 server-side state to hold the challenge between the registration or assertion options call and its
 verification. The session is stored in PostgreSQL by Spring Session JDBC (tables from changeset
-013), 30 days sliding, in a persistent `SESSION` cookie, so a deploy does not sign everyone out.
+013), in a persistent cookie, so a deploy does not sign everyone out. The cookie is `__Host-SESSION`
+(`Secure`, no domain, path `/`), and `SESSION` under the `local` profile, which serves plain HTTP.
+
+A session lives 15 minutes (`spring.session.timeout`) until someone signs in, because the anonymous
+`POST /webauthn/authenticate/options` stores its challenge in one. `SignedInSessionLifetime`, a
+`SessionAuthenticationStrategy` added to the composite Spring builds, stretches it to 30 days
+sliding (`app.security.session-lifetime`) on a password or a passkey sign-in. Both sign-ins rotate
+the session id: the password form login gets the composite from the shared objects by itself, and
+`WebAuthnConfig.rememberingTheCredential` hands the same composite (CSRF strategy included) to the
+WebAuthn filter, which Spring builds with a no-op strategy otherwise.
+
+Password guessing is throttled per client address (`getRemoteAddr()`, resolved from the forwarded
+headers, see Gotchas), never globally, so a stranger cannot lock the owner out (`PasswordGuessThrottle`,
+`PasswordThrottleFilter`). Each `POST /authenticate` is counted atomically on admission, before the
+password check, so concurrent guesses cannot slip through: from the 5th attempt on it answers 429
+with `Retry-After` for `2^(n-5)` seconds capped at 15 minutes, and a success resets that address.
+An address is forgotten 15 minutes after its last block lapsed, so scattered typos never add up.
+State is bounded to 10,000 addresses. Passkey sign-in is never throttled. The failed-login log line carries the client
+address and the first 32 characters of the username.
 
 CSRF protection is on, because the session rides a cookie, which the browser attaches on its own
 (`CsrfCookieFilter`, `SpaCsrfTokenRequestHandler`). Only `app.security.permit-all`, set by the
@@ -284,6 +302,8 @@ holds. A rollback redeploys an already released commit and mints no version.
   carry an XOR-masked token, Angular echoes the raw cookie value in a header, and only one of the
   two was accepted. Reads were unaffected, which made it look like a loading problem. When touching
   `WebAuthnConfig`, reason about both clients, and check against the deployed application.
+
+- **The client address comes from headers the proxy must sanitise.** `server.forward-headers-strategy: framework` installs Spring's `ForwardedHeaderFilter`, which trusts the RFC 7239 `Forwarded` header over `X-Forwarded-For` and checks no trusted proxy. Unless `cairn.caddy` strips `Forwarded` (and `X-Forwarded-Prefix`, `-Port`, `-Ssl`), a client chooses the address that `getRemoteAddr()` returns, so it picks the key of the password throttle and the address in the sign-in log.
 
 - **A blank string is not a value.** The `(price_source, source_ref)` unique index on `instruments` is partial (`WHERE source_ref IS NOT NULL`), so
   rows without a source reference only coexist while the column is `null`. The web form posts
