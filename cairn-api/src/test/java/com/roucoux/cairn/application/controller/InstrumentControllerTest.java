@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(InstrumentController.class)
-@Import({WebAuthnConfig.class, InstrumentRestMapper.class})
+@Import({WebAuthnConfig.class, InstrumentRestMapper.class, TestClockConfig.class})
 class InstrumentControllerTest {
 
     private static final UUID INSTRUMENT_ID = UUID.randomUUID();

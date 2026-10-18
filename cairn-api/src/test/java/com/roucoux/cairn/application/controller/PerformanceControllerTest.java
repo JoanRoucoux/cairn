@@ -30,7 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(PerformanceController.class)
-@Import({WebAuthnConfig.class, PerformanceRestMapper.class})
+@Import({WebAuthnConfig.class, PerformanceRestMapper.class, TestClockConfig.class})
 class PerformanceControllerTest {
 
     @Autowired

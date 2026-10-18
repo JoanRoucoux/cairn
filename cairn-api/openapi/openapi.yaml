@@ -950,9 +950,10 @@ components:
     sessionCookie:
       type: apiKey
       in: cookie
-      name: SESSION
+      name: __Host-SESSION
       description: >-
-        Session opened by a passkey (WebAuthn) sign-in, lasting 30 days, sliding. The ceremony
+        Session opened by a passkey (WebAuthn) or password sign-in. It lives 15 minutes before
+        sign-in (the passkey challenge is kept in it) and 30 days, sliding, after. The ceremony
         itself is served by Spring Security, not by this contract: `POST /webauthn/register/options`
         then `POST /webauthn/register` for registration, `POST /webauthn/authenticate/options`
         then `POST /login/webauthn` for sign-in, and `POST /logout` to end the session.

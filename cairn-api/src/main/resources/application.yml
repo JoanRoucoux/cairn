@@ -3,6 +3,7 @@ server:
   servlet:
     session:
       cookie:
+        name: __Host-SESSION
         secure: true
         same-site: strict
         max-age: 30d
@@ -17,7 +18,7 @@ spring:
       start:
         skip: never
   session:
-    timeout: 30d
+    timeout: 15m
     jdbc:
       initialize-schema: never
       cleanup-cron: "0 0 * * * *"

@@ -43,7 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestPropertySource(properties = "app.security.password=test-password")
 @WebMvcTest(AccountController.class)
-@Import({WebAuthnConfig.class, AccountRestMapper.class})
+@Import({WebAuthnConfig.class, AccountRestMapper.class, TestClockConfig.class})
 class AccountControllerTest {
 
     private static final UUID ACCOUNT_ID = UUID.randomUUID();
