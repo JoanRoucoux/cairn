@@ -48,7 +48,7 @@ public class InstrumentEntity {
     @Column(length = 280)
     private String description;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     protected InstrumentEntity() {}

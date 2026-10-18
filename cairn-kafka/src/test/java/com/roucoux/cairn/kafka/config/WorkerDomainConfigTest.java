@@ -15,6 +15,7 @@ import com.roucoux.cairn.domain.model.event.DomainEvent;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
+import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
@@ -238,7 +239,14 @@ class WorkerDomainConfigTest {
                 saved.addAll(quotes);
             }
         };
-        RecordQuoteFailurePort recordFailure = (instrumentId, source, message) -> {};
+        RecordQuoteFailurePort failurePort = new RecordQuoteFailurePort() {
+            @Override
+            public void record(UUID instrumentId, com.roucoux.cairn.domain.model.PriceSource source, String message) {}
+
+            @Override
+            public void deleteBefore(Instant cutoff) {}
+        };
+        RecordQuoteFailureUseCase recordFailure = config.recordQuoteFailureUseCase(failurePort);
         AnnounceQuotesUseCase announceQuotes = config.announceQuotes(published::add);
 
         RefreshQuotesUseCase refreshQuotes =

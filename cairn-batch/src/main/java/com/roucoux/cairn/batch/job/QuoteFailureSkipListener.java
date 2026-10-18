@@ -2,8 +2,8 @@ package com.roucoux.cairn.batch.job;
 
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.listener.SkipListener;
@@ -14,10 +14,10 @@ class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
 
     private static final Logger log = LoggerFactory.getLogger(QuoteFailureSkipListener.class);
 
-    private final RecordQuoteFailurePort recordFailure;
+    private final RecordQuoteFailureUseCase recordFailure;
     private final LoadInstrumentsPort loadInstruments;
 
-    QuoteFailureSkipListener(RecordQuoteFailurePort recordFailure, LoadInstrumentsPort loadInstruments) {
+    QuoteFailureSkipListener(RecordQuoteFailureUseCase recordFailure, LoadInstrumentsPort loadInstruments) {
         this.recordFailure = recordFailure;
         this.loadInstruments = loadInstruments;
     }
@@ -26,6 +26,7 @@ class QuoteFailureSkipListener implements SkipListener<Instrument, Quote> {
     public void onSkipInProcess(Instrument instrument, Throwable failure) {
         log.warn("quote refresh skipped {} ({})", instrument.name(), instrument.priceSource(), failure);
         recordFailure.record(instrument.id(), instrument.priceSource(), reasonOf(failure));
+        recordFailure.purgeExpired();
     }
 
     @Override
