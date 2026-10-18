@@ -85,6 +85,9 @@ class HeartbeatTest {
         }
 
         assertThat(appender.list).hasSize(1);
-        assertThat(appender.list.getFirst().getFormattedMessage()).isEqualTo("summary heartbeat ping failed");
+        assertThat(appender.list.getFirst().getFormattedMessage())
+                .isEqualTo("summary heartbeat ping failed (InternalServerError)");
+        assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
+        assertThat(appender.list.getFirst().getFormattedMessage()).doesNotContain(wireMock.baseUrl());
     }
 }

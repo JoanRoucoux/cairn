@@ -23,6 +23,7 @@ updates:
       - /cairn-api
       - /cairn-schema
       - /cairn-batch
+      - /cairn-kafka
     schedule:
       interval: weekly
     groups:

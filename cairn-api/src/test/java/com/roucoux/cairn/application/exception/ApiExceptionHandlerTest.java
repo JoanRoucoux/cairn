@@ -56,6 +56,23 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    void namesTheSourceInA502ButNeverTheUpstreamText() {
+        var problem = handler.handleTechnical(
+                new MarketDataUnavailableException("Yahoo call failed for GLE.PA: 401 Unauthorized: {\"secret\":1}"));
+
+        assertThat(problem.getStatus()).isEqualTo(502);
+        assertThat(problem.getDetail()).isEqualTo("Yahoo call failed for GLE.PA");
+        assertThat(appender.list.getFirst().getFormattedMessage()).contains("401 Unauthorized");
+    }
+
+    @Test
+    void keepsAMessageThatCarriesNoUpstreamText() {
+        var problem = handler.handleTechnical(new MarketDataUnavailableException("Yahoo returned no price for GLE.PA"));
+
+        assertThat(problem.getDetail()).isEqualTo("Yahoo returned no price for GLE.PA");
+    }
+
+    @Test
     void doesNotLogABusinessRefusal() {
         handler.handleNotFound(new NotFoundException("account", UUID.randomUUID()));
 

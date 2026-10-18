@@ -1,8 +1,10 @@
 package com.roucoux.cairn.application.controller;
 
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -27,6 +29,7 @@ import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.infrastructure.auth.WebAuthnConfig;
 import com.roucoux.cairn.infrastructure.transaction.AccountDeletionTransaction;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -161,6 +164,45 @@ class AccountControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(setCashBalance).setCashBalance(ACCOUNT_ID, new BigDecimal("732.40"));
+    }
+
+    @Test
+    void refusesAnAmountWhoseExponentWouldExhaustTheServer() throws Exception {
+        for (String amount : List.of("1e999999999", "1e-999999999", "0E-999999999")) {
+            assertTimeoutPreemptively(
+                    Duration.ofSeconds(2),
+                    () -> mockMvc.perform(put("/accounts/{id}/cash", ACCOUNT_ID)
+                                    .with(user("alex"))
+                                    .with(csrf())
+                                    .contentType(APPLICATION_JSON)
+                                    .content("{\"amount\":" + amount + "}"))
+                            .andExpect(status().isBadRequest()));
+        }
+        verifyNoInteractions(setCashBalance);
+    }
+
+    @Test
+    void refusesAnAccountNameLongerThanTheColumn() throws Exception {
+        String body = "{\"name\":\"" + "n".repeat(81) + "\",\"type\":\"PEA\",\"institution\":\"Northwind Bank\"}";
+
+        mockMvc.perform(post("/accounts")
+                        .with(user("alex"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refusesAnInstitutionLongerThanTheColumn() throws Exception {
+        String body = "{\"name\":\"Northwind PEA\",\"type\":\"PEA\",\"institution\":\"" + "i".repeat(81) + "\"}";
+
+        mockMvc.perform(put("/accounts/{id}", ACCOUNT_ID)
+                        .with(user("alex"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

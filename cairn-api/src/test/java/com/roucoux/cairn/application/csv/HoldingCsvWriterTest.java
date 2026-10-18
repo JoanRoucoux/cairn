@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class HoldingCsvWriterTest {
 
@@ -43,6 +45,31 @@ class HoldingCsvWriterTest {
     @Test
     void doublesAQuoteInsideAQuotedField() {
         assertThat(writer.write(List.of(aHoldingNamed("L\"Oreal")))).contains("\"L\"\"Oreal\"");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"=1+1", "+1", "-1", "@SUM(A1)", "\tcmd"})
+    void defusesATextCellThatASpreadsheetWouldRunAsAFormula(String name) {
+        String row = writer.write(List.of(aHoldingNamed(name))).split("\r\n", 2)[1];
+
+        assertThat(row).contains(";'" + name + ";").doesNotContain(";" + name + ";");
+    }
+
+    @Test
+    void defusesATextCellThatStartsWithACarriageReturn() {
+        String csv = writer.write(List.of(aHoldingNamed("\rcmd")));
+
+        assertThat(csv).contains("\"'\rcmd\"");
+    }
+
+    @Test
+    void leavesNegativeNumbersAndPlainTextUntouched() {
+        HoldingResponse holding = aHoldingNamed("Livret A");
+        holding.setUnrealizedGainEur(new BigDecimal("-12.50"));
+
+        String row = writer.write(List.of(holding)).split("\r\n", 2)[1];
+
+        assertThat(row).contains(";Livret A;").contains(";-12.50;").doesNotContain("'");
     }
 
     @Test

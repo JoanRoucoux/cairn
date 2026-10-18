@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.roucoux.cairn.domain.exception.business.PortfolioImportRejectedException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -136,6 +138,26 @@ class PortfolioCsvReaderTest {
         assertThat(file.locate(refused).errors())
                 .extracting(LineError::line, LineError::code, LineError::value)
                 .containsExactly(tuple(5, ImportErrorCode.UNRESOLVED_INSTRUMENT, "LU0000000002"));
+    }
+
+    @Test
+    void refusesAQuantityBeyondTheColumnsRangeWithoutComputingOnIt() {
+        String csv = PortfolioCsvReader.HEADER + "\r\n"
+                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000001;1e999999999;20.00\r\n"
+                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000002;100;1e-999999999\r\n"
+                + "Sample Broker;PEA;Sample Bank;Tracker;LU0000000003;0E-999999999;20.00\r\n";
+
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () -> assertThatThrownBy(() -> reader.read(csv))
+                        .asInstanceOf(type(ImportFileRejectedException.class))
+                        .extracting(ImportFileRejectedException::errors)
+                        .asInstanceOf(list(LineError.class))
+                        .extracting(LineError::line, LineError::code)
+                        .containsExactly(
+                                tuple(2, ImportErrorCode.NOT_A_NUMBER),
+                                tuple(3, ImportErrorCode.NOT_A_NUMBER),
+                                tuple(4, ImportErrorCode.NOT_A_NUMBER)));
     }
 
     @Test

@@ -805,7 +805,7 @@ paths:
         - name: from
           in: query
           required: true
-          description: Start of the range, inclusive.
+          description: Start of the range, inclusive. Must not be before 1900-01-01.
           schema:
             type: string
             format: date
@@ -813,7 +813,9 @@ paths:
         - name: to
           in: query
           required: true
-          description: End of the range, inclusive. Must not be before `from`.
+          description: >-
+            End of the range, inclusive. Must not be before `from`. A date after today is read as
+            today.
           schema:
             type: string
             format: date
@@ -826,7 +828,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
         '400':
-          description: Unknown mode, or `to` is before `from`
+          description: Unknown mode, `to` is before `from`, or `from` is before 1900-01-01
         '401':
           $ref: '#/components/responses/Unauthorized'
   /history/intraday:
@@ -1696,6 +1698,7 @@ components:
       properties:
         name:
           type: string
+          maxLength: 80
           description: Must be unique across every account.
           example: Sample Broker PEA
         type:
@@ -1704,6 +1707,7 @@ components:
             - $ref: '#/components/schemas/AccountType'
         institution:
           type: string
+          maxLength: 80
           description: The bank or broker the account is held at.
           example: Sample Bank
     UpdateAccountRequest:
@@ -1713,6 +1717,7 @@ components:
       properties:
         name:
           type: string
+          maxLength: 80
           description: Must be unique across every account.
           example: Northwind PEA
         type:
@@ -1721,6 +1726,7 @@ components:
             - $ref: '#/components/schemas/AccountType'
         institution:
           type: string
+          maxLength: 80
           description: The bank or broker the account is held at.
           example: Northwind Bank
     SetCashBalanceRequest:

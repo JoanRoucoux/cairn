@@ -70,15 +70,23 @@ class ApiExceptionHandler {
     @ExceptionHandler(MarketDataRateLimitedException.class)
     ProblemDetail handleRateLimited(MarketDataRateLimitedException exception) {
         log.warn("upstream dependency throttled: {}", exception.getMessage());
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, namingTheSourceOnly(exception));
         problem.setTitle("Upstream dependency failed");
         return problem;
+    }
+
+    private static String namingTheSourceOnly(TechnicalException exception) {
+        String message = String.valueOf(exception.getMessage());
+        int upstreamText = message.indexOf(": ");
+        return upstreamText < 0 ? message : message.substring(0, upstreamText);
     }
 
     @ExceptionHandler(TechnicalException.class)
     ProblemDetail handleTechnical(TechnicalException exception) {
         log.error("upstream dependency failed: {}", exception.getMessage(), exception);
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, exception.getMessage());
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, namingTheSourceOnly(exception));
         problem.setTitle("Upstream dependency failed");
         return problem;
     }

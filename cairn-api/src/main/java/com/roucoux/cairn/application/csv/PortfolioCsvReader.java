@@ -1,5 +1,6 @@
 package com.roucoux.cairn.application.csv;
 
+import com.roucoux.cairn.application.json.DecimalBounds;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
 import com.roucoux.cairn.domain.model.ImportRow;
@@ -96,7 +97,11 @@ public class PortfolioCsvReader {
 
     private static BigDecimal number(String value) {
         try {
-            return new BigDecimal(value);
+            BigDecimal number = new BigDecimal(value);
+            if (!DecimalBounds.isWithinBounds(number)) {
+                throw new UnreadableFieldException(ImportErrorCode.NOT_A_NUMBER, value);
+            }
+            return number;
         } catch (NumberFormatException notANumber) {
             throw new UnreadableFieldException(ImportErrorCode.NOT_A_NUMBER, value);
         }

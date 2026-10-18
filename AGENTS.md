@@ -35,6 +35,8 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org). What is enforced is the **pull request title**, which the squash merge turns into the commit on main (`pr.yml`).
 - **Comments are the exception, not the norm**, in code and in configuration alike. Write one only for a trap that no test and no error message would catch. If a failing test would catch the edit the comment warns about, or if the sentence belongs in this file, it does not belong in the file it annotates.
 - Quantities are `numeric(28,12)` columns, so a Bitcoin holding's quantity is not rounded.
+- Inputs are bounded. Any number the API reads (JSON through `BoundedDecimalDeserializer`, the CSV through the same `DecimalBounds`) must fit `numeric(28,12)` and carry a sane raw scale: at most 12 significant decimals, 16 integer digits, and a scale between -16 and 32 as written, so `1e999999999` and `0E-999999999` are a 400 (a `NOT_A_NUMBER` line in a CSV) before any arithmetic. Account names and institutions are capped at 80 characters in the JSON contract only (the CSV reader does not check them), and Caddy's 1 MB body limit bounds a file.
+- `GET /history` refuses a `from` before 1900-01-01 (the web app sends exactly that for its `max` range), reads a `to` in the future as today, answers an empty series when `from` is after today, and answers 400 for an unknown `mode`. `HoldingCsvWriter` prefixes a text cell starting with `=`, `+`, `-`, `@`, tab or CR with `'` so a spreadsheet never runs it as a formula. A 502 detail names the source only, never the upstream message, which stays in the log.
 - Formatting is Spotless/palantir; records for immutable data; constructor injection without Lombok. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
 - Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}`: no module inherits the aggregator, so `${project.version}` would be the module's own version, not the sibling's.
 - Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`). New changesets are Liquibase formatted SQL (`changesets/0NN-name.sql`, starting with `--liquibase formatted sql` and `--changeset cairn:0NN-name`), picked up by the same `includeAll`. Every changeset is a formatted SQL file, author `cairn` (one exception, see Gotchas), ids sequential; only `changelog-master.xml` stays XML.
@@ -150,9 +152,17 @@ for the assertion endpoint (it sits under `/login` rather than `/webauthn`). `/l
 deliberately absent and matched by neither `/webauthn/*` nor `/login/webauthn`: the frontend owns
 that path, since Spring's generated sign-in page is switched off.
 
-Only `api` and `web` join `edge`. **`postgres` deliberately stays on the default network**, out of
+Only `api` and `web` join `edge`; `web` joins nothing else, since Caddy routes `/api` itself and
+nginx proxies nothing. **`postgres` deliberately stays on the default network**, out of
 reach of every other application sharing the proxy. So do `kafka` and `worker`: nothing outside
 this compose project needs to reach either.
+
+The three backend images run as the unprivileged `cairn` user, and `api`, `worker` and `batch` run
+with `no-new-privileges` and every capability dropped. The snippet caps a request body at 1 MB under
+`/api` and strips the `Forwarded`, `X-Forwarded-Prefix`, `X-Forwarded-Port` and `X-Forwarded-Ssl` headers a client could send before they
+reach the API (`forward-headers-strategy: framework` trusts them). The `schema` image reads the
+database password from `LIQUIBASE_PASSWORD` through a `cairn-schema` Maven profile, never from its
+command line.
 
 **`kafka`/`worker`.** `kafka` is a single-node KRaft broker (`apache/kafka`, no ZooKeeper),
 `worker` is `cairn-kafka`'s image: it declares the `cairn.prices`/`cairn.portfolio` topics on
