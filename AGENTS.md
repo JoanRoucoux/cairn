@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository. See the [README](READM
 
 ## Project
 
-Cairn — Spring Boot 4.1 / Java 25 backend in hexagonal architecture, generated from java-starter with these modules: **api, domain, adapter, schema, batch, kafka**. Base package: `com.roucoux.cairn`.
+Cairn is a Spring Boot 4.1 / Java 25 backend in hexagonal architecture, with these modules: **api, domain, adapter, schema, batch, kafka**. Base package: `com.roucoux.cairn`.
 
-**There is no parent pom.** The root `pom.xml` is an aggregator (`<modules>` only) and no module declares it as a `<parent>`; each module is parented by `spring-boot-starter-parent` with an empty `<relativePath/>` and carries its own dependencies, versions and quality plugins. The duplication of the quality block (Spotless, JaCoCo, Failsafe) across modules is **deliberate** — it is what makes a module extractable into its own repository. Keep the copies in sync; do not factor them out into the root.
+**There is no parent pom.** The root `pom.xml` is an aggregator (`<modules>` only) and no module declares it as a `<parent>`; each module is parented by `spring-boot-starter-parent` with an empty `<relativePath/>` and carries its own dependencies, versions and quality plugins. The duplication of the quality block (Spotless, JaCoCo, Failsafe) across modules is **deliberate**. Keep the copies in sync; do not factor them out into the root.
 
 ## Commands
 
@@ -23,9 +23,9 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 
 - `cairn-domain` — **zero compile-scope dependencies**: pure Java, no Spring, no JPA — a Maven guarantee, not just a convention. `model/`, `exception/` (`business/` holds the abstract `BusinessException` base — extending `RuntimeException` — alongside its concrete subclasses; `technical/` holds `TechnicalException` the same way), `port/in/`, `port/out/`, `service/`. Domain services are plain classes, instantiated by the composition roots in the application modules. A port and its failure contract live together — the quote ports (`FetchQuotePort` and friends) and `MarketDataUnavailableException` are both here; the adapters raise the latter.
 - `cairn-adapter` — outbound adapters, each split by role (`properties/`, `config/`, `adapter/` for a client; `entity/`, `repository/`, `adapter/` for persistence — even where it means an `adapter.adapter` package name), depending on `cairn-domain` at **compile scope**. `ArchitectureTest` checks the same boundaries again once the application is assembled.
-- `cairn-api` — Spring Boot main, `application/` (`controller/` = controllers implementing the **generated** interfaces, `mapper/` = domain↔DTO mapping — **one class per resource, never a shared mapper**, `exception/` = the `@RestControllerAdvice`), `infrastructure/config/` (security, and **one `XxxDomainConfig` per slice**). Depends on `cairn-adapter` at **runtime scope only** — adapters are wired into the context but invisible at compile time. The advice maps `BusinessException` → 422 and `TechnicalException` → 502; 401/403 are left to Spring Security. The OpenAPI contract lives in this module, not at the repository root. In the `local` profile only, springdoc serves Swagger UI at `/swagger-ui.html` over that committed contract, copied to `static/openapi.yaml` at build time; springdoc's own code scan points at an empty package (`springdoc.packages-to-scan`) because the generated interfaces carry no annotations, and disabling `api-docs` instead would switch the UI off too.
+- `cairn-api` — Spring Boot main, `application/` (`controller/` = controllers implementing the **generated** interfaces, `mapper/` = domain↔DTO mapping — **one class per resource, never a shared mapper**, `exception/` = the `@RestControllerAdvice`), `infrastructure/config/` (**one `XxxDomainConfig` per slice**), `infrastructure/auth/` (security: `WebAuthnConfig` and the passkey and CSRF classes) and `infrastructure/transaction/` (the transaction wrappers, see Portfolio import). Depends on `cairn-adapter` at **runtime scope only** — adapters are wired into the context but invisible at compile time. The advice maps `BusinessException` → 422 and `TechnicalException` → 502; 401/403 are left to Spring Security. The OpenAPI contract lives in this module, not at the repository root. In the `local` profile only, springdoc serves Swagger UI at `/swagger-ui.html` over that committed contract, copied to `static/openapi.yaml` at build time; springdoc's own code scan points at an empty package (`springdoc.packages-to-scan`) because the generated interfaces carry no annotations, and disabling `api-docs` instead would switch the UI off too.
 - `cairn-schema` — Liquibase changelogs only, no Java code. Owns the schema and is applied out-of-band, by ops or a pipeline (`./mvnw liquibase:update -pl cairn-schema`) — **no running application ever migrates the database**. The application modules depend on it at **test scope only** (never widen, never add it to `cairn-adapter`), purely so their integration tests can migrate their own throwaway Testcontainers database against the real changelog before `ddl-auto: validate` checks it. The fictional demo portfolio (`012-seed-demo`, context `demo`) is excluded everywhere by default; `-Dliquibase.contexts=demo` applies it.
-- `cairn-batch` — second Spring Boot application over the same `cairn-domain`/`cairn-adapter`: `BatchApplication` (in the base package, so the component scan reaches the adapters), `batch/job/` (the chunk-oriented step, wired to ports only) and `batch/config/` (its composition root). Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`. Its metadata tables come from a `cairn-schema` changeset, with `spring.batch.jdbc.initialize-schema: never`.
+- `cairn-batch` — second Spring Boot application over the same `cairn-domain`/`cairn-adapter`: `BatchApplication` (in the base package, so the component scan reaches the adapters), `batch/job/` (`refreshQuotesJob` and `backfillQuotesJob`, chunk-oriented, and `snapshotJob`, a tasklet, all wired to ports only, with their listeners: `JobOutcomeListener`, `QuoteAnnouncementListener`, `QuoteFailureSkipListener`) and `batch/config/` (its composition root). Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`. Its metadata tables come from a `cairn-schema` changeset, with `spring.batch.jdbc.initialize-schema: never`.
 - `cairn-kafka` — third entry point over the same hexagon: `KafkaWorkerApplication` (base package, same reason as `cairn-batch`), `kafka/config/` (`TopicsConfig` declares the `cairn.prices` and `cairn.portfolio` topics as `NewTopic` beans, `WorkerDomainConfig` is its composition root). It has no web server (`spring.main.web-application-type: none`) and stays up (`keep-alive: true`) to host the `KafkaAdmin` that creates the topics on startup, the intraday refresh scheduler (EQUITY+ETF every 15 min Mon-Fri 9:00-17:45, CRYPTO every 15 min, Europe/Paris) and the `ValuationConsumer` (`kafka/consumer/`) that turns each `refresh.completed` event on `cairn.portfolio` into a recorded valuation point, consumer group `cairn-valuation`. In the worker, the CoinGecko adapter is wired as a plain prototype rather than a scoped proxy: a scoped proxy over a prototype target makes a new adapter per method call, which would lose the one grouped call per refresh. Depends on `cairn-adapter` at **runtime scope**, exactly like `cairn-api`/`cairn-batch`. The `adapter/messaging/` package (`cairn-adapter`) is where the actual publishing lives: `adapter/` (`KafkaEventPublisher`, `EventEnvelope`, `PriceUpdatedData`), `config/` (`KafkaMessagingConfig`), `properties/` (`KafkaMessagingProperties`).
 - `com.roucoux.cairn.generated.*` is build output of openapi-generator: never edit it, edit the spec and rebuild. Contract-first: the spec changes before the code.
 - The hexagonal rules are law, enforced by the ArchUnit tests in the application modules. The real features (accounts, holdings, instruments, quotes, portfolio, history) are full hexagonal slices: model new features on them.
@@ -34,19 +34,21 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org). What is enforced is the **pull request title**, which the squash merge turns into the commit on main (`pr.yml`).
 - **Comments are the exception, not the norm**, in code and in configuration alike. Write one only for a trap that no test and no error message would catch. If a failing test would catch the edit the comment warns about, or if the sentence belongs in this file, it does not belong in the file it annotates.
+- Quantities are `numeric(28,12)` columns, so a Bitcoin holding's quantity is not rounded.
 - Formatting is Spotless/palantir; records for immutable data; constructor injection without Lombok. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
-- Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}` — that would silently mean the wrong thing once a module is extracted.
-- Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`). New changesets are Liquibase formatted SQL (`changesets/0NN-name.sql`, starting with `--liquibase formatted sql` and `--changeset cairn:0NN-name`), picked up by the same `includeAll`. Every changeset is a formatted SQL file, author `cairn`, ids sequential; only `changelog-master.xml` stays XML.
+- Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}`: no module inherits the aggregator, so `${project.version}` would be the module's own version, not the sibling's.
+- Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`). New changesets are Liquibase formatted SQL (`changesets/0NN-name.sql`, starting with `--liquibase formatted sql` and `--changeset cairn:0NN-name`), picked up by the same `includeAll`. Every changeset is a formatted SQL file, author `cairn` (one exception, see Gotchas), ids sequential; only `changelog-master.xml` stays XML.
 
 ## Testing
 
 - Naming drives the phase: `*Test` = surefire (unit, no Docker), `*IT` = failsafe (integration, Testcontainers).
-- Controllers: `@WebMvcTest` + `@Import(SecurityConfig.class)` + `@MockitoBean` ports + `spring-security-test`'s `user()` post-processor (session-based, see Deviations from the starter) — no `@MockitoBean JwtDecoder`.
+- Controllers: `@WebMvcTest` + `@Import(WebAuthnConfig.class)` (plus the controller's mapper) + `@MockitoBean` ports + `spring-security-test`'s `user()` post-processor (session-based, see Security).
 - Persistence: `@DataJpaTest` + `@ServiceConnection` PostgreSQL container, schema generated from the JPA mapping (`spring.jpa.hibernate.ddl-auto=create-drop`, set locally on the test). `cairn-adapter` has a test-only `TestApplication` (`@SpringBootConfiguration`) because it contains no Spring Boot app.
 - Full boot: the `*IT` tests of the application modules migrate their Testcontainers database with the real `cairn-schema` changelog before `ddl-auto: validate` runs.
-- Business scenarios: `CucumberIT` (`cairn-api`, `cucumber/` package) runs every `.feature` file under `src/test/resources/features/` over real HTTP through the full Spring context (`CucumberSpringConfiguration`), security opened up via `app.security.permit-all`. It is a `*IT` like any other. Add a feature by adding a `.feature` file plus a step-definition class in `cucumber/`; a `@Before` hook (`Hooks`) resets shared fixtures between scenarios. Cucumber glue classes must be `public`, unlike the rest of this test suite.
+- Business scenarios: `CucumberIT` (`cairn-api`, `cucumber/` package) runs every `.feature` file under `src/test/resources/features/` over real HTTP through the full Spring context (`CucumberSpringConfiguration`), security opened up via `app.security.permit-all`. It is a `*IT` like any other. Add a feature by adding a `.feature` file plus a step-definition class in `cucumber/`; each step class resets its own state in its own `@Before`. Cucumber glue classes must be `public`, unlike the rest of this test suite.
 - Bean-wiring code (`@Bean` methods) is unit-tested by calling those methods directly, so the coverage gate does not depend on Docker being available.
 - External clients: WireMockServer without any Spring context.
+- `@Tag("external")` tests run against the real upstream providers (Yahoo Finance, CoinGecko, Societe Generale Sirius, Amundi) through the `external` Maven profile (`cairn-adapter`) and the nightly `nightly-external.yml` job. They are the only tests that catch a provider changing its response format; everything else runs against WireMock. A failing contract test is rerun twice before it counts (providers have one-off blips); the nightly then opens or updates one `nightly-external` issue listing the failing tests, and closes it on the next green run.
 - ArchUnit rules are plain JUnit `@Test` methods over a static `ClassFileImporter` on purpose — do not migrate them to `@AnalyzeClasses`/`@ArchTest`. A rule whose subject matches nothing fails, so keep rules next to the code they constrain.
 - Tests that would otherwise need a live broker replace `PublishEventPort` with a stub/mock (`QuoteAnnouncementService` and its callers depend only on the port), exactly like `FetchQuotePort` and the other outbound ports: `RefreshQuotesJobIT` mocks `AnnounceQuotesUseCase`, `CucumberSpringConfiguration` mocks `PublishEventPort` because the manual quote publishes, and the other API and batch full-context ITs build the real publisher but never publish. Only `cairn-adapter`'s `KafkaEventPublisherIT` and `cairn-kafka`'s `KafkaWorkerApplicationIT` and `ValuationRoundTripIT` exercise the real Kafka wiring, both through a Testcontainers broker.
 - Coverage gate: 70% lines per module (JaCoCo, merged unit+IT data).
@@ -59,29 +61,21 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Never log use case arguments, return values, amounts or quantities.
 - Prod writes ECS JSON (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` in `compose.prod.yaml`); local stays plain text. Micrometer Tracing over OpenTelemetry (`spring-boot-starter-opentelemetry`, sampling 1.0) puts `traceId` and `spanId` on every line and carries the trace through the Kafka headers. Export is off through `management.tracing.export.otlp.enabled: false` and `management.otlp.metrics.export.enabled: false`, never through `management.tracing.export.enabled: false`, which in Spring Boot 4 also removes the propagator (no `traceparent` header, a new trace in the consumer) and hides the text-format correlation prefix; `logging.expect-correlation-id: true` keeps that prefix. Batch use case lines carry a trace id per chunk or item, not per job. Scheduler correlation is not covered by any test.
 
-## Deviations from the starter
+## Security
 
-Four points where Cairn intentionally diverges from the java-starter template. Read as decisions,
-not drift.
+Authentication is session-based WebAuthn, not a bearer token: the passkey ceremony needs
+server-side state to hold the challenge between the registration or assertion options call and its
+verification. The session is stored in PostgreSQL by Spring Session JDBC (tables from changeset
+013), 30 days sliding, in a persistent `SESSION` cookie, so a deploy does not sign everyone out.
 
-1. **Session-based security, not JWT.** The starter is a stateless OAuth2 resource server; Cairn
-   authenticates with WebAuthn, which needs server-side state to hold the challenge between the
-   registration/assertion options call and its verification. Consequence on tests: controller
-   tests use spring-security-test's `user()` post-processor instead of `jwt()`, and carry no
-   `@MockitoBean JwtDecoder`. The session itself is stored in PostgreSQL by Spring Session JDBC
-   (tables from changeset 013, 30 days sliding, persistent `SESSION` cookie), so a deploy no
-   longer signs everyone out.
-2. **CSRF is active**, where the starter disables it. Disabling CSRF is correct for a bearer token
-   carried in a header, which a browser never attaches on its own — but the WebAuthn session is
-   carried by a cookie, which the browser does attach automatically, so CSRF protection stays on.
-3. **`@Tag("external")` tests.** A Maven profile (`external`) and a nightly CI job, absent from
-   the starter, run these tests against the real upstream providers (Yahoo Finance, CoinGecko,
-   Societe Generale Sirius, Amundi). They are the only tests that catch a provider changing its
-   response format; everything else runs against WireMock. A failing contract test is rerun twice
-   before it counts (providers have one-off blips); the nightly then opens or updates one
-   `nightly-external` issue listing the failing tests, and closes it on the next green run.
-4. **`numeric(28,12)` for quantities**, where the starter uses `numeric(19,4)`. A starter-precision
-   column would round a Bitcoin holding's quantity to four decimal places.
+CSRF protection is on, because the session rides a cookie, which the browser attaches on its own
+(`CsrfCookieFilter`, `SpaCsrfTokenRequestHandler`). Only `app.security.permit-all`, set by the
+`local` profile and by `CucumberSpringConfiguration`, switches it off.
+
+`WebAuthnConfig` refuses to boot with the default `CAIRN_PASSWORD` (`app.security.password`)
+outside the `local` profile.
+
+Controller tests authenticate with spring-security-test's `user()` post-processor.
 
 ## Titles
 
@@ -288,6 +282,7 @@ holds. A rollback redeploys an already released commit and mints no version.
   500. `Instrument` now normalises blanks to `null`. Give any new nullable column the same treatment.
 - **A domain invariant throws a `BusinessException`, never an `IllegalArgumentException`**, which the advice
   would not map at all and would surface as a 500. `DataIntegrityViolationException` maps to 409.
+- **Changeset `002-spring-batch-metadata` keeps author `starter`**, the one exception to author `cairn`: changing it would make Liquibase run the changeset again in production.
 - The aggregator declares the Spotless plugin although it holds no Java: `spotless:check` from the root resolves the plugin prefix per project and fails on any project that lacks it.
 - **`cairn-schema` stays a test-scope dependency of the application modules only** — never add it (or `liquibase-core`) to `cairn-domain`/`cairn-adapter`, and never widen its scope past `test`. An application must never be able to migrate the database itself.
 - **Without Docker, `cairn-adapter`'s coverage gate fails under `-DskipITs`**: expected, not a regression — its persistence code is only exercised by `*IT` tests.

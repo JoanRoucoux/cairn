@@ -45,8 +45,8 @@ docker compose run --rm batch --spring.batch.job.name=snapshotJob "run.at=$(date
 ```
 
 `CAIRN_PASSWORD` is required outside the `local` profile: `WebAuthnConfig` refuses to boot with
-its default value once it detects it isn't running with `local` active (see the "Deviations from the
-starter" section of [AGENTS.md](../AGENTS.md)).
+its default value once it detects it isn't running with `local` active (see the "Security" section
+of [AGENTS.md](../AGENTS.md)).
 
 `CAIRN_RP_ID` and `CAIRN_ORIGIN` are optional: `compose.yaml` only forwards them to the container
 when set in the host shell, so leaving them unset lets `cairn-api/application.yml`'s own defaults
