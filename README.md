@@ -104,7 +104,7 @@ Dependency rules:
 | [cairn-web](https://github.com/JoanRoucoux/cairn-web) | Angular 22 frontend |
 | [cairn-ui](https://github.com/JoanRoucoux/cairn-ui) | Design system, published on npm as `@joanroucoux/cairn-ui`, with a [Storybook](https://joanroucoux.github.io/cairn-ui/) |
 
-The host, the shared proxy and the monitoring are managed in a separate, private infrastructure repository.
+The host, the shared proxy and the monitoring are managed in [infra](https://github.com/JoanRoucoux/infra), shared by every application on the server.
 
 ## Tech stack
 
