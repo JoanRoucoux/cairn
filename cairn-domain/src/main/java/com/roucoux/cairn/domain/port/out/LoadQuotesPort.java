@@ -4,15 +4,12 @@ import com.roucoux.cairn.domain.model.Quote;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 public interface LoadQuotesPort {
 
-    Optional<Quote> findLatest(UUID instrumentId);
-
-    Optional<Quote> findPrevious(UUID instrumentId, LocalDate before);
+    Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds);
 
     List<Quote> findBetween(UUID instrumentId, LocalDate from, LocalDate to);
 

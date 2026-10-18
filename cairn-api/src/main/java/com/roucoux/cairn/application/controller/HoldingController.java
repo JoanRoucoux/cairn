@@ -47,8 +47,7 @@ class HoldingController implements HoldingApi {
 
     @Override
     public ResponseEntity<List<HoldingResponse>> listHoldings() {
-        List<HoldingResponse> holdings = loadHoldings.findAll().stream()
-                .flatMap(holding -> valueHolding.value(holding).stream())
+        List<HoldingResponse> holdings = valueHolding.valueAll(loadHoldings.findAll()).stream()
                 .map(mapper::toResponse)
                 .toList();
         return ResponseEntity.ok(holdings);

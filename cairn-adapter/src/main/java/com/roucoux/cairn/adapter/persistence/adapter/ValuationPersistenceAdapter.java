@@ -27,7 +27,7 @@ public class ValuationPersistenceAdapter implements LoadValuationsPort, SaveValu
 
     @Override
     public void upsert(IntradayValuation valuation) {
-        repository.save(IntradayValuationEntity.fromDomain(valuation));
+        repository.upsert(valuation.at(), valuation.totalEur());
     }
 
     @Override

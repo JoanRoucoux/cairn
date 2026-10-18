@@ -36,16 +36,6 @@ public class QuoteEntity {
 
     protected QuoteEntity() {}
 
-    public static QuoteEntity fromDomain(Quote quote) {
-        QuoteEntity entity = new QuoteEntity();
-        entity.id = new QuoteId(quote.instrumentId(), quote.asOf());
-        entity.price = quote.price();
-        entity.currency = quote.currency();
-        entity.source = quote.source();
-        entity.fetchedAt = quote.fetchedAt();
-        return entity;
-    }
-
     public Quote toDomain() {
         return new Quote(id.instrumentId(), id.asOf(), price, currency, source, fetchedAt);
     }

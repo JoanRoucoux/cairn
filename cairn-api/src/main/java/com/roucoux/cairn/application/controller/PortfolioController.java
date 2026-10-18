@@ -106,8 +106,7 @@ class PortfolioController implements PortfolioApi {
 
     @Override
     public ResponseEntity<String> exportPortfolio() {
-        List<HoldingResponse> holdings = loadHoldings.findAll().stream()
-                .flatMap(holding -> valueHolding.value(holding).stream())
+        List<HoldingResponse> holdings = valueHolding.valueAll(loadHoldings.findAll()).stream()
                 .map(holdingMapper::toResponse)
                 .toList();
         String filename = "cairn-" + LocalDate.now(clock) + ".csv";

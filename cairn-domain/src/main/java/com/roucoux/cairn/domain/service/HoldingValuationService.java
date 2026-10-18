@@ -11,7 +11,13 @@ import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class HoldingValuationService implements ValueHoldingUseCase {
 
@@ -33,21 +39,50 @@ public class HoldingValuationService implements ValueHoldingUseCase {
 
     @Override
     public Optional<ValuedHolding> value(Holding holding) {
-        Optional<Instrument> instrument = loadInstruments.findById(holding.instrumentId());
-        Optional<Account> account = loadAccounts.findById(holding.accountId());
-        if (instrument.isEmpty() || account.isEmpty()) {
+        return valueAll(List.of(holding)).stream().findFirst();
+    }
+
+    @Override
+    public List<ValuedHolding> valueAll(List<Holding> holdings) {
+        if (holdings.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, Instrument> instruments =
+                loadInstruments.findAll().stream().collect(Collectors.toMap(Instrument::id, Function.identity()));
+        Map<UUID, Account> accounts =
+                loadAccounts.findAll().stream().collect(Collectors.toMap(Account::id, Function.identity()));
+        Set<UUID> quotedIds = holdings.stream()
+                .map(Holding::instrumentId)
+                .filter(id ->
+                        instruments.containsKey(id) && !instruments.get(id).isPricedAtPar())
+                .collect(Collectors.toSet());
+        Map<UUID, List<Quote>> quotes = quotedIds.isEmpty() ? Map.of() : loadQuotes.findLatestTwo(quotedIds);
+        return holdings.stream()
+                .flatMap(holding -> valued(holding, instruments, accounts, quotes).stream())
+                .toList();
+    }
+
+    private Optional<ValuedHolding> valued(
+            Holding holding,
+            Map<UUID, Instrument> instruments,
+            Map<UUID, Account> accounts,
+            Map<UUID, List<Quote>> quotes) {
+        Instrument instrument = instruments.get(holding.instrumentId());
+        Account account = accounts.get(holding.accountId());
+        if (instrument == null || account == null) {
             return Optional.empty();
         }
-        Instrument valued = instrument.get();
-        if (valued.isPricedAtPar()) {
+        if (instrument.isPricedAtPar()) {
             LocalDate today = LocalDate.now(clock);
-            Quote par = Quote.atPar(valued.id(), valued.currency(), today, clock.instant());
-            Quote previousPar = Quote.atPar(valued.id(), valued.currency(), today.minusDays(1), clock.instant());
+            Quote par = Quote.atPar(instrument.id(), instrument.currency(), today, clock.instant());
+            Quote previousPar =
+                    Quote.atPar(instrument.id(), instrument.currency(), today.minusDays(1), clock.instant());
             return Optional.of(
-                    new ValuedHolding(holding, valued, account.get(), Optional.of(par), Optional.of(previousPar)));
+                    new ValuedHolding(holding, instrument, account, Optional.of(par), Optional.of(previousPar)));
         }
-        Optional<Quote> quote = loadQuotes.findLatest(holding.instrumentId());
-        Optional<Quote> previousQuote = quote.flatMap(q -> loadQuotes.findPrevious(holding.instrumentId(), q.asOf()));
-        return Optional.of(new ValuedHolding(holding, valued, account.get(), quote, previousQuote));
+        List<Quote> latestTwo = quotes.getOrDefault(instrument.id(), List.of());
+        Optional<Quote> latest = latestTwo.stream().findFirst();
+        Optional<Quote> previous = latestTwo.stream().skip(1).findFirst();
+        return Optional.of(new ValuedHolding(holding, instrument, account, latest, previous));
     }
 }

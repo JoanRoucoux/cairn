@@ -29,9 +29,7 @@ public class PortfolioService implements GetPortfolioUseCase {
 
     @Override
     public Portfolio get() {
-        List<ValuedHolding> lines = loadHoldings.findAll().stream()
-                .flatMap(holding -> valueHolding.value(holding).stream())
-                .toList();
+        List<ValuedHolding> lines = valueHolding.valueAll(loadHoldings.findAll());
         List<ValuedHolding> valuedLines =
                 lines.stream().filter(line -> line.marketValue().isPresent()).toList();
 

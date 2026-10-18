@@ -111,6 +111,10 @@ class PortfolioAllocationAgreementTest {
                 holding(SAVINGS, AssetClass.CASH, "1500.10", "1", true),
                 holding(PEA, AssetClass.EQUITY, "4", "0", false));
         when(loadHoldings.findAll()).thenReturn(holdings);
+        when(valueHolding.valueAll(holdings))
+                .thenAnswer(invocation -> holdings.stream()
+                        .flatMap(held -> valueHolding.value(held).stream())
+                        .toList());
 
         JsonNode portfolio = read("/portfolio");
         JsonNode classes = read("/portfolio/allocation/classes");
