@@ -99,7 +99,7 @@ services:
     image: ghcr.io/joanroucoux/cairn-web:${WEB_TAG:?WEB_TAG must be set, e.g. sha-1a2b3c4 or a locally built tag}
 
   caddy:
-    image: caddy:2.11.4-alpine
+    image: caddy:2.11.7-alpine
     environment:
       CAIRN_DOMAIN: http://localhost
     ports:
