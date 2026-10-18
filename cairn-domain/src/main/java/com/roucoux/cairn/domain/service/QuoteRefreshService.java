@@ -8,10 +8,10 @@ import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.AnnounceQuotesUseCase;
+import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
-import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.lang.System.Logger.Level;
 import java.util.ArrayList;
@@ -25,14 +25,14 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
     private final List<FetchQuotePort> fetchers;
     private final LoadInstrumentsPort loadInstruments;
     private final SaveQuotePort saveQuote;
-    private final RecordQuoteFailurePort recordFailure;
+    private final RecordQuoteFailureUseCase recordFailure;
     private final AnnounceQuotesUseCase announce;
 
     public QuoteRefreshService(
             List<FetchQuotePort> fetchers,
             LoadInstrumentsPort loadInstruments,
             SaveQuotePort saveQuote,
-            RecordQuoteFailurePort recordFailure,
+            RecordQuoteFailureUseCase recordFailure,
             AnnounceQuotesUseCase announce) {
         this.fetchers = List.copyOf(fetchers);
         this.loadInstruments = loadInstruments;
@@ -72,9 +72,20 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                         "quote refresh failed for " + instrument.name() + " (" + instrument.priceSource() + "): "
                                 + reason,
                         failure);
-                recordFailure.record(instrument.id(), instrument.priceSource(), reason);
+                try {
+                    recordFailure.record(instrument.id(), instrument.priceSource(), reason);
+                } catch (RuntimeException recordingFailure) {
+                    logRecordingFailure(recordingFailure);
+                }
                 failures.add(new RefreshReport.Failure(
                         instrument.id(), instrument.name(), instrument.priceSource(), reason));
+            }
+        }
+        if (!failures.isEmpty()) {
+            try {
+                recordFailure.purgeExpired();
+            } catch (RuntimeException purgeFailure) {
+                logRecordingFailure(purgeFailure);
             }
         }
         LOG.log(
@@ -83,6 +94,12 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                         .formatted(trigger, assetClasses, refreshed, skipped, failures.size()));
         announce.refreshCompleted(assetClasses, refreshed, failures.size(), trigger);
         return new RefreshReport(refreshed, skipped, List.copyOf(failures));
+    }
+
+    private static void logRecordingFailure(RuntimeException failure) {
+        LOG.log(
+                Level.WARNING,
+                "quote failure bookkeeping failed: " + failure.getClass().getSimpleName());
     }
 
     private static String reasonOf(RuntimeException failure) {

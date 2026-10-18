@@ -17,8 +17,8 @@ changelog, and only then the application. The data lives in the `cairn-local-dat
 With the `local` profile, Swagger UI serves the contract at `http://localhost:8080/swagger-ui.html`.
 Without it, authentication is real and `CAIRN_PASSWORD` must be set.
 
-The batch runs one job, named as `deploy/cairn.cron` names it, and exits. `run.at` makes each run a
-new job instance. The worker also starts Kafka on `localhost:9092`. Each application can run
+The batch runs one job, named as `deploy/cairn.cron` names it, and exits. `run.at` keeps each run
+distinct in the logs. The worker also starts Kafka on `localhost:9092`. Each application can run
 alongside the others:
 
 ```bash

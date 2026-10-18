@@ -34,9 +34,6 @@ spring:
         order_inserts: true
   liquibase:
     contexts: '!demo'
-  batch:
-    jdbc:
-      initialize-schema: never
 
 app:
   zone: Europe/Paris

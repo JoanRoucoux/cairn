@@ -15,6 +15,8 @@ import org.springframework.data.domain.Persistable;
 @Table(name = "quote_failures")
 public class QuoteFailureEntity implements Persistable<UUID> {
 
+    private static final int MESSAGE_LENGTH = 500;
+
     @Id
     private UUID id;
 
@@ -28,7 +30,7 @@ public class QuoteFailureEntity implements Persistable<UUID> {
     @Enumerated(EnumType.STRING)
     private PriceSource source;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false, length = MESSAGE_LENGTH)
     private String message;
 
     protected QuoteFailureEntity() {}
@@ -39,7 +41,7 @@ public class QuoteFailureEntity implements Persistable<UUID> {
         entity.instrumentId = instrumentId;
         entity.occurredAt = Instant.now();
         entity.source = source;
-        entity.message = message;
+        entity.message = message.length() > MESSAGE_LENGTH ? message.substring(0, MESSAGE_LENGTH) : message;
         return entity;
     }
 

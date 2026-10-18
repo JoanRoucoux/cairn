@@ -28,7 +28,7 @@ public class AccountEntity {
     @Column(nullable = false, length = 80)
     private String institution;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     protected AccountEntity() {}
