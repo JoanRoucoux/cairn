@@ -49,9 +49,37 @@ class QuotePersistenceAdapterIT {
 
         quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("690.00")));
 
-        assertThat(quotes.findLatest(instrumentId).orElseThrow().price()).isEqualByComparingTo("690.00");
+        assertThat(latestTwo(instrumentId).get(0).price()).isEqualByComparingTo("690.00");
         assertThat(quotes.findBetween(instrumentId, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31)))
                 .hasSize(1);
+    }
+
+    @Test
+    void replacesEveryColumnOfAnExistingQuote() {
+        UUID instrumentId = givenAnInstrument();
+        LocalDate day = LocalDate.of(2026, 8, 21);
+        quotes.upsert(new Quote(
+                instrumentId,
+                day,
+                new BigDecimal("1.00"),
+                "EUR",
+                PriceSource.YAHOO,
+                Instant.parse("2026-08-21T10:00:00Z")));
+
+        quotes.upsert(new Quote(
+                instrumentId,
+                day,
+                new BigDecimal("2.50"),
+                "USD",
+                PriceSource.MANUAL,
+                Instant.parse("2026-08-22T11:30:00Z")));
+
+        assertThat(latestTwo(instrumentId)).singleElement().satisfies(stored -> {
+            assertThat(stored.price()).isEqualByComparingTo("2.50");
+            assertThat(stored.currency()).isEqualTo("USD");
+            assertThat(stored.source()).isEqualTo(PriceSource.MANUAL);
+            assertThat(stored.fetchedAt()).isEqualTo(Instant.parse("2026-08-22T11:30:00Z"));
+        });
     }
 
     @Test
@@ -61,7 +89,7 @@ class QuotePersistenceAdapterIT {
                 quote(instrumentId, LocalDate.of(2026, 8, 20), new BigDecimal("690.81")),
                 quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("686.31"))));
 
-        assertThat(quotes.findLatest(instrumentId).orElseThrow().asOf()).isEqualTo(LocalDate.of(2026, 8, 21));
+        assertThat(latestTwo(instrumentId).get(0).asOf()).isEqualTo(LocalDate.of(2026, 8, 21));
     }
 
     @Test
@@ -71,10 +99,7 @@ class QuotePersistenceAdapterIT {
                 quote(instrumentId, LocalDate.of(2026, 8, 20), new BigDecimal("690.81")),
                 quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("686.31"))));
 
-        assertThat(quotes.findPrevious(instrumentId, LocalDate.of(2026, 8, 21))
-                        .orElseThrow()
-                        .price())
-                .isEqualByComparingTo("690.81");
+        assertThat(latestTwo(instrumentId).get(1).price()).isEqualByComparingTo("690.81");
     }
 
     @Test
@@ -82,7 +107,7 @@ class QuotePersistenceAdapterIT {
         UUID instrumentId = givenAnInstrument();
         quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("33.306900")));
 
-        assertThat(quotes.findLatest(instrumentId).orElseThrow().price()).isEqualByComparingTo("33.3069");
+        assertThat(latestTwo(instrumentId).get(0).price()).isEqualByComparingTo("33.3069");
     }
 
     @Test
@@ -102,6 +127,49 @@ class QuotePersistenceAdapterIT {
         assertThat(latest).containsOnlyKeys(fund, etf);
         assertThat(latest.get(fund).asOf()).isEqualTo(LocalDate.of(2026, 9, 18));
         assertThat(latest.get(etf).price()).isEqualByComparingTo("703.73");
+    }
+
+    @Test
+    void readsForEachInstrumentItsTwoLatestQuotesNewestFirst() {
+        UUID fund = givenAnInstrument();
+        UUID etf = givenAnInstrument();
+        UUID young = givenAnInstrument();
+        UUID untouched = givenAnInstrument();
+        quotes.upsertAll(List.of(
+                quote(fund, LocalDate.of(2026, 9, 11), new BigDecimal("60.10")),
+                quote(fund, LocalDate.of(2026, 9, 18), new BigDecimal("60.39")),
+                quote(fund, LocalDate.of(2026, 9, 17), new BigDecimal("60.20")),
+                quote(etf, LocalDate.of(2026, 9, 23), new BigDecimal("705.00")),
+                quote(young, LocalDate.of(2026, 9, 23), new BigDecimal("10.00"))));
+
+        Map<UUID, List<Quote>> latestTwo = quotes.findLatestTwo(Set.of(fund, etf, young, untouched));
+
+        assertThat(latestTwo).containsOnlyKeys(fund, etf, young);
+        assertThat(latestTwo.get(fund))
+                .extracting(Quote::asOf)
+                .containsExactly(LocalDate.of(2026, 9, 18), LocalDate.of(2026, 9, 17));
+        assertThat(latestTwo.get(etf)).hasSize(1);
+        assertThat(latestTwo.get(young)).hasSize(1);
+    }
+
+    @Test
+    void readsNoLatestTwoForNoInstrument() {
+        assertThat(quotes.findLatestTwo(Set.of())).isEmpty();
+    }
+
+    @Test
+    void upsertsABatchWithoutDuplicatingExistingDays() {
+        UUID instrumentId = givenAnInstrument();
+        quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 20), new BigDecimal("1.00")));
+
+        quotes.upsertAll(List.of(
+                quote(instrumentId, LocalDate.of(2026, 8, 20), new BigDecimal("2.00")),
+                quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("3.00"))));
+
+        assertThat(quotes.findBetween(instrumentId, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31)))
+                .extracting(Quote::price)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("2.00"), new BigDecimal("3.00"));
     }
 
     @Test
@@ -128,6 +196,10 @@ class QuotePersistenceAdapterIT {
     @Test
     void readsNoFirstQuoteDateForNoInstrument() {
         assertThat(quotes.findFirstQuoteDates(Set.of())).isEmpty();
+    }
+
+    private List<Quote> latestTwo(UUID instrumentId) {
+        return quotes.findLatestTwo(Set.of(instrumentId)).get(instrumentId);
     }
 
     private UUID givenAnInstrument() {

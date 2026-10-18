@@ -46,6 +46,18 @@ class ValuationPersistenceAdapterIT {
     }
 
     @Test
+    void replacesTheTotalOfAnExistingPoint() {
+        Instant at = Instant.parse("2026-09-24T13:48:00Z");
+        valuations.upsert(new IntradayValuation(at, new BigDecimal("1.0000")));
+
+        valuations.upsert(new IntradayValuation(at, new BigDecimal("2.5000")));
+
+        assertThat(valuations.findBetween(at, at.plus(Duration.ofMinutes(1))))
+                .singleElement()
+                .satisfies(point -> assertThat(point.totalEur()).isEqualByComparingTo("2.5"));
+    }
+
+    @Test
     void findsPointsSortedAscendingWithFromIncludedAndToExcluded() {
         Instant first = Instant.parse("2026-09-24T13:45:00Z");
         Instant second = Instant.parse("2026-09-24T13:46:00Z");

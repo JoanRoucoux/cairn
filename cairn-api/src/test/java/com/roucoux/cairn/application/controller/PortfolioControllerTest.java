@@ -249,7 +249,7 @@ class PortfolioControllerTest {
         Holding holding = new Holding(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10"), null, Instant.EPOCH);
         when(loadHoldings.findAll()).thenReturn(List.of(holding));
-        when(valueHolding.value(holding)).thenReturn(Optional.of(aValuedHolding(holding)));
+        when(valueHolding.valueAll(List.of(holding))).thenReturn(List.of(aValuedHolding(holding)));
 
         mockMvc.perform(get("/portfolio/export").with(user("alex")))
                 .andExpect(status().isOk())

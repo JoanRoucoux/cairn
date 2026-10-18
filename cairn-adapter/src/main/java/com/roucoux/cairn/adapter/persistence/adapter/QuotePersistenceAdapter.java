@@ -8,11 +8,11 @@ import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
@@ -24,17 +24,13 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
     }
 
     @Override
-    public Optional<Quote> findLatest(UUID instrumentId) {
-        return repository
-                .findFirstByIdInstrumentIdOrderByIdAsOfDesc(instrumentId)
-                .map(QuoteEntity::toDomain);
-    }
-
-    @Override
-    public Optional<Quote> findPrevious(UUID instrumentId, LocalDate before) {
-        return repository
-                .findFirstByIdInstrumentIdAndIdAsOfLessThanOrderByIdAsOfDesc(instrumentId, before)
-                .map(QuoteEntity::toDomain);
+    public Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds) {
+        if (instrumentIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findLatestTwo(instrumentIds).stream()
+                .map(QuoteEntity::toDomain)
+                .collect(Collectors.groupingBy(Quote::instrumentId));
     }
 
     @Override
@@ -72,11 +68,18 @@ public class QuotePersistenceAdapter implements LoadQuotesPort, SaveQuotePort {
 
     @Override
     public void upsert(Quote quote) {
-        repository.save(QuoteEntity.fromDomain(quote));
+        repository.upsert(
+                quote.instrumentId(),
+                quote.asOf(),
+                quote.price(),
+                quote.currency(),
+                quote.source().name(),
+                quote.fetchedAt());
     }
 
     @Override
+    @Transactional
     public void upsertAll(List<Quote> quotes) {
-        repository.saveAllAndFlush(quotes.stream().map(QuoteEntity::fromDomain).toList());
+        quotes.forEach(this::upsert);
     }
 }

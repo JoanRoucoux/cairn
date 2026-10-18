@@ -244,14 +244,10 @@ class HistoryServiceTest {
             }
         };
         LoadQuotesPort loadQuotes = new LoadQuotesPort() {
-            @Override
-            public Optional<Quote> findLatest(UUID instrumentId) {
-                return Optional.empty();
-            }
 
             @Override
-            public Optional<Quote> findPrevious(UUID instrumentId, LocalDate before) {
-                return Optional.empty();
+            public Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds) {
+                return Map.of();
             }
 
             @Override
@@ -340,14 +336,10 @@ class HistoryServiceTest {
             }
         };
         LoadQuotesPort loadQuotes = new LoadQuotesPort() {
-            @Override
-            public Optional<Quote> findLatest(UUID instrumentId) {
-                return Optional.empty();
-            }
 
             @Override
-            public Optional<Quote> findPrevious(UUID instrumentId, LocalDate before) {
-                return Optional.empty();
+            public Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds) {
+                return Map.of();
             }
 
             @Override

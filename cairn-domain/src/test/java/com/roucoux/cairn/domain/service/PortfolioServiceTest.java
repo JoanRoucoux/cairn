@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class PortfolioServiceTest {
@@ -240,16 +241,16 @@ class PortfolioServiceTest {
             }
         };
         LoadQuotesPort loadQuotes = new LoadQuotesPort() {
-            @Override
-            public Optional<Quote> findLatest(UUID instrumentId) {
-                return quotes.stream()
-                        .filter(quote -> quote.instrumentId().equals(instrumentId))
-                        .findFirst();
-            }
 
             @Override
-            public Optional<Quote> findPrevious(UUID instrumentId, LocalDate before) {
-                return Optional.empty();
+            public Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds) {
+                return instrumentIds.stream()
+                        .collect(Collectors.toMap(
+                                id -> id,
+                                id -> quotes.stream()
+                                        .filter(quote -> quote.instrumentId().equals(id))
+                                        .limit(1)
+                                        .toList()));
             }
 
             @Override

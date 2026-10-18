@@ -388,17 +388,20 @@ class PerformanceServiceTest {
                 }
             };
             LoadQuotesPort loadQuotes = new LoadQuotesPort() {
-                @Override
-                public Optional<Quote> findLatest(UUID instrumentId) {
-                    return history.getOrDefault(instrumentId, List.of()).stream()
-                            .max(Comparator.comparing(Quote::asOf));
-                }
 
                 @Override
-                public Optional<Quote> findPrevious(UUID instrumentId, LocalDate before) {
-                    return history.getOrDefault(instrumentId, List.of()).stream()
-                            .filter(q -> q.asOf().isBefore(before))
-                            .max(Comparator.comparing(Quote::asOf));
+                public Map<UUID, List<Quote>> findLatestTwo(Set<UUID> instrumentIds) {
+                    Map<UUID, List<Quote>> result = new LinkedHashMap<>();
+                    for (UUID id : instrumentIds) {
+                        result.put(
+                                id,
+                                history.getOrDefault(id, List.of()).stream()
+                                        .sorted(Comparator.comparing(Quote::asOf)
+                                                .reversed())
+                                        .limit(2)
+                                        .toList());
+                    }
+                    return result;
                 }
 
                 @Override

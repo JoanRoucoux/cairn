@@ -6,10 +6,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "snapshot_breakdowns")
-public class SnapshotBreakdownEntity {
+public class SnapshotBreakdownEntity implements Persistable<SnapshotBreakdownId> {
 
     public static final String ACCOUNT_TYPE = "ACCOUNT_TYPE";
     public static final String ASSET_CLASS = "ASSET_CLASS";
@@ -27,5 +28,15 @@ public class SnapshotBreakdownEntity {
         entity.id = new SnapshotBreakdownId(asOf, dimension, key);
         entity.valueEur = valueEur;
         return entity;
+    }
+
+    @Override
+    public SnapshotBreakdownId getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return true;
     }
 }

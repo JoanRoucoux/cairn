@@ -60,7 +60,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-app}
-    mem_limit: 384m
+    mem_limit: 512m
     depends_on:
       postgres:
         condition: service_healthy

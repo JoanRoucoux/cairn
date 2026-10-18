@@ -21,13 +21,6 @@ public class IntradayValuationEntity {
 
     protected IntradayValuationEntity() {}
 
-    public static IntradayValuationEntity fromDomain(IntradayValuation valuation) {
-        IntradayValuationEntity entity = new IntradayValuationEntity();
-        entity.at = valuation.at();
-        entity.totalEur = valuation.totalEur();
-        return entity;
-    }
-
     public IntradayValuation toDomain() {
         return new IntradayValuation(at, totalEur);
     }

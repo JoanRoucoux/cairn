@@ -9,10 +9,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "quote_failures")
-public class QuoteFailureEntity {
+public class QuoteFailureEntity implements Persistable<UUID> {
 
     @Id
     private UUID id;
@@ -40,5 +41,15 @@ public class QuoteFailureEntity {
         entity.source = source;
         entity.message = message;
         return entity;
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return true;
     }
 }

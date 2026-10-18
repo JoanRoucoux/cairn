@@ -140,7 +140,7 @@ class HoldingControllerTest {
     @Test
     void listsHoldingsWithTheirFullValuation() throws Exception {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
-        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHolding(A_HOLDING)));
+        when(valueHolding.valueAll(List.of(A_HOLDING))).thenReturn(List.of(aValuedHolding(A_HOLDING)));
 
         mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
@@ -159,7 +159,7 @@ class HoldingControllerTest {
         Holding held = new Holding(
                 HOLDING_ID, ACCOUNT_ID, INSTRUMENT_ID, BigDecimal.TEN, new BigDecimal("100"), Instant.EPOCH);
         when(loadHoldings.findAll()).thenReturn(List.of(held));
-        when(valueHolding.value(held)).thenReturn(Optional.of(aQuotedHolding(held, "EUR")));
+        when(valueHolding.valueAll(List.of(held))).thenReturn(List.of(aQuotedHolding(held, "EUR")));
 
         mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
@@ -173,7 +173,7 @@ class HoldingControllerTest {
     @Test
     void listsAHoldingWithNoQuoteYetWithANullPrice() throws Exception {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
-        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.of(aValuedHoldingWithoutQuote(A_HOLDING)));
+        when(valueHolding.valueAll(List.of(A_HOLDING))).thenReturn(List.of(aValuedHoldingWithoutQuote(A_HOLDING)));
 
         mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
@@ -185,7 +185,7 @@ class HoldingControllerTest {
     @Test
     void omitsAHoldingThatCannotBeValuedFromTheList() throws Exception {
         when(loadHoldings.findAll()).thenReturn(List.of(A_HOLDING));
-        when(valueHolding.value(A_HOLDING)).thenReturn(Optional.empty());
+        when(valueHolding.valueAll(List.of(A_HOLDING))).thenReturn(List.of());
 
         mockMvc.perform(get("/holdings").with(user("alex")))
                 .andExpect(status().isOk())
