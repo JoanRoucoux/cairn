@@ -24,7 +24,6 @@
     <cairn-schema.version>0.1.0-SNAPSHOT</cairn-schema.version>
 
     <archunit.version>1.5.1</archunit.version>
-    <wiremock.version>3.13.2</wiremock.version>
     <testcontainers.version>1.21.4</testcontainers.version>
     <cucumber.version>7.34.9</cucumber.version>
 
@@ -117,12 +116,6 @@
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit</artifactId>
       <version>${archunit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.wiremock</groupId>
-      <artifactId>wiremock-standalone</artifactId>
-      <version>${wiremock.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>

@@ -8,7 +8,7 @@
   <packaging>pom</packaging>
   <name>cairn-aggregator</name>
   <description>Builds every module in one reactor. Deliberately NOT a parent: no module inherits
-    from it, so any module can be extracted into its own repository as-is.</description>
+    from it.</description>
 
   <modules>
     <module>cairn-domain</module>
@@ -40,7 +40,7 @@
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <version>[21,)</version>
+                  <version>[25,)</version>
                 </requireJavaVersion>
                 <requireMavenVersion>
                   <version>[3.9,)</version>
