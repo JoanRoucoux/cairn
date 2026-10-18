@@ -1,6 +1,13 @@
 {$CAIRN_DOMAIN} {
 	encode zstd gzip
 
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
 	handle_path /api/* {
 		reverse_proxy api:8080
 	}
