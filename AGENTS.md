@@ -118,6 +118,12 @@ rejects an inbound port implemented outside `..domain.service..`, and a wrapper 
 was the first shape tried for the import. The corresponding controller depends on the wrapper class,
 not on the port, so the transaction cannot be bypassed by accident.
 
+The import use case has two steps so no connection is held during HTTP: `prepare` validates the rows
+and resolves the unknown references through the price-source resolvers, and writes nothing; `apply` takes the
+resulting `ImportPlan`, validates again against the database without resolving, and performs every
+write. `PortfolioImportTransaction` calls `prepare` outside any transaction and opens one (a
+`TransactionTemplate`, not `@Transactional`) only around `apply`.
+
 Validation happens twice on purpose: `PortfolioCsvReader` checks shape, types and enums, the domain
 checks business rules. Both refuse with **every** offending row, never just the first, and both
 leave the database untouched. The reader throws `ImportFileRejectedException`, whose errors already

@@ -14,6 +14,7 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
+import com.roucoux.cairn.domain.model.ImportPlan;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -47,7 +49,7 @@ class PortfolioImportServiceTest {
     void createsTheAccountTheInstrumentAndTheHoldingWhenNothingExistsYet() {
         PortfolioImportService service = serviceResolvingTo(aCandidate());
 
-        ImportReport report = service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        ImportReport report = run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
 
         assertThat(report.accountsCreated()).isEqualTo(1);
         assertThat(report.instrumentsCreated()).isEqualTo(1);
@@ -66,7 +68,7 @@ class PortfolioImportServiceTest {
         PortfolioImportService service = serviceResolvingTo(
                 aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.DE", "EUR"), aCandidateIn("GGT.AS", "EUR"));
 
-        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
 
         assertThat(instruments).singleElement().satisfies(instrument -> {
             assertThat(instrument.sourceRef()).isEqualTo("GGT.DE");
@@ -78,7 +80,7 @@ class PortfolioImportServiceTest {
     void fallsBackToAnUnknownCurrencyListingWhenNoneIsEuro() {
         PortfolioImportService service = serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.X", null));
 
-        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
 
         assertThat(instruments).singleElement().satisfies(instrument -> {
             assertThat(instrument.sourceRef()).isEqualTo("GGT.X");
@@ -91,7 +93,7 @@ class PortfolioImportServiceTest {
         PortfolioImportService service =
                 serviceResolvingTo(aCandidateIn("GGT.L", "USD"), aCandidateIn("GGT.SW", "CHF"));
 
-        assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20")))))
+        assertThatThrownBy(() -> run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20")))))
                 .isInstanceOf(PortfolioImportRejectedException.class)
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
                 .extracting(PortfolioImportRejectedException::errors)
@@ -104,9 +106,9 @@ class PortfolioImportServiceTest {
     @Test
     void updatesTheHoldingInPlaceWhenTheSameFileIsReplayed() {
         PortfolioImportService service = serviceResolvingTo(aCandidate());
-        service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
 
-        ImportReport report = service.importPortfolio(List.of(aRow(new BigDecimal("120"), new BigDecimal("21"))));
+        ImportReport report = run(service, List.of(aRow(new BigDecimal("120"), new BigDecimal("21"))));
 
         assertThat(report.holdingsCreated()).isZero();
         assertThat(report.holdingsUpdated()).isEqualTo(1);
@@ -126,8 +128,11 @@ class PortfolioImportServiceTest {
             throw new UnknownInstrumentException(query);
         });
 
-        assertThatThrownBy(() -> service.importPortfolio(List.of(
-                        aRow(BigDecimal.ZERO, new BigDecimal("20")), rowFor("UNKNOWN-TICKER", new BigDecimal("5")))))
+        assertThatThrownBy(() -> run(
+                        service,
+                        List.of(
+                                aRow(BigDecimal.ZERO, new BigDecimal("20")),
+                                rowFor("UNKNOWN-TICKER", new BigDecimal("5")))))
                 .isInstanceOf(PortfolioImportRejectedException.class)
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
                 .extracting(PortfolioImportRejectedException::errors)
@@ -154,7 +159,7 @@ class PortfolioImportServiceTest {
                 BigDecimal.TEN,
                 null);
 
-        assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(BigDecimal.ZERO, null), savingsLine)))
+        assertThatThrownBy(() -> run(service, List.of(aRow(BigDecimal.ZERO, null), savingsLine)))
                 .isInstanceOf(PortfolioImportRejectedException.class)
                 .asInstanceOf(type(PortfolioImportRejectedException.class))
                 .extracting(PortfolioImportRejectedException::errors)
@@ -182,8 +187,7 @@ class PortfolioImportServiceTest {
                 BigDecimal.TEN,
                 null);
 
-        assertThatThrownBy(() -> service.importPortfolio(List.of(row)))
-                .isInstanceOf(PortfolioImportRejectedException.class);
+        assertThatThrownBy(() -> run(service, List.of(row))).isInstanceOf(PortfolioImportRejectedException.class);
         assertThat(holdings).isEmpty();
     }
 
@@ -195,7 +199,7 @@ class PortfolioImportServiceTest {
         ImportRow row = new ImportRow(
                 "Livret A", AccountType.SAVINGS, "Woodgrove Bank", "Euros", "EUR", new BigDecimal("500"), null);
 
-        ImportReport report = service.importPortfolio(List.of(row));
+        ImportReport report = run(service, List.of(row));
 
         assertThat(report.holdingsCreated()).isEqualTo(1);
         assertThat(report.instrumentsCreated()).isZero();
@@ -213,7 +217,7 @@ class PortfolioImportServiceTest {
         ImportRow row = new ImportRow(
                 "Livret A", AccountType.SAVINGS, "Woodgrove Bank", "Euros", "EUR", new BigDecimal("500"), null);
 
-        ImportReport report = service.importPortfolio(List.of(row));
+        ImportReport report = run(service, List.of(row));
 
         assertThat(report.instrumentsCreated()).isEqualTo(1);
         assertThat(instruments).singleElement().satisfies(instrument -> {
@@ -248,7 +252,7 @@ class PortfolioImportServiceTest {
         accounts.add(account);
         holdings.add(new Holding(UUID.randomUUID(), account.id(), amundi.id(), BigDecimal.ONE, null, Instant.EPOCH));
 
-        ImportReport report = serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+        ImportReport report = run(serviceResolvingTo(), List.of(aRow(new BigDecimal("5"), null)));
 
         assertThat(report.holdingsUpdated()).isEqualTo(1);
         assertThat(holdings)
@@ -262,7 +266,7 @@ class PortfolioImportServiceTest {
         titleOnIsin(PriceSource.YAHOO, "NWI.L", "USD");
         Instrument yahooEur = titleOnIsin(PriceSource.YAHOO, "NWI.PA", "EUR");
 
-        serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+        run(serviceResolvingTo(), List.of(aRow(new BigDecimal("5"), null)));
 
         assertThat(holdings)
                 .singleElement()
@@ -274,11 +278,59 @@ class PortfolioImportServiceTest {
         titleOnIsin(PriceSource.YAHOO, "NWI.SW", "CHF");
         Instrument first = titleOnIsin(PriceSource.YAHOO, "NWI.L", "USD");
 
-        serviceResolvingTo().importPortfolio(List.of(aRow(new BigDecimal("5"), null)));
+        run(serviceResolvingTo(), List.of(aRow(new BigDecimal("5"), null)));
 
         assertThat(holdings)
                 .singleElement()
                 .satisfies(holding -> assertThat(holding.instrumentId()).isEqualTo(first.id()));
+    }
+
+    @Test
+    void preparingResolvesTheUnknownReferencesAndWritesNothing() {
+        List<String> resolved = new ArrayList<>();
+        PortfolioImportService service = serviceResolving(query -> {
+            resolved.add(query);
+            return List.of(aCandidate());
+        });
+
+        ImportPlan plan = service.prepare(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+
+        assertThat(resolved).containsExactly("LU0000000001");
+        assertThat(plan.candidates()).containsOnlyKeys("LU0000000001");
+        assertThat(accounts).isEmpty();
+        assertThat(instruments).isEmpty();
+        assertThat(holdings).isEmpty();
+    }
+
+    @Test
+    void applyingNeverResolvesAgain() {
+        List<String> resolved = new ArrayList<>();
+        PortfolioImportService service = serviceResolving(query -> {
+            resolved.add(query);
+            return List.of(aCandidate());
+        });
+        ImportPlan plan = service.prepare(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        resolved.clear();
+
+        service.apply(plan);
+
+        assertThat(resolved).isEmpty();
+        assertThat(holdings).hasSize(1);
+    }
+
+    @Test
+    void applyingRefusesAReferenceThatHasNoCandidate() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportPlan plan = new ImportPlan(List.of(rowFor("OTHER", new BigDecimal("5"))), Map.of());
+
+        assertThatThrownBy(() -> service.apply(plan))
+                .isInstanceOf(PortfolioImportRejectedException.class)
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .extracting(ImportError::code)
+                .containsExactly(ImportErrorCode.UNRESOLVED_INSTRUMENT);
+        assertThat(holdings).isEmpty();
     }
 
     private PortfolioImportService serviceResolvingTo(InstrumentCandidate... candidates) {
@@ -374,6 +426,53 @@ class PortfolioImportServiceTest {
                 CLOCK);
     }
 
+    private static ImportReport run(PortfolioImportService service, List<ImportRow> rows) {
+        return service.apply(service.prepare(rows));
+    }
+
+    @Test
+    void applyingReusesAnInstrumentAddedAfterPreparing() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportPlan plan = service.prepare(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        Instrument added = new Instrument(
+                UUID.randomUUID(),
+                "Global Growth Tracker",
+                "LU0000000001",
+                "GGT",
+                "EUR",
+                AssetClass.ETF,
+                PriceSource.YAHOO,
+                "GGT.PA",
+                null);
+        instruments.add(added);
+
+        ImportReport report = service.apply(plan);
+
+        assertThat(report.instrumentsCreated()).isZero();
+        assertThat(instruments).containsExactly(added);
+        assertThat(holdings)
+                .singleElement()
+                .satisfies(holding -> assertThat(holding.instrumentId()).isEqualTo(added.id()));
+    }
+
+    @Test
+    void applyingRefusesASavingsAccountAddedAfterPreparingAndWritesNothing() {
+        PortfolioImportService service = serviceResolvingTo(aCandidate());
+        ImportPlan plan = service.prepare(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+        accounts.add(new Account(UUID.randomUUID(), "Sample Broker", AccountType.SAVINGS, "Sample Bank"));
+
+        assertThatThrownBy(() -> service.apply(plan))
+                .isInstanceOf(PortfolioImportRejectedException.class)
+                .asInstanceOf(type(PortfolioImportRejectedException.class))
+                .extracting(PortfolioImportRejectedException::errors)
+                .asInstanceOf(list(ImportError.class))
+                .extracting(ImportError::code)
+                .containsExactly(ImportErrorCode.SAVINGS_ACCOUNT_LINE);
+        assertThat(accounts).hasSize(1);
+        assertThat(instruments).isEmpty();
+        assertThat(holdings).isEmpty();
+    }
+
     private static ImportRow aRow(BigDecimal quantity, BigDecimal averageCost) {
         return new ImportRow(
                 "Sample Broker",
@@ -421,7 +520,7 @@ class PortfolioImportServiceTest {
         PortfolioImportService service = serviceResolvingTo(aCandidate());
 
         try (CapturedLog log = CapturedLog.of(PortfolioImportService.class)) {
-            service.importPortfolio(List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
+            run(service, List.of(aRow(new BigDecimal("100"), new BigDecimal("20"))));
 
             assertThat(log.records()).singleElement().satisfies(record -> {
                 assertThat(record.getLevel()).isEqualTo(java.util.logging.Level.INFO);
@@ -438,7 +537,7 @@ class PortfolioImportServiceTest {
         PortfolioImportService service = serviceResolvingTo(aCandidate());
 
         try (CapturedLog log = CapturedLog.of(PortfolioImportService.class)) {
-            assertThatThrownBy(() -> service.importPortfolio(List.of(aRow(BigDecimal.ZERO, new BigDecimal("20")))))
+            assertThatThrownBy(() -> run(service, List.of(aRow(BigDecimal.ZERO, new BigDecimal("20")))))
                     .isInstanceOf(PortfolioImportRejectedException.class);
 
             assertThat(log.records()).singleElement().satisfies(record -> {
