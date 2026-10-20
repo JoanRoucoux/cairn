@@ -25,7 +25,7 @@ public class HoldingEntity {
     @Column(nullable = false, precision = 28, scale = 12)
     private BigDecimal quantity;
 
-    @Column(name = "average_cost", precision = 19, scale = 6)
+    @Column(name = "average_cost", precision = 28, scale = 12)
     private BigDecimal averageCost;
 
     @Column(name = "updated_at", nullable = false)

@@ -327,7 +327,7 @@ class HoldingControllerTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 new BigDecimal("540"),
-                new BigDecimal("24.488889"),
+                new BigDecimal("24.488888888889"),
                 Instant.EPOCH);
         when(manageHolding.buy(id, new BigDecimal("40"), new BigDecimal("29.10")))
                 .thenReturn(bought);

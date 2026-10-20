@@ -12,7 +12,7 @@ import java.util.UUID;
 public record Holding(
         UUID id, UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal averageCost, Instant updatedAt) {
 
-    private static final int AVERAGE_COST_SCALE = 6;
+    private static final int AVERAGE_COST_SCALE = 12;
 
     public Holding {
         Objects.requireNonNull(id, "id");

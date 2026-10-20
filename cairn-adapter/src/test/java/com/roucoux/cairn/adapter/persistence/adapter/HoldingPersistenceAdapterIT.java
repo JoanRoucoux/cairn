@@ -79,6 +79,34 @@ class HoldingPersistenceAdapterIT {
     }
 
     @Test
+    void keepsTwelveDecimalsAndHugeValuesOfAverageCost() {
+        Account account =
+                accounts.save(new Account(UUID.randomUUID(), "Contoso Wallet", AccountType.CRYPTO, "Contoso"));
+        Account other =
+                accounts.save(new Account(UUID.randomUUID(), "Woodgrove Wallet", AccountType.CRYPTO, "Woodgrove"));
+        Instrument token = instruments.save(new Instrument(
+                UUID.randomUUID(), "Token", null, "EUR", AssetClass.CRYPTO, PriceSource.COINGECKO, "token", null));
+        Holding small = holdings.save(new Holding(
+                UUID.randomUUID(),
+                account.id(),
+                token.id(),
+                BigDecimal.ONE,
+                new BigDecimal("0.000012345678"),
+                Instant.EPOCH));
+        Holding huge = holdings.save(new Holding(
+                UUID.randomUUID(),
+                other.id(),
+                token.id(),
+                BigDecimal.ONE,
+                new BigDecimal("12345678901234.123456789012"),
+                Instant.EPOCH));
+
+        assertThat(holdings.findById(small.id()).orElseThrow().averageCost()).isEqualByComparingTo("0.000012345678");
+        assertThat(holdings.findById(huge.id()).orElseThrow().averageCost())
+                .isEqualByComparingTo("12345678901234.123456789012");
+    }
+
+    @Test
     void findsAHoldingByAccountAndInstrument() {
         Holding saved = givenAHoldingOf(new BigDecimal("4"));
 
