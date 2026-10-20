@@ -44,7 +44,7 @@ The data shown is fictional.
 - **Holdings**: add a line (an existing title, a new one searched per price source, or priced by hand), buy and sell, cash balance per account, manual quotes. A title lives only while a line holds it.
 - **Instrument search**: `GET /instruments/search` queries one price source at a time (Yahoo Finance, CoinGecko, Amundi). There is no title management endpoint.
 - **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
-- **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
+- **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock, at minutes 7, 22, 37 and 52) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
 - **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.
 - **Telegram summary** on weekdays at 19:45 Paris time: net worth, day change and each envelope's change.
 - **Passkeys** (WebAuthn) with a password fallback, sessions stored in PostgreSQL.
