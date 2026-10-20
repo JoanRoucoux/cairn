@@ -14,6 +14,16 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: core
+            modules: '!cairn-api,!cairn-batch,!cairn-kafka'
+          - part: api
+            modules: cairn-api
+          - part: workers
+            modules: cairn-batch,cairn-kafka
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,10 +36,19 @@ jobs:
           cache: maven
 
       - name: Check formatting
+        if: matrix.part == 'core'
         run: ./mvnw -ntp -B spotless:check
 
+      - name: Install the modules this part depends on
+        if: matrix.part != 'core'
+        env:
+          MODULES: ${{ matrix.modules }}
+        run: ./mvnw -ntp -B install -pl "$MODULES" -am -DskipTests
+
       - name: Verify
-        run: ./mvnw -ntp -B verify
+        env:
+          MODULES: ${{ matrix.modules }}
+        run: ./mvnw -ntp -B verify -pl "$MODULES"
 
   docker:
     if: github.event_name == 'pull_request'
