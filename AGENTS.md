@@ -224,14 +224,16 @@ makes every application run `up`, because Spring skips it when any service of th
 running, which would leave the worker without Kafka whenever the API started first. `start-only`
 keeps one application's exit from stopping the database another one is still using.
 
-**Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml`,
-builds `api`, `schema`, `batch` and `kafka`, pushes them to GHCR as `sha-` followed by the commit's
-first 7 characters, ships `compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh`
-and `deploy/cairn.cron` to the server, reloads the shared proxy rather than restarting it so the
+**Deploying.** `.github/workflows/deploy.yml` runs on every push to `main`: it calls `ci.yml` and,
+side by side with it, builds `api`, `schema`, `batch` and `kafka` and pushes them to GHCR as `sha-`
+followed by the commit's first 7 characters. Once both are green, the deploy job ships
+`compose.prod.yaml`, `cairn.caddy`, `deploy/deploy.sh`, `deploy/run-batch.sh` and
+`deploy/cairn.cron` to the server, reloads the shared proxy rather than restarting it so the
 other sites keep serving, applies the Liquibase changelog on its own before anything
 starts, then brings up `postgres`, `kafka`, `worker` and `api` and waits for `/api/actuator/health`. Rolling back is
 running the workflow by hand with the full SHA of an earlier commit: it checks that the images
-exist, then deploys that commit's files and images without building. A running deploy is never
+exist and that the `ci / ci` check passed on that commit, then deploys that commit's files and
+images without building. A running deploy is never
 cancelled; GitHub keeps only the newest pending run in the `deploy` concurrency group, so a
 rollback dispatched while another run waits can be superseded by a later push, and the run list
 must be checked after dispatching one. Rolling back to a commit deployed before lot K means
@@ -339,3 +341,4 @@ holds. A rollback redeploys an already released commit and mints no version.
 - **`CucumberIT` always reports "Tests run: 0"** in the Surefire/Failsafe console summary — cosmetic, not a sign the suite didn't run. `cucumber.plugin=pretty,summary` (`junit-platform.properties`) prints the real scenario/step counts right above it.
 - `mvnw` must stay executable on Linux CI (`git update-index --chmod=+x mvnw` if git loses the mode on Windows).
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA — when adding one, pin it the same way.
+- The required status check `ci` is the gate job at the end of `ci.yml`: a new CI job must be added to its `needs`, or its failure will not block a merge.

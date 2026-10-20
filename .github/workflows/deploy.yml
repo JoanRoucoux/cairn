@@ -42,7 +42,8 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   images:
-    needs: [tag, ci]
+    needs: tag
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -71,7 +72,20 @@ jobs:
     needs: tag
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      packages: read
     steps:
+      - name: Refuse a commit whose CI did not pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.tag.outputs.sha }}
+        run: |
+          passed=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=ci%20%2F%20ci" \
+            --jq '[.check_runs[] | select(.conclusion == "success")] | length')
+          [ "$passed" -gt 0 ] || { echo "::error::CI never passed on ${SHA}"; exit 1; }
+
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -88,9 +102,8 @@ jobs:
           done
 
   deploy:
-    needs: [tag, images, check_images]
-    # A failed ci skips images rather than failing it, so "no failure" is not enough here.
-    if: ${{ !cancelled() && needs.tag.result == 'success' && (needs.images.result == 'success' || needs.check_images.result == 'success') }}
+    needs: [tag, ci, images, check_images]
+    if: ${{ !cancelled() && needs.tag.result == 'success' && ((needs.ci.result == 'success' && needs.images.result == 'success') || needs.check_images.result == 'success') }}
     runs-on: ubuntu-latest
     environment: production
     env:
