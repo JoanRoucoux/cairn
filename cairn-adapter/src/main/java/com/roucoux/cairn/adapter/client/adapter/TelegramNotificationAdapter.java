@@ -5,15 +5,17 @@ import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
-import com.roucoux.cairn.domain.model.DailySummary;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
+import com.roucoux.cairn.domain.model.Summary;
+import com.roucoux.cairn.domain.model.SummaryPeriod;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -37,6 +39,8 @@ import tools.jackson.databind.ObjectMapper;
 public class TelegramNotificationAdapter implements SendNotificationPort {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE);
+    private static final DateTimeFormatter DAY_MONTH_FORMAT = DateTimeFormatter.ofPattern("d MMMM", Locale.FRANCE);
+    private static final DateTimeFormatter MONTH_YEAR_FORMAT = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE);
     private static final Duration MAX_RETRY_AFTER = Duration.ofSeconds(60);
     private static final Map<AccountType, String> ENVELOPE_LABELS = envelopeLabels();
 
@@ -60,7 +64,7 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
     }
 
     @Override
-    public void send(DailySummary summary) {
+    public void send(Summary summary) {
         requireConfigured();
         String text = format(summary);
         try {
@@ -110,17 +114,19 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
         }
     }
 
-    private static String format(DailySummary summary) {
+    private static String format(Summary summary) {
         Performance performance = summary.performance();
         BigDecimal change = roundedEuros(performance.change());
         StringBuilder message = new StringBuilder()
                 .append("📊 <b>Cairn · ")
-                .append(capitalize(DATE_FORMAT.format(summary.date())))
+                .append(title(summary))
                 .append("</b>\n\n💰 Patrimoine  <b>")
                 .append(grouped(roundedEuros(performance.total()), "#,##0"))
                 .append(" €</b>\n")
                 .append(change.signum() < 0 ? "📉" : "📈")
-                .append(" Jour  <b>")
+                .append(" ")
+                .append(changeLabel(summary))
+                .append("  <b>")
                 .append(signed(change, "#,##0"))
                 .append(" €</b>");
         performance
@@ -135,7 +141,37 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
         return message.toString();
     }
 
-    private static String table(DailySummary summary) {
+    private static String title(Summary summary) {
+        LocalDate first = summary.first();
+        LocalDate last = summary.last();
+        return switch (summary.period()) {
+            case DAY -> capitalize(DATE_FORMAT.format(first));
+            case WEEK ->
+                first.getMonth() == last.getMonth()
+                        ? "Semaine du " + first.getDayOfMonth() + " au " + DAY_MONTH_FORMAT.format(last)
+                        : "Semaine du " + DAY_MONTH_FORMAT.format(first) + " au " + DAY_MONTH_FORMAT.format(last);
+            case MONTH -> capitalize(MONTH_YEAR_FORMAT.format(first));
+            case YEAR -> "Bilan " + first.getYear();
+        };
+    }
+
+    private static String changeLabel(Summary summary) {
+        String label =
+                switch (summary.period()) {
+                    case DAY -> "Jour";
+                    case WEEK -> "Semaine";
+                    case MONTH -> "Mois";
+                    case YEAR -> "Année";
+                };
+        boolean clamped = summary.period() != SummaryPeriod.DAY
+                && summary.performance().from().isAfter(summary.first().minusDays(1));
+        return clamped
+                ? label + " (depuis le "
+                        + DAY_MONTH_FORMAT.format(summary.performance().from()) + ")"
+                : label;
+    }
+
+    private static String table(Summary summary) {
         Set<AccountType> cashOnly =
                 summary.cashOnlyAccounts().stream().map(CashOnlyAccount::type).collect(Collectors.toSet());
         List<List<String>> moving = summary.performance().byEnvelope().stream()

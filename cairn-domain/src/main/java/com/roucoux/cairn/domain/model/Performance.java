@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public record Performance(
-        PerformanceRange range,
+        Optional<PerformanceRange> range,
         LocalDate from,
         LocalDate to,
         boolean reconstructed,

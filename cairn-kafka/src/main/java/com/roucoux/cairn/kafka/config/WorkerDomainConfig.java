@@ -6,7 +6,6 @@ import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.RecordQuoteFailureUseCase;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
-import com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase;
 import com.roucoux.cairn.domain.port.in.ValueHoldingUseCase;
 import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
@@ -18,13 +17,13 @@ import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
-import com.roucoux.cairn.domain.service.DailySummaryService;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
 import com.roucoux.cairn.domain.service.PerformanceService;
 import com.roucoux.cairn.domain.service.PortfolioService;
 import com.roucoux.cairn.domain.service.QuoteAnnouncementService;
 import com.roucoux.cairn.domain.service.QuoteFailureService;
 import com.roucoux.cairn.domain.service.QuoteRefreshService;
+import com.roucoux.cairn.domain.service.SummaryService;
 import com.roucoux.cairn.domain.service.ValuationService;
 import java.time.Clock;
 import java.time.ZoneId;
@@ -113,13 +112,13 @@ class WorkerDomainConfig {
     }
 
     @Bean
-    SendDailySummaryUseCase sendDailySummaryUseCase(
+    SummaryService summaryService(
             GetPerformanceUseCase getPerformance,
             GetPortfolioUseCase getPortfolio,
             SendNotificationPort sendNotification,
             Clock clock,
             ZoneId zone) {
-        return new DailySummaryService(getPerformance, getPortfolio, sendNotification, clock, zone);
+        return new SummaryService(getPerformance, getPortfolio, sendNotification, clock, zone);
     }
 
     @Bean
