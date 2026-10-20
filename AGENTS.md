@@ -342,3 +342,4 @@ holds. A rollback redeploys an already released commit and mints no version.
 - `mvnw` must stay executable on Linux CI (`git update-index --chmod=+x mvnw` if git loses the mode on Windows).
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA — when adding one, pin it the same way.
 - The required status check `ci` is the gate job at the end of `ci.yml`: a new CI job must be added to its `needs`, or its failure will not block a merge.
+- `ci.yml` splits `verify` over three runners: `api`, `workers` (`cairn-batch`, `cairn-kafka`), and `core`, which is everything else **by exclusion**, so a new module is verified there without any change. Moving a module out of `core` means adding it to a part and to `core`'s exclusion list; forgetting the exclusion only verifies it twice.
