@@ -180,7 +180,8 @@ with `no-new-privileges` and every capability dropped. The snippet caps a reques
 `/api` and strips the `Forwarded`, `X-Forwarded-Prefix`, `X-Forwarded-Port` and `X-Forwarded-Ssl` headers a client could send before they
 reach the API (`forward-headers-strategy: framework` trusts them). The `schema` image reads the
 database password from `LIQUIBASE_PASSWORD` through a `cairn-schema` Maven profile, never from its
-command line.
+command line. It resolves the Liquibase plugin and the PostgreSQL driver at image build and runs
+`mvn -o` at deploy time, so a Maven Central outage cannot fail a deploy.
 
 **`kafka`/`worker`.** `kafka` is a single-node KRaft broker (`apache/kafka`, no ZooKeeper),
 `worker` is `cairn-kafka`'s image: it declares the `cairn.prices`/`cairn.portfolio` topics on
