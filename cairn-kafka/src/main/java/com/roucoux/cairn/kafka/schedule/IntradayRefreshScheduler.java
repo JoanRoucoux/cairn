@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 class IntradayRefreshScheduler {
 
     static final String EQUITY_ETF_CRON = "0 0/15 9-17 * * MON-FRI";
-    static final String CRYPTO_CRON = "0 0/15 * * * *";
+    static final String CRYPTO_CRON = "0 7/15 * * * *";
     static final String ZONE = "Europe/Paris";
 
     private static final Logger log = LoggerFactory.getLogger(IntradayRefreshScheduler.class);

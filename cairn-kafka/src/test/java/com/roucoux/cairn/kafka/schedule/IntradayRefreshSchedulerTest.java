@@ -172,12 +172,12 @@ class IntradayRefreshSchedulerTest {
     }
 
     @Test
-    void cryptoCronFiresEveryFifteenMinutesAroundTheClock() {
+    void cryptoCronFiresEveryFifteenMinutesAtSevenPastAroundTheClock() {
         CronExpression cron = CronExpression.parse(IntradayRefreshScheduler.CRYPTO_CRON);
         ZonedDateTime saturdayMidnight = ZonedDateTime.of(LocalDate.of(2026, 9, 26), LocalTime.of(0, 0), PARIS);
 
         ZonedDateTime next = cron.next(saturdayMidnight);
 
-        assertThat(next.toLocalTime()).isEqualTo(LocalTime.of(0, 15));
+        assertThat(next.toLocalTime()).isEqualTo(LocalTime.of(0, 7));
     }
 }
