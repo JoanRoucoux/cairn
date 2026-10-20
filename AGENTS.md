@@ -154,7 +154,9 @@ shared Caddy proxy in `/srv/proxy` and the monitoring. Cairn joins the proxy ove
 `edge` network and drops its own site snippet into `/srv/proxy/sites/`.
 
 **`compose.prod.yaml`** is a standalone file, not a merge target for `compose.yaml`: it pulls
-prebuilt images from GHCR and publishes no port. The backend images are tagged `${TAG}` and the
+prebuilt images from GHCR and publishes no public port. The only published port is PostgreSQL's,
+on the host's loopback (`127.0.0.1:5432`), for a database client through an SSH tunnel (host
+`localhost`, port 5432, user and database `app`). The backend images are tagged `${TAG}` and the
 frontend `${WEB_TAG}`, deliberately two variables: `cairn-web` is a separate repository with its
 own history, and neither half waits on the other to deploy.
 
@@ -290,6 +292,8 @@ CHANGELOG.md: it would mean a bot commit on main per deploy, for content the Rel
 holds. A rollback redeploys an already released commit and mints no version.
 
 ## Gotchas
+
+- **A published port ignores ufw.** Docker writes its own iptables rules ahead of ufw's, so `5432:5432` would open PostgreSQL to the internet although ufw only allows 22, 80 and 443. Every port in `compose.prod.yaml` stays bound to `127.0.0.1`; check with `ss -ltn` on the server after a change.
 
 - **A changeset's identity is id + author + file path, and its checksum is its content.** Renaming a changeset file, changing its extension or reformatting it makes Liquibase see an applied changeset as new (and replay it against production) or fail checksum validation. Any such change needs a `databasechangelog` update on every database first, the way `deploy/liquibase-xml-to-sql.sql` did for the XML to SQL conversion: new `filename`, `md5sum = NULL` (Liquibase recomputes a NULL checksum on the next update). The recorded filename is `src/main/resources/db/changelog/changesets/<name>`, as `mvn liquibase:update` runs it.
 
