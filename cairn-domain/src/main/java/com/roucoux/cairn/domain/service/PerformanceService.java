@@ -43,9 +43,7 @@ public class PerformanceService implements GetPerformanceUseCase {
     @Override
     public Performance performance(PerformanceRange range) {
         Portfolio portfolio = getPortfolio.get();
-        List<ValuedHolding> valuedLines = portfolio.holdings().stream()
-                .filter(line -> line.marketValue().isPresent())
-                .toList();
+        List<ValuedHolding> valuedLines = valuedLines(portfolio);
 
         LocalDate to = range.to(clock, zone);
         LocalDate from;
@@ -54,11 +52,38 @@ public class PerformanceService implements GetPerformanceUseCase {
             from = to.minusDays(1);
             moves = dayMoves(valuedLines);
         } else {
-            RangeStart start = rangeStart(range, valuedLines, to);
+            RangeStart start = rangeStart(range.from(clock, zone).orElse(null), valuedLines, to);
             from = start.from();
             moves = rangeMoves(valuedLines, start);
         }
+        return performanceOf(Optional.of(range), from, to, range.isReconstructed(), portfolio, valuedLines, moves);
+    }
 
+    @Override
+    public Performance performanceSince(LocalDate baseline) {
+        Portfolio portfolio = getPortfolio.get();
+        List<ValuedHolding> valuedLines = valuedLines(portfolio);
+
+        LocalDate to = LocalDate.now(clock.withZone(zone));
+        RangeStart start = rangeStart(baseline, valuedLines, to);
+        List<LineMove> moves = rangeMoves(valuedLines, start);
+        return performanceOf(Optional.empty(), start.from(), to, false, portfolio, valuedLines, moves);
+    }
+
+    private static List<ValuedHolding> valuedLines(Portfolio portfolio) {
+        return portfolio.holdings().stream()
+                .filter(line -> line.marketValue().isPresent())
+                .toList();
+    }
+
+    private static Performance performanceOf(
+            Optional<PerformanceRange> range,
+            LocalDate from,
+            LocalDate to,
+            boolean reconstructed,
+            Portfolio portfolio,
+            List<ValuedHolding> valuedLines,
+            List<LineMove> moves) {
         Money totalChange = sumChange(moves);
 
         Optional<Instant> lastPriceAt = valuedLines.stream()
@@ -71,7 +96,7 @@ public class PerformanceService implements GetPerformanceUseCase {
                 range,
                 from,
                 to,
-                range.isReconstructed(),
+                reconstructed,
                 lastPriceAt,
                 portfolio.total(),
                 totalChange,
@@ -89,7 +114,7 @@ public class PerformanceService implements GetPerformanceUseCase {
         return line.dayChange().map(change -> line.marketValue().orElseThrow().minus(change));
     }
 
-    private RangeStart rangeStart(PerformanceRange range, List<ValuedHolding> valuedLines, LocalDate to) {
+    private RangeStart rangeStart(LocalDate requested, List<ValuedHolding> valuedLines, LocalDate to) {
         Set<UUID> quotedInstruments = valuedLines.stream()
                 .filter(line -> !line.instrument().isPricedAtPar())
                 .map(line -> line.instrument().id())
@@ -100,9 +125,8 @@ public class PerformanceService implements GetPerformanceUseCase {
             return new RangeStart(to, Map.of(), false);
         }
 
-        LocalDate rangeFrom = range.from(clock, zone).orElse(null);
         LocalDate from =
-                rangeFrom == null || rangeFrom.isBefore(latestFirstQuote.get()) ? latestFirstQuote.get() : rangeFrom;
+                requested == null || requested.isBefore(latestFirstQuote.get()) ? latestFirstQuote.get() : requested;
         Map<UUID, Quote> baseQuotes = loadQuotes.findLatestOnOrBefore(quotedInstruments, from);
         return new RangeStart(from, baseQuotes, true);
     }

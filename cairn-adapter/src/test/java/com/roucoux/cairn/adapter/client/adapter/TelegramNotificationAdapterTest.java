@@ -17,11 +17,12 @@ import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
-import com.roucoux.cairn.domain.model.DailySummary;
 import com.roucoux.cairn.domain.model.EnvelopePerformance;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
+import com.roucoux.cairn.domain.model.Summary;
+import com.roucoux.cairn.domain.model.SummaryPeriod;
 import java.math.BigDecimal;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -70,9 +71,9 @@ class TelegramNotificationAdapterTest {
         return new TelegramNotificationAdapter(client, properties, new ObjectMapper(), sleeps::add);
     }
 
-    private static DailySummary exampleSummary() {
+    private static Summary exampleSummary() {
         Performance performance = new Performance(
-                PerformanceRange.D1,
+                Optional.of(PerformanceRange.D1),
                 LocalDate.of(2026, 9, 22),
                 LocalDate.of(2026, 9, 23),
                 false,
@@ -85,7 +86,9 @@ class TelegramNotificationAdapterTest {
                         envelope(AccountType.PEE, "112380", "160", "0.0014"),
                         envelope(AccountType.CRYPTO, "55079", "-1067", "-0.0192"),
                         envelope(AccountType.SAVINGS, "20010", "0", "0")));
-        return new DailySummary(
+        return new Summary(
+                SummaryPeriod.DAY,
+                LocalDate.of(2026, 9, 23),
                 LocalDate.of(2026, 9, 23),
                 performance,
                 List.of(
@@ -133,7 +136,7 @@ class TelegramNotificationAdapterTest {
     void aLosingDayShowsAFallingChartAGreyDotForAFlatEnvelopeAndNoRatioWhenThereIsNone() {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
         Performance performance = new Performance(
-                PerformanceRange.D1,
+                Optional.of(PerformanceRange.D1),
                 LocalDate.of(2026, 8, 13),
                 LocalDate.of(2026, 8, 14),
                 false,
@@ -145,7 +148,13 @@ class TelegramNotificationAdapterTest {
                         envelope(AccountType.LIFE_INSURANCE, "60000", "0.30", "0.000005"),
                         envelope(AccountType.SAVINGS, "40000", "-1500.30", null)));
 
-        adapter(TOKEN, CHAT_ID).send(new DailySummary(LocalDate.of(2026, 8, 14), performance, List.of()));
+        adapter(TOKEN, CHAT_ID)
+                .send(new Summary(
+                        SummaryPeriod.DAY,
+                        LocalDate.of(2026, 8, 14),
+                        LocalDate.of(2026, 8, 14),
+                        performance,
+                        List.of()));
 
         assertThat(sentText()).isEqualTo("""
                 📊 <b>Cairn · Vendredi 14 août</b>
@@ -161,7 +170,7 @@ class TelegramNotificationAdapterTest {
     void escapesAnAccountNameSoTelegramStillParsesTheHtml() {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
         Performance performance = new Performance(
-                PerformanceRange.D1,
+                Optional.of(PerformanceRange.D1),
                 LocalDate.of(2026, 8, 13),
                 LocalDate.of(2026, 8, 14),
                 false,
@@ -172,13 +181,109 @@ class TelegramNotificationAdapterTest {
                 List.of(envelope(AccountType.SAVINGS, "500", "0", "0")));
 
         adapter(TOKEN, CHAT_ID)
-                .send(new DailySummary(
+                .send(new Summary(
+                        SummaryPeriod.DAY,
+                        LocalDate.of(2026, 8, 14),
                         LocalDate.of(2026, 8, 14),
                         performance,
                         List.of(new CashOnlyAccount(
                                 "Livret <A&B>", AccountType.SAVINGS, Money.eur(new BigDecimal("500"))))));
 
         assertThat(sentText()).endsWith("<pre>🏦 Livret &lt;A&amp;B&gt; 500 €</pre>");
+    }
+
+    private static Summary recap(SummaryPeriod period, LocalDate first, LocalDate last, LocalDate performanceFrom) {
+        Performance performance = new Performance(
+                Optional.empty(),
+                performanceFrom,
+                last.plusDays(1),
+                false,
+                Optional.empty(),
+                Money.eur(new BigDecimal("50000")),
+                Money.eur(new BigDecimal("1234")),
+                Optional.of(new BigDecimal("0.0210")),
+                List.of(envelope(AccountType.PEA, "50000", "1234", "0.0210")));
+        return new Summary(period, first, last, performance, List.of());
+    }
+
+    private static String recapText(String title, String label) {
+        return """
+                📊 <b>Cairn · %s</b>
+
+                💰 Patrimoine  <b>50 000 €</b>
+                📈 %s  <b>+1 234 €</b>  (+2,10 %%)
+
+                <pre>🟢 PEA 50 000 €  +1 234 €  +2,10%%</pre>""".formatted(title, label);
+    }
+
+    @Test
+    void aWeeklyRecapNamesTheDaysOfTheWeekInOneMonth() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(recap(
+                        SummaryPeriod.WEEK,
+                        LocalDate.of(2026, 10, 12),
+                        LocalDate.of(2026, 10, 16),
+                        LocalDate.of(2026, 10, 11)));
+
+        assertThat(sentText()).isEqualTo(recapText("Semaine du 12 au 16 octobre", "Semaine"));
+    }
+
+    @Test
+    void aWeeklyRecapSpanningTwoMonthsNamesBothMonths() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(recap(
+                        SummaryPeriod.WEEK,
+                        LocalDate.of(2026, 9, 28),
+                        LocalDate.of(2026, 10, 2),
+                        LocalDate.of(2026, 9, 27)));
+
+        assertThat(sentText()).isEqualTo(recapText("Semaine du 28 septembre au 2 octobre", "Semaine"));
+    }
+
+    @Test
+    void aMonthlyRecapIsTitledWithTheMonthAndYear() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(recap(
+                        SummaryPeriod.MONTH,
+                        LocalDate.of(2026, 10, 1),
+                        LocalDate.of(2026, 10, 31),
+                        LocalDate.of(2026, 9, 30)));
+
+        assertThat(sentText()).isEqualTo(recapText("Octobre 2026", "Mois"));
+    }
+
+    @Test
+    void aYearlyRecapIsTitledBilanWithTheYear() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(recap(
+                        SummaryPeriod.YEAR,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 12, 31),
+                        LocalDate.of(2025, 12, 31)));
+
+        assertThat(sentText()).isEqualTo(recapText("Bilan 2026", "Année"));
+    }
+
+    @Test
+    void aRecapWhoseHistoryStartsAfterThePeriodSaysSinceWhen() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(recap(
+                        SummaryPeriod.YEAR,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 12, 31),
+                        LocalDate.of(2026, 9, 24)));
+
+        assertThat(sentText()).isEqualTo(recapText("Bilan 2026", "Année (depuis le 24 septembre)"));
     }
 
     private String sentText() {

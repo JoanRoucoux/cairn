@@ -21,8 +21,8 @@ public class PerformanceRestMapper {
 
     public PerformanceResponse toResponse(Performance performance) {
         PerformanceResponse response = new PerformanceResponse();
-        response.setRange(
-                com.roucoux.cairn.generated.model.PerformanceRange.fromValue(toWireValue(performance.range())));
+        response.setRange(com.roucoux.cairn.generated.model.PerformanceRange.fromValue(
+                toWireValue(performance.range().orElseThrow())));
         response.setFrom(performance.from());
         response.setTo(performance.to());
         response.setReconstructed(performance.reconstructed());

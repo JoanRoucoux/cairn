@@ -193,19 +193,22 @@ class WorkerDomainConfigTest {
     }
 
     @Test
-    void wiresTheDailySummarySliceSoSendingCallsTheNotificationPort() {
+    void wiresTheSummarySliceSoSendingCallsTheNotificationPort() {
         ValueHoldingUseCase valueHolding = config.valueHoldingUseCase(loadInstruments, loadAccounts, loadQuotes, CLOCK);
         GetPortfolioUseCase getPortfolio = config.getPortfolioUseCase(loadHoldings, valueHolding, CLOCK);
         com.roucoux.cairn.domain.port.in.GetPerformanceUseCase getPerformance =
                 config.getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, java.time.ZoneId.of("Europe/Paris"));
-        List<com.roucoux.cairn.domain.model.DailySummary> sent = new ArrayList<>();
+        List<com.roucoux.cairn.domain.model.Summary> sent = new ArrayList<>();
         com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification = sent::add;
 
-        com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase sendDailySummary = config.sendDailySummaryUseCase(
+        com.roucoux.cairn.domain.service.SummaryService summaryService = config.summaryService(
                 getPerformance, getPortfolio, sendNotification, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+        com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase sendDailySummary = summaryService;
+        com.roucoux.cairn.domain.port.in.SendPeriodSummaryUseCase sendPeriodSummary = summaryService;
         sendDailySummary.send();
+        sendPeriodSummary.send(com.roucoux.cairn.domain.model.SummaryPeriod.WEEK);
 
-        assertThat(sent).hasSize(1);
+        assertThat(sent).hasSize(2);
     }
 
     @Test

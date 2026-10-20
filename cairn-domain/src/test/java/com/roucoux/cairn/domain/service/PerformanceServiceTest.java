@@ -256,6 +256,68 @@ class PerformanceServiceTest {
         assertThat(performance.changeRatio()).isEmpty();
     }
 
+    @Test
+    void performanceSinceUsesTheQuoteOnOrBeforeTheBaselineAndHasNoRange() {
+        LocalDate baseline = LocalDate.of(2026, 9, 11);
+        Line line = equityLine(
+                ACCOUNT_1,
+                "55.00",
+                "10",
+                List.of(quoteOn(LocalDate.of(2026, 8, 1), "40.00"), quoteOn(LocalDate.of(2026, 9, 9), "50.00")));
+
+        Performance performance = new Fixture(List.of(line)).service().performanceSince(baseline);
+
+        assertThat(performance.range()).isEmpty();
+        assertThat(performance.from()).isEqualTo(baseline);
+        assertThat(performance.to()).isEqualTo(LocalDate.of(2026, 9, 24));
+        assertThat(performance.reconstructed()).isFalse();
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    void performanceSinceIsPushedBackToTheLatestFirstQuoteWhenHistoryIsShort() {
+        LocalDate firstQuote = LocalDate.of(2026, 9, 15);
+        Line young = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(firstQuote, "50.00")));
+
+        Performance performance = new Fixture(List.of(young)).service().performanceSince(LocalDate.of(2025, 12, 31));
+
+        assertThat(performance.from()).isEqualTo(firstQuote);
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    void performanceSinceKeepsParPricedLinesAtZeroChange() {
+        Line cash = cashLine(ACCOUNT_1, "1000");
+        Line equity = equityLine(ACCOUNT_2, "55.00", "10", List.of(quoteOn(LocalDate.of(2026, 9, 9), "50.00")));
+
+        Performance performance =
+                new Fixture(List.of(cash, equity)).service().performanceSince(LocalDate.of(2026, 9, 11));
+
+        assertThat(performance.total().amount()).isEqualByComparingTo("1550");
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
+        assertThat(performance.byEnvelope().stream()
+                        .filter(envelope -> envelope.accountType() == AccountType.CTO)
+                        .findFirst()
+                        .orElseThrow()
+                        .change()
+                        .amount())
+                .isEqualByComparingTo("0");
+    }
+
+    @Test
+    void performanceSinceIgnoresLinesQuotedInAnotherCurrency() {
+        Line eur = equityLine(ACCOUNT_1, "55.00", "10", List.of(quoteOn(LocalDate.of(2026, 9, 9), "50.00")));
+        Line usd = usdEquityLine(ACCOUNT_2, "80.00", "5");
+
+        Performance performance = new Fixture(List.of(eur, usd)).service().performanceSince(LocalDate.of(2026, 9, 11));
+
+        assertThat(performance.total().amount()).isEqualByComparingTo("550");
+        assertThat(performance.change().amount()).isEqualByComparingTo("50");
+        assertThat(performance.byEnvelope())
+                .extracting(EnvelopePerformance::accountType)
+                .containsExactly(AccountType.CTO);
+    }
+
     private static Line usdEquityLine(Account account, String price, String quantity) {
         UUID instrumentId = UUID.randomUUID();
         Instrument instrument =

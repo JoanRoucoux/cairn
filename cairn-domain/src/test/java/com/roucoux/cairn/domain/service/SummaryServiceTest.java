@@ -6,7 +6,6 @@ import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
-import com.roucoux.cairn.domain.model.DailySummary;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Money;
@@ -15,6 +14,8 @@ import com.roucoux.cairn.domain.model.PerformanceRange;
 import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.model.Summary;
+import com.roucoux.cairn.domain.model.SummaryPeriod;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
@@ -31,14 +32,14 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class DailySummaryServiceTest {
+class SummaryServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-22T23:30:00Z"), ZoneOffset.UTC);
     private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 23);
 
     private static final Performance D1_PERFORMANCE = new Performance(
-            PerformanceRange.D1,
+            Optional.of(PerformanceRange.D1),
             LocalDate.of(2026, 9, 22),
             TODAY,
             false,
@@ -61,19 +62,133 @@ class DailySummaryServiceTest {
     @Test
     void readsD1PerformanceAndSendsItOnceForTodayInParis() {
         List<PerformanceRange> requestedRanges = new ArrayList<>();
-        GetPerformanceUseCase getPerformance = range -> {
-            requestedRanges.add(range);
-            return D1_PERFORMANCE;
-        };
-        List<DailySummary> sent = new ArrayList<>();
+        GetPerformanceUseCase getPerformance = new GetPerformanceUseCase() {
+            @Override
+            public Performance performance(PerformanceRange range) {
+                requestedRanges.add(range);
+                return D1_PERFORMANCE;
+            }
 
-        new DailySummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, CLOCK, PARIS).send();
+            @Override
+            public Performance performanceSince(LocalDate baseline) {
+                throw new AssertionError("not expected");
+            }
+        };
+        List<Summary> sent = new ArrayList<>();
+
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, CLOCK, PARIS).send();
 
         assertThat(requestedRanges).containsExactly(PerformanceRange.D1);
         assertThat(sent).hasSize(1);
-        assertThat(sent.getFirst().date()).isEqualTo(TODAY);
+        assertThat(sent.getFirst().period()).isEqualTo(SummaryPeriod.DAY);
+        assertThat(sent.getFirst().first()).isEqualTo(TODAY);
+        assertThat(sent.getFirst().last()).isEqualTo(TODAY);
         assertThat(sent.getFirst().performance()).isSameAs(D1_PERFORMANCE);
         assertThat(sent.getFirst().cashOnlyAccounts()).isEmpty();
+    }
+
+    @Test
+    void aWeeklyRecapReadsPerformanceSinceTheDayBeforeMondayAndCoversMondayToFriday() {
+        assertPeriodRecap(
+                SummaryPeriod.WEEK,
+                "2026-10-17T07:00:00Z",
+                LocalDate.of(2026, 10, 11),
+                LocalDate.of(2026, 10, 12),
+                LocalDate.of(2026, 10, 16));
+    }
+
+    @Test
+    void aMonthlyRecapReadsPerformanceSinceTheLastDayOfTheMonthBefore() {
+        assertPeriodRecap(
+                SummaryPeriod.MONTH,
+                "2026-11-01T08:00:00Z",
+                LocalDate.of(2026, 9, 30),
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 31));
+    }
+
+    @Test
+    void aYearlyRecapReadsPerformanceSinceTheLastDayOfTheYearBefore() {
+        assertPeriodRecap(
+                SummaryPeriod.YEAR,
+                "2027-01-01T08:05:00Z",
+                LocalDate.of(2025, 12, 31),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31));
+    }
+
+    private static void assertPeriodRecap(
+            SummaryPeriod period, String instant, LocalDate baseline, LocalDate first, LocalDate last) {
+        List<LocalDate> baselines = new ArrayList<>();
+        GetPerformanceUseCase getPerformance = new GetPerformanceUseCase() {
+            @Override
+            public Performance performance(PerformanceRange range) {
+                throw new AssertionError("not expected");
+            }
+
+            @Override
+            public Performance performanceSince(LocalDate requested) {
+                baselines.add(requested);
+                return D1_PERFORMANCE;
+            }
+        };
+        List<Summary> sent = new ArrayList<>();
+        Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
+
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, clock, PARIS).send(period);
+
+        assertThat(baselines).containsExactly(baseline);
+        assertThat(sent).hasSize(1);
+        assertThat(sent.getFirst().period()).isEqualTo(period);
+        assertThat(sent.getFirst().first()).isEqualTo(first);
+        assertThat(sent.getFirst().last()).isEqualTo(last);
+        assertThat(sent.getFirst().performance()).isSameAs(D1_PERFORMANCE);
+    }
+
+    @Test
+    void aRecapWhoseQuoteHistoryStartsAfterThePeriodIsNotSent() {
+        Performance noHistory = new Performance(
+                Optional.empty(),
+                LocalDate.of(2026, 10, 17),
+                LocalDate.of(2026, 10, 17),
+                false,
+                Optional.empty(),
+                Money.eur(new BigDecimal("20010")),
+                Money.zeroEur(),
+                Optional.empty(),
+                List.of());
+        GetPerformanceUseCase getPerformance = new GetPerformanceUseCase() {
+            @Override
+            public Performance performance(PerformanceRange range) {
+                throw new AssertionError("not expected");
+            }
+
+            @Override
+            public Performance performanceSince(LocalDate baseline) {
+                return noHistory;
+            }
+        };
+        List<Summary> sent = new ArrayList<>();
+        Clock clock = Clock.fixed(Instant.parse("2026-10-17T07:00:00Z"), ZoneOffset.UTC);
+
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, clock, PARIS)
+                .send(SummaryPeriod.WEEK);
+
+        assertThat(sent).isEmpty();
+    }
+
+    private static GetPerformanceUseCase d1Only() {
+        return new GetPerformanceUseCase() {
+            @Override
+            public Performance performance(PerformanceRange range) {
+                return D1_PERFORMANCE;
+            }
+
+            @Override
+            public Performance performanceSince(LocalDate baseline) {
+                throw new AssertionError("not expected");
+            }
+        };
     }
 
     @Test
@@ -83,10 +198,10 @@ class DailySummaryServiceTest {
                 line(PEA, EUROS, "732.40", Optional.of(par())),
                 line(LDDS, EUROS, "10", Optional.of(par())),
                 line(LIVRET_A, EUROS, "20000", Optional.of(par()))));
-        List<DailySummary> sent = new ArrayList<>();
+        List<Summary> sent = new ArrayList<>();
         SendNotificationPort sendNotification = sent::add;
 
-        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sendNotification, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, sendNotification, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -100,9 +215,9 @@ class DailySummaryServiceTest {
         GetPortfolioUseCase getPortfolio = () -> portfolioOf(List.of(
                 line(LIVRET_A, EUROS, "20000", Optional.of(par())),
                 line(otherSavings, ETF, "10", Optional.of(quote(ETF, "25")))));
-        List<DailySummary> sent = new ArrayList<>();
+        List<Summary> sent = new ArrayList<>();
 
-        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts()).isEmpty();
     }
@@ -111,9 +226,9 @@ class DailySummaryServiceTest {
     void aLineWithNoQuoteYetIsIgnored() {
         GetPortfolioUseCase getPortfolio = () -> portfolioOf(
                 List.of(line(LIVRET_A, EUROS, "20000", Optional.of(par())), line(LDDS, ETF, "10", Optional.empty())));
-        List<DailySummary> sent = new ArrayList<>();
+        List<Summary> sent = new ArrayList<>();
 
-        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -129,9 +244,9 @@ class DailySummaryServiceTest {
         GetPortfolioUseCase getPortfolio = () -> portfolioOf(List.of(
                 line(LIVRET_A, EUROS, "20000", Optional.of(par())),
                 line(LIVRET_A, usdEtf, "10", Optional.of(usdQuote))));
-        List<DailySummary> sent = new ArrayList<>();
+        List<Summary> sent = new ArrayList<>();
 
-        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -146,9 +261,9 @@ class DailySummaryServiceTest {
                 new Quote(usdEtf.id(), TODAY, new BigDecimal("500"), "USD", PriceSource.YAHOO, CLOCK.instant());
         GetPortfolioUseCase getPortfolio = () -> portfolioOf(
                 List.of(line(PEA, EUROS, "300", Optional.of(par())), line(PEA, usdEtf, "10", Optional.of(usdQuote))));
-        List<DailySummary> sent = new ArrayList<>();
+        List<Summary> sent = new ArrayList<>();
 
-        new DailySummaryService(range -> D1_PERFORMANCE, getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(

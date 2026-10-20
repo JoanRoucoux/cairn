@@ -1,8 +1,8 @@
 package com.roucoux.cairn.domain.port.out;
 
-import com.roucoux.cairn.domain.model.DailySummary;
+import com.roucoux.cairn.domain.model.Summary;
 
 public interface SendNotificationPort {
 
-    void send(DailySummary summary);
+    void send(Summary summary);
 }

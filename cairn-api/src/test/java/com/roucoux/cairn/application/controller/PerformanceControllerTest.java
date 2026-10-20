@@ -66,7 +66,7 @@ class PerformanceControllerTest {
 
     private static Performance aPerformance() {
         return new Performance(
-                PerformanceRange.D1,
+                Optional.of(PerformanceRange.D1),
                 LocalDate.of(2026, 9, 23),
                 LocalDate.of(2026, 9, 24),
                 false,
