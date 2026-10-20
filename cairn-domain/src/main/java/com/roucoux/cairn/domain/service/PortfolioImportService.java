@@ -8,6 +8,7 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.ImportError;
 import com.roucoux.cairn.domain.model.ImportErrorCode;
+import com.roucoux.cairn.domain.model.ImportPlan;
 import com.roucoux.cairn.domain.model.ImportReport;
 import com.roucoux.cairn.domain.model.ImportRow;
 import com.roucoux.cairn.domain.model.Instrument;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 public class PortfolioImportService implements ImportPortfolioUseCase {
 
@@ -74,24 +76,20 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
     }
 
     @Override
-    public ImportReport importPortfolio(List<ImportRow> rows) {
-        Map<String, Account> accountsByName = new HashMap<>();
-        loadAccounts.findAll().forEach(account -> accountsByName.put(account.name(), account));
-        Map<String, List<Instrument>> instrumentsByRef = new HashMap<>();
-        loadInstruments.findAll().stream()
-                .sorted(DETERMINISTIC)
-                .forEach(instrument -> index(instrumentsByRef, instrument));
+    public ImportPlan prepare(List<ImportRow> rows) {
+        return new ImportPlan(rows, validate(rows, accountsByName(), instrumentsByRef(), this::resolve));
+    }
 
-        Map<String, InstrumentCandidate> candidates;
-        try {
-            candidates = validate(rows, accountsByName, instrumentsByRef);
-        } catch (PortfolioImportRejectedException rejected) {
-            LOG.log(
-                    Level.INFO,
-                    "portfolio import rejected: %d error(s) over %d row(s)"
-                            .formatted(rejected.errors().size(), rows.size()));
-            throw rejected;
-        }
+    @Override
+    public ImportReport apply(ImportPlan plan) {
+        List<ImportRow> rows = plan.rows();
+        Map<String, Account> accountsByName = accountsByName();
+        Map<String, List<Instrument>> instrumentsByRef = instrumentsByRef();
+        Map<String, InstrumentCandidate> candidates = validate(
+                rows,
+                accountsByName,
+                instrumentsByRef,
+                ref -> Optional.ofNullable(plan.candidates().get(ref)));
 
         int accountsCreated = 0;
         int instrumentsCreated = 0;
@@ -133,8 +131,33 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
         return report;
     }
 
+    private Map<String, Account> accountsByName() {
+        Map<String, Account> accountsByName = new HashMap<>();
+        loadAccounts.findAll().forEach(account -> accountsByName.put(account.name(), account));
+        return accountsByName;
+    }
+
+    private Map<String, List<Instrument>> instrumentsByRef() {
+        Map<String, List<Instrument>> instrumentsByRef = new HashMap<>();
+        loadInstruments.findAll().stream()
+                .sorted(DETERMINISTIC)
+                .forEach(instrument -> index(instrumentsByRef, instrument));
+        return instrumentsByRef;
+    }
+
+    private Optional<InstrumentCandidate> resolve(String ref) {
+        try {
+            return choose(resolveInstrument.resolve(ref));
+        } catch (UnknownInstrumentException unknown) {
+            return Optional.empty();
+        }
+    }
+
     private Map<String, InstrumentCandidate> validate(
-            List<ImportRow> rows, Map<String, Account> accountsByName, Map<String, List<Instrument>> known) {
+            List<ImportRow> rows,
+            Map<String, Account> accountsByName,
+            Map<String, List<Instrument>> known,
+            Function<String, Optional<InstrumentCandidate>> lookup) {
         List<ImportError> errors = new ArrayList<>();
         Map<String, InstrumentCandidate> candidates = new HashMap<>();
 
@@ -153,19 +176,18 @@ public class PortfolioImportService implements ImportPortfolioUseCase {
             if (known.containsKey(ref) || candidates.containsKey(ref)) {
                 continue;
             }
-            try {
-                Optional<InstrumentCandidate> chosen = choose(resolveInstrument.resolve(ref));
-                if (chosen.isEmpty()) {
-                    errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
-                } else {
-                    candidates.put(ref, chosen.get());
-                }
-            } catch (UnknownInstrumentException unknown) {
+            Optional<InstrumentCandidate> chosen = lookup.apply(ref);
+            if (chosen.isEmpty()) {
                 errors.add(new ImportError(index, ImportErrorCode.UNRESOLVED_INSTRUMENT, ref));
+            } else {
+                candidates.put(ref, chosen.get());
             }
         }
 
         if (!errors.isEmpty()) {
+            LOG.log(
+                    Level.INFO,
+                    "portfolio import rejected: %d error(s) over %d row(s)".formatted(errors.size(), rows.size()));
             throw new PortfolioImportRejectedException(errors);
         }
         return candidates;
