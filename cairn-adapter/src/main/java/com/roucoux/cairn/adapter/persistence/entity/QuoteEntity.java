@@ -20,7 +20,7 @@ public class QuoteEntity {
     @EmbeddedId
     private QuoteId id;
 
-    @Column(nullable = false, precision = 19, scale = 6)
+    @Column(nullable = false, precision = 28, scale = 12)
     private BigDecimal price;
 
     @JdbcTypeCode(SqlTypes.CHAR)

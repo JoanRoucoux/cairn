@@ -46,7 +46,7 @@ class HoldingTest {
         Holding bought = holding("500", "24.12").buy(new BigDecimal("40"), new BigDecimal("29.10"));
 
         assertThat(bought.quantity()).isEqualByComparingTo("540");
-        assertThat(bought.averageCost()).isEqualByComparingTo("24.488889");
+        assertThat(bought.averageCost()).isEqualByComparingTo("24.488888888889");
     }
 
     @Test

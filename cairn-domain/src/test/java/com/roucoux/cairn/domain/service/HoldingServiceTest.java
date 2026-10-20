@@ -211,7 +211,7 @@ class HoldingServiceTest {
 
         Holding bought = fixture.service().buy(fixture.holdingId(), new BigDecimal("40"), new BigDecimal("29.10"));
 
-        assertThat(bought.averageCost()).isEqualByComparingTo("24.488889");
+        assertThat(bought.averageCost()).isEqualByComparingTo("24.488888888889");
         assertThat(bought.updatedAt()).isEqualTo(NOW);
         assertThat(fixture.holdings())
                 .singleElement()

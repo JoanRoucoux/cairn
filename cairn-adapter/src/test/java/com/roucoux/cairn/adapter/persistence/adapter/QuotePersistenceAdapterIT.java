@@ -103,11 +103,19 @@ class QuotePersistenceAdapterIT {
     }
 
     @Test
-    void keepsSixDecimalsOfPrice() {
+    void keepsTwelveDecimalsOfPrice() {
         UUID instrumentId = givenAnInstrument();
-        quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("33.306900")));
+        quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("0.000012345678")));
 
-        assertThat(latestTwo(instrumentId).get(0).price()).isEqualByComparingTo("33.3069");
+        assertThat(latestTwo(instrumentId).get(0).price()).isEqualByComparingTo("0.000012345678");
+    }
+
+    @Test
+    void keepsAPriceAboveTenTrillion() {
+        UUID instrumentId = givenAnInstrument();
+        quotes.upsert(quote(instrumentId, LocalDate.of(2026, 8, 21), new BigDecimal("12345678901234.123456789012")));
+
+        assertThat(latestTwo(instrumentId).get(0).price()).isEqualByComparingTo("12345678901234.123456789012");
     }
 
     @Test
