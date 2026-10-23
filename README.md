@@ -5,8 +5,6 @@
   </picture>
 </p>
 
-<br>
-
 <p align="center">
   <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml"><img alt="Deploy" src="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml/badge.svg"></a>
