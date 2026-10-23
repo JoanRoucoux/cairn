@@ -3,7 +3,9 @@ updates:
   - package-ecosystem: maven
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       dependencies:
         patterns:
@@ -13,6 +15,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns:
@@ -25,7 +29,9 @@ updates:
       - /cairn-batch
       - /cairn-kafka
     schedule:
-      interval: weekly
+      interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       images:
         patterns:
@@ -35,6 +41,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     ignore:
       # A major PostgreSQL release cannot read the previous one's data directory: that upgrade is
       # a dump and restore, never a tag bump.
