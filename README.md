@@ -5,12 +5,14 @@
   </picture>
 </p>
 
-<p align="center">
-  <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml"><img alt="Deploy" src="https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml/badge.svg"></a>
-  <a href="https://github.com/JoanRoucoux/cairn/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/JoanRoucoux/cairn"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-</p>
+<div align="center">
+
+[![CI](https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/JoanRoucoux/cairn/actions/workflows/ci.yml)
+[![Deploy](https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml/badge.svg)](https://github.com/JoanRoucoux/cairn/actions/workflows/deploy.yml)
+[![Release](https://img.shields.io/github/v/release/JoanRoucoux/cairn)](https://github.com/JoanRoucoux/cairn/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+</div>
 
 Cairn is a single-owner wealth tracker. Every envelope (PEA, PEA-PME, CTO, PER, PEE, life insurance, savings, crypto) is valued line by line, from Yahoo Finance, CoinGecko, SG Sirius, Amundi or a manual quote. A private instance runs at https://cairn.joanroucoux.fr behind passkey sign-in. This repository is the backend; the frontend and the design system live in their own repositories (see [The Cairn repositories](#the-cairn-repositories)).
 
@@ -136,7 +138,7 @@ The host, the shared proxy and the monitoring are managed in [infra](https://git
 - **Dependabot** keeps Maven, GitHub Actions, Docker and Docker Compose dependencies up to date.
 - **Monitoring**: each scheduled job pings an Uptime Kuma push monitor. See [docs/operations.md](docs/operations.md).
 
-## Getting started
+## Development
 
 Prerequisites: JDK 25 and Docker.
 
