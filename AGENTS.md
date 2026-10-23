@@ -40,6 +40,7 @@ Before considering a change done, run the same pipeline as CI: `spotless:check` 
 - Formatting is Spotless/palantir; records for immutable data; constructor injection without Lombok. A [lefthook](https://lefthook.dev) pre-commit hook runs `spotless:apply` and re-stages the result automatically (`lefthook install` once after cloning).
 - Sibling modules are depended on through an explicit version property (`cairn-domain.version` and friends), never `${project.version}`: no module inherits the aggregator, so `${project.version}` would be the module's own version, not the sibling's.
 - Schema changes only through `cairn-schema`'s Liquibase changesets (`ddl-auto: validate` will fail otherwise). Changeset ids are sequential and descriptive (`003-add-index`). New changesets are Liquibase formatted SQL (`changesets/0NN-name.sql`, starting with `--liquibase formatted sql` and `--changeset cairn:0NN-name`), picked up by the same `includeAll`. Every changeset is a formatted SQL file, author `cairn` (one exception, see Gotchas), ids sequential; only `changelog-master.xml` stays XML.
+- Dependabot runs monthly with a 7-day cooldown. Minor and patch updates merge themselves through `.github/workflows/dependabot-auto-merge.yml` once the required checks pass, and majors are reviewed by hand. The README names major versions only, since the exact ones live in the manifests Dependabot bumps.
 
 ## Testing
 
@@ -343,3 +344,4 @@ holds. A rollback redeploys an already released commit and mints no version.
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA — when adding one, pin it the same way.
 - The required status check `ci` is the gate job at the end of `ci.yml`: a new CI job must be added to its `needs`, or its failure will not block a merge.
 - `ci.yml` splits `verify` over three runners: `api`, `workers` (`cairn-batch`, `cairn-kafka`), and `core`, which is everything else **by exclusion**, so a new module is verified there without any change. Moving a module out of `core` means adding it to a part and to `core`'s exclusion list; forgetting the exclusion only verifies it twice.
+- A merge made with `GITHUB_TOKEN` triggers no `push` workflow, which is why `dependabot-auto-merge.yml` uses the `DEPENDABOT_MERGE_TOKEN` secret when it exists.

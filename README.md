@@ -111,21 +111,21 @@ The host, the shared proxy and the monitoring are managed in [infra](https://git
 | Tool | Version | Role |
 | ---- | ------- | ---- |
 | Java | 25 | Language and runtime |
-| Spring Boot | 4.1.1 | Application framework |
+| Spring Boot | 4.1 | Application framework |
 | Spring Security WebAuthn, Spring Session JDBC | managed by Spring Boot | Passkey sign-in, sessions stored in PostgreSQL |
 | Spring Batch | managed by Spring Boot | Scheduled quote and snapshot jobs |
 | Spring for Apache Kafka | managed by Spring Boot | Event publishing and consumption |
-| Apache Kafka | 4.3 (KRaft, no ZooKeeper) | Event broker (`apache/kafka:4.3.1`) |
-| PostgreSQL | 17 (`postgres:17.11`) | Persistence |
+| Apache Kafka | 4.3 | Event broker, KRaft (no ZooKeeper) |
+| PostgreSQL | 17 | Persistence |
 | Liquibase | managed by Spring Boot | Versioned schema, applied out-of-band |
-| openapi-generator | 7.25.0 | Contract-first interfaces and DTOs |
-| springdoc | 3.1.1 | Swagger UI, `local` profile only |
-| Testcontainers | 1.21.4 | PostgreSQL and Kafka in integration tests |
-| WireMock | 3.13.2 | Tests of the price provider clients |
-| ArchUnit | 1.5.0 | Architecture enforcement |
-| Cucumber | 7.34.8 | Business scenarios over real HTTP |
-| JaCoCo | 0.8.15 | Coverage gate |
-| Spotless with palantir-java-format | 3.10.2 with 2.96.0 | Formatting |
+| openapi-generator | 7 | Contract-first interfaces and DTOs |
+| springdoc | 3 | Swagger UI, `local` profile only |
+| Testcontainers | 1 | PostgreSQL and Kafka in integration tests |
+| WireMock | 3 | Tests of the price provider clients |
+| ArchUnit | 1 | Architecture enforcement |
+| Cucumber | 7 | Business scenarios over real HTTP |
+| JaCoCo | 0.8 | Coverage gate |
+| Spotless with palantir-java-format | 3 with 2 | Formatting |
 | Docker, GHCR | | Images `cairn-api`, `cairn-schema`, `cairn-batch`, `cairn-kafka` |
 
 ## Quality and delivery
