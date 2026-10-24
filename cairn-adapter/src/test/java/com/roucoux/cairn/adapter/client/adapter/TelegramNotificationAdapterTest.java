@@ -117,7 +117,7 @@ class TelegramNotificationAdapterTest {
             🏦 LDDS          10 €</pre>""";
 
     @Test
-    void sendsTheFormattedMessageAsHtmlToTheConfiguredChat() {
+    void sendsTheFormattedMessageAsHtmlToTheRecipientsChat() {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter().send(new Recipient(CHAT_ID, Language.FR), exampleSummary());

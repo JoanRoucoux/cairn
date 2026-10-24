@@ -8,6 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathTemplate;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -245,7 +246,7 @@ class TelegramBotApiTest {
                 .isInstanceOf(NotificationDeliveryException.class)
                 .satisfies(failure -> assertThat(failure.getMessage()).doesNotContain(TOKEN));
 
-        wireMock.verify(0, postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage")));
+        wireMock.verify(0, postRequestedFor(urlMatching(".*/sendMessage")));
     }
 
     @Test

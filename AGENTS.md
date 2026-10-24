@@ -269,8 +269,8 @@ absent from both ends, a line bought during it counts from the period start, not
 whose quote history starts after the period is skipped with a WARNING. They have no heartbeat and no env var:
 a failure is logged at ERROR like the daily one, and a run missed while the worker is down is never caught up. `TelegramNotificationAdapter`
 (`cairn-adapter`'s `client/`) is wired in every application, not the worker alone:
-`TelegramClientProperties`' `botToken`/`chatId` carry no validation annotation, so `cairn-api` and
-`cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks them when a
+`TelegramClientProperties`' `botToken` carries no validation annotation, so `cairn-api` and
+`cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks it when a
 send is actually attempted.
 
 **Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image

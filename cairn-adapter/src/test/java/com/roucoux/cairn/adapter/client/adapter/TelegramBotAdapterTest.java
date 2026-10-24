@@ -9,10 +9,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathTemplate;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.roucoux.cairn.adapter.client.config.TelegramClientConfig;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
+import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.StartCommand;
 import java.net.http.HttpClient;
@@ -87,6 +89,20 @@ class TelegramBotAdapterTest {
         assertThat(adapter.botUsername()).isEqualTo("cairn_bot");
 
         wireMock.verify(1, getRequestedFor(urlPathTemplate("/bot{token}/getMe")));
+    }
+
+    @Test
+    void aBlankBotUsernameIsADeliveryFailureAndIsNotMemoized() {
+        wireMock.stubFor(get(urlPathTemplate("/bot{token}/getMe"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"ok\":true,\"result\":{\"username\":\"\"}}")));
+        TelegramBotAdapter adapter = adapter(TOKEN);
+
+        assertThatThrownBy(adapter::botUsername).isInstanceOf(NotificationDeliveryException.class);
+        assertThatThrownBy(adapter::botUsername).isInstanceOf(NotificationDeliveryException.class);
+
+        wireMock.verify(2, getRequestedFor(urlPathTemplate("/bot{token}/getMe")));
     }
 
     @Test

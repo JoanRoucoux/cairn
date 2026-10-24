@@ -1,5 +1,6 @@
 package com.roucoux.cairn.adapter.client.adapter;
 
+import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.StartCommand;
 import com.roucoux.cairn.domain.port.out.TelegramBotPort;
@@ -36,7 +37,10 @@ public class TelegramBotAdapter implements TelegramBotPort {
     public String botUsername() {
         String known = botUsername;
         if (known == null) {
-            known = api.getMe().path("username").asString();
+            known = api.getMe().path("username").asString("");
+            if (known.isBlank()) {
+                throw new NotificationDeliveryException("Telegram answered without a bot username");
+            }
             botUsername = known;
         }
         return known;

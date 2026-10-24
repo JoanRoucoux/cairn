@@ -97,8 +97,9 @@ envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
 
 The weekly (Saturday 09:00), monthly (the 1st, 09:00) and yearly (January 1st, 09:05) recaps reuse the same bot and have no push monitor: a failed send only shows in the worker log, and a recap missed while the worker is down is not sent later.
 
-The bot token never appears in the logs, not even on a failed send: `docker logs cairn-worker-1`
-must never show it.
+The bot token never appears in the logs, not even on a failed send: neither `docker logs cairn-worker-1`
+nor the api container's logs may ever show it. Until the chat is linked, recaps are skipped with the INFO line
+`summary not sent: no Telegram chat linked`.
 
 ## Reading the logs
 
