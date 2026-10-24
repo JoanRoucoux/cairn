@@ -8,17 +8,21 @@ import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
+import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
 import com.roucoux.cairn.domain.model.Portfolio;
+import com.roucoux.cairn.domain.model.Preferences;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.Summary;
 import com.roucoux.cairn.domain.model.SummaryPeriod;
+import com.roucoux.cairn.domain.model.Theme;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
+import com.roucoux.cairn.domain.port.out.LoadPreferencesPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -59,6 +63,49 @@ class SummaryServiceTest {
     private static final Account LIVRET_A = new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Bank");
     private static final Account LDDS = new Account(UUID.randomUUID(), "LDDS", AccountType.SAVINGS, "Bank");
 
+    private static final LoadPreferencesPort FR_PREFERENCES = () -> new Preferences(Language.FR, Theme.SYSTEM);
+
+    private static SendNotificationPort into(List<Summary> sent) {
+        return (language, summary) -> sent.add(summary);
+    }
+
+    @Test
+    void theRecapIsSentInTheStoredLanguage() {
+        List<Language> languages = new ArrayList<>();
+        LoadPreferencesPort english = () -> new Preferences(Language.EN, Theme.DARK);
+
+        new SummaryService(
+                        d1Only(),
+                        () -> portfolioOf(List.of()),
+                        english,
+                        (language, summary) -> languages.add(language),
+                        CLOCK,
+                        PARIS)
+                .send();
+
+        assertThat(languages).containsExactly(Language.EN);
+    }
+
+    @Test
+    void aLanguageChangedBetweenTwoRecapsAppliesToTheNextOne() {
+        List<Language> languages = new ArrayList<>();
+        Language[] stored = {Language.FR};
+        LoadPreferencesPort preferences = () -> new Preferences(stored[0], Theme.SYSTEM);
+        SummaryService service = new SummaryService(
+                d1Only(),
+                () -> portfolioOf(List.of()),
+                preferences,
+                (language, summary) -> languages.add(language),
+                CLOCK,
+                PARIS);
+
+        service.send();
+        stored[0] = Language.EN;
+        service.send();
+
+        assertThat(languages).containsExactly(Language.FR, Language.EN);
+    }
+
     @Test
     void readsD1PerformanceAndSendsItOnceForTodayInParis() {
         List<PerformanceRange> requestedRanges = new ArrayList<>();
@@ -76,7 +123,8 @@ class SummaryServiceTest {
         };
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, CLOCK, PARIS).send();
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), CLOCK, PARIS)
+                .send();
 
         assertThat(requestedRanges).containsExactly(PerformanceRange.D1);
         assertThat(sent).hasSize(1);
@@ -135,7 +183,8 @@ class SummaryServiceTest {
         List<Summary> sent = new ArrayList<>();
         Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, clock, PARIS).send(period);
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), clock, PARIS)
+                .send(period);
 
         assertThat(baselines).containsExactly(baseline);
         assertThat(sent).hasSize(1);
@@ -171,7 +220,7 @@ class SummaryServiceTest {
         List<Summary> sent = new ArrayList<>();
         Clock clock = Clock.fixed(Instant.parse("2026-10-17T07:00:00Z"), ZoneOffset.UTC);
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), sent::add, clock, PARIS)
+        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), clock, PARIS)
                 .send(SummaryPeriod.WEEK);
 
         assertThat(sent).isEmpty();
@@ -199,9 +248,9 @@ class SummaryServiceTest {
                 line(LDDS, EUROS, "10", Optional.of(par())),
                 line(LIVRET_A, EUROS, "20000", Optional.of(par()))));
         List<Summary> sent = new ArrayList<>();
-        SendNotificationPort sendNotification = sent::add;
+        SendNotificationPort sendNotification = into(sent);
 
-        new SummaryService(d1Only(), getPortfolio, sendNotification, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, sendNotification, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -217,7 +266,7 @@ class SummaryServiceTest {
                 line(otherSavings, ETF, "10", Optional.of(quote(ETF, "25")))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts()).isEmpty();
     }
@@ -228,7 +277,7 @@ class SummaryServiceTest {
                 List.of(line(LIVRET_A, EUROS, "20000", Optional.of(par())), line(LDDS, ETF, "10", Optional.empty())));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -246,7 +295,7 @@ class SummaryServiceTest {
                 line(LIVRET_A, usdEtf, "10", Optional.of(usdQuote))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -263,7 +312,7 @@ class SummaryServiceTest {
                 List.of(line(PEA, EUROS, "300", Optional.of(par())), line(PEA, usdEtf, "10", Optional.of(usdQuote))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, sent::add, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(

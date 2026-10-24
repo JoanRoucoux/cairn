@@ -3,6 +3,7 @@ package com.roucoux.cairn.domain.service;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
+import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
@@ -14,6 +15,7 @@ import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase;
 import com.roucoux.cairn.domain.port.in.SendPeriodSummaryUseCase;
+import com.roucoux.cairn.domain.port.out.LoadPreferencesPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.lang.System.Logger.Level;
 import java.time.Clock;
@@ -32,6 +34,7 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
 
     private final GetPerformanceUseCase getPerformance;
     private final GetPortfolioUseCase getPortfolio;
+    private final LoadPreferencesPort loadPreferences;
     private final SendNotificationPort sendNotification;
     private final Clock clock;
     private final ZoneId zone;
@@ -39,11 +42,13 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
     public SummaryService(
             GetPerformanceUseCase getPerformance,
             GetPortfolioUseCase getPortfolio,
+            LoadPreferencesPort loadPreferences,
             SendNotificationPort sendNotification,
             Clock clock,
             ZoneId zone) {
         this.getPerformance = getPerformance;
         this.getPortfolio = getPortfolio;
+        this.loadPreferences = loadPreferences;
         this.sendNotification = sendNotification;
         this.clock = clock;
         this.zone = zone;
@@ -52,12 +57,14 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
     @Override
     public void send() {
         LocalDate today = LocalDate.now(clock.withZone(zone));
-        sendNotification.send(new Summary(
-                SummaryPeriod.DAY,
-                today,
-                today,
-                getPerformance.performance(PerformanceRange.D1),
-                cashOnlyAccounts(getPortfolio.get().holdings())));
+        sendNotification.send(
+                language(),
+                new Summary(
+                        SummaryPeriod.DAY,
+                        today,
+                        today,
+                        getPerformance.performance(PerformanceRange.D1),
+                        cashOnlyAccounts(getPortfolio.get().holdings())));
     }
 
     @Override
@@ -69,12 +76,18 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
             LOG.log(Level.WARNING, period + " recap not sent: no quote history before " + performance.from());
             return;
         }
-        sendNotification.send(new Summary(
-                period,
-                bounds.first(),
-                bounds.last(),
-                performance,
-                cashOnlyAccounts(getPortfolio.get().holdings())));
+        sendNotification.send(
+                language(),
+                new Summary(
+                        period,
+                        bounds.first(),
+                        bounds.last(),
+                        performance,
+                        cashOnlyAccounts(getPortfolio.get().holdings())));
+    }
+
+    private Language language() {
+        return loadPreferences.load().language();
     }
 
     private static List<CashOnlyAccount> cashOnlyAccounts(List<ValuedHolding> holdings) {

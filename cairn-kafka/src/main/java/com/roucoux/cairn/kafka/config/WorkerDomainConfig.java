@@ -11,6 +11,7 @@ import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadAccountsPort;
 import com.roucoux.cairn.domain.port.out.LoadHoldingsPort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
+import com.roucoux.cairn.domain.port.out.LoadPreferencesPort;
 import com.roucoux.cairn.domain.port.out.LoadQuotesPort;
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
 import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
@@ -115,10 +116,11 @@ class WorkerDomainConfig {
     SummaryService summaryService(
             GetPerformanceUseCase getPerformance,
             GetPortfolioUseCase getPortfolio,
+            LoadPreferencesPort loadPreferences,
             SendNotificationPort sendNotification,
             Clock clock,
             ZoneId zone) {
-        return new SummaryService(getPerformance, getPortfolio, sendNotification, clock, zone);
+        return new SummaryService(getPerformance, getPortfolio, loadPreferences, sendNotification, clock, zone);
     }
 
     @Bean

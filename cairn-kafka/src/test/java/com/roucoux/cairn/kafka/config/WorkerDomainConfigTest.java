@@ -199,10 +199,19 @@ class WorkerDomainConfigTest {
         com.roucoux.cairn.domain.port.in.GetPerformanceUseCase getPerformance =
                 config.getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, java.time.ZoneId.of("Europe/Paris"));
         List<com.roucoux.cairn.domain.model.Summary> sent = new ArrayList<>();
-        com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification = sent::add;
+        com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification =
+                (language, summary) -> sent.add(summary);
+        com.roucoux.cairn.domain.port.out.LoadPreferencesPort loadPreferences =
+                () -> new com.roucoux.cairn.domain.model.Preferences(
+                        com.roucoux.cairn.domain.model.Language.FR, com.roucoux.cairn.domain.model.Theme.SYSTEM);
 
         com.roucoux.cairn.domain.service.SummaryService summaryService = config.summaryService(
-                getPerformance, getPortfolio, sendNotification, CLOCK, java.time.ZoneId.of("Europe/Paris"));
+                getPerformance,
+                getPortfolio,
+                loadPreferences,
+                sendNotification,
+                CLOCK,
+                java.time.ZoneId.of("Europe/Paris"));
         com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase sendDailySummary = summaryService;
         com.roucoux.cairn.domain.port.in.SendPeriodSummaryUseCase sendPeriodSummary = summaryService;
         sendDailySummary.send();
