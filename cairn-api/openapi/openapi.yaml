@@ -29,6 +29,8 @@ tags:
     description: The signed-in owner and their registered passkeys, read separately
   - name: Preferences
     description: The owner's language and theme, kept on the server
+  - name: Telegram
+    description: Link the owner's Telegram chat to receive the portfolio recaps
 security:
   - sessionCookie: []
 paths:
@@ -990,6 +992,93 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /session/telegram:
+    get:
+      tags: [Telegram]
+      operationId: getTelegramLink
+      summary: Get the Telegram link
+      responses:
+        '200':
+          description: Whether the bot is available and which chat, if any, is linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLinkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /session/telegram/link:
+    post:
+      tags: [Telegram]
+      operationId: startTelegramLink
+      summary: Start linking a Telegram chat
+      description: >-
+        Issues a one-time invitation valid for 10 minutes. Opening its URL in Telegram and pressing
+        Start sends the token to the bot, which `POST /session/telegram/link/check` then reads.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        '201':
+          description: The invitation to open in Telegram
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramInvitationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/BusinessRuleViolated'
+        '502':
+          description: Telegram did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    delete:
+      tags: [Telegram]
+      operationId: unlinkTelegram
+      summary: Unlink the Telegram chat
+      description: Forgets the linked chat and any pending invitation. Recaps are no longer sent.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        '204':
+          description: No chat is linked any more
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /session/telegram/link/check:
+    post:
+      tags: [Telegram]
+      operationId: checkTelegramLink
+      summary: Check whether the invitation was used
+      description: Reads the bot's pending `/start` messages and links the chat whose token matches the pending invitation.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        '200':
+          description: The link after the check
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLinkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/BusinessRuleViolated'
+        '502':
+          description: Telegram did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 components:
   securitySchemes:
     sessionCookie:
@@ -2051,3 +2140,37 @@ components:
           type: string
           enum: [system, light, dark]
           example: dark
+    TelegramLinkResponse:
+      description: The state of the Telegram link. Returned by `GET /session/telegram` and `POST /session/telegram/link/check`.
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [unavailable, unlinked, pending, linked]
+          description: >-
+            `unavailable` means the server has no bot token, `pending` an invitation is out, `linked`
+            a chat receives the recaps.
+          example: linked
+        chatLabel:
+          type: string
+          description: Name of the linked chat. Present only when a chat is linked.
+          example: Alex
+        linkedAt:
+          type: string
+          format: date-time
+          description: When the chat was linked. Present only when a chat is linked.
+          example: 2026-10-24T08:00:00Z
+    TelegramInvitationResponse:
+      description: A one-time invitation to open in Telegram.
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url:
+          type: string
+          description: The `t.me` link carrying the one-time token.
+          example: https://t.me/cairn_bot?start=Zm9vYmFy
+        expiresAt:
+          type: string
+          format: date-time
+          example: 2026-10-24T08:10:00Z

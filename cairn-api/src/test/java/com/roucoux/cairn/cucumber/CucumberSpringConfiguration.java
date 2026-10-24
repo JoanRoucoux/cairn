@@ -1,6 +1,7 @@
 package com.roucoux.cairn.cucumber;
 
 import com.roucoux.cairn.domain.port.out.PublishEventPort;
+import com.roucoux.cairn.domain.port.out.TelegramBotPort;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,4 +30,7 @@ public class CucumberSpringConfiguration {
 
     @MockitoBean
     PublishEventPort publishEvent;
+
+    @MockitoBean
+    TelegramBotPort telegramBot;
 }
