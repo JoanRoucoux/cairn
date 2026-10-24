@@ -27,6 +27,8 @@ tags:
     description: The portfolio's value over time, from daily snapshots or intraday valuations
   - name: Session
     description: The signed-in owner and their registered passkeys, read separately
+  - name: Preferences
+    description: The owner's language and theme, kept on the server
 security:
   - sessionCookie: []
 paths:
@@ -945,6 +947,49 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /session/preferences:
+    get:
+      tags: [Preferences]
+      operationId: getPreferences
+      summary: Get the owner's preferences
+      responses:
+        '200':
+          description: The stored language and theme
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Preferences]
+      operationId: updatePreferences
+      summary: Update the owner's preferences
+      description: Changes only the fields sent. An empty body changes nothing and answers the stored preferences.
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesRequest'
+            example:
+              language: en
+      responses:
+        '200':
+          description: The preferences after the change
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     sessionCookie:
@@ -1979,3 +2024,30 @@ components:
           enum: [ICLOUD_KEYCHAIN, GOOGLE_PASSWORD_MANAGER, WINDOWS_HELLO, ONE_PASSWORD, BITWARDEN, SECURITY_KEY]
           description: Where the passkey lives, when it can be told from its AAGUID. Absent when the authenticator is unknown or did not disclose its AAGUID. The consumer turns the code into a display label.
           example: ICLOUD_KEYCHAIN
+    PreferencesResponse:
+      description: The owner's preferences. Returned by `GET` and `PATCH /session/preferences`.
+      type: object
+      required: [language, theme]
+      properties:
+        language:
+          type: string
+          enum: [fr, en]
+          description: The language of the app and of the Telegram recaps.
+          example: fr
+        theme:
+          type: string
+          enum: [system, light, dark]
+          description: The color theme, `system` following the device.
+          example: system
+    UpdatePreferencesRequest:
+      description: The preferences to change. A field left out keeps its stored value.
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [fr, en]
+          example: en
+        theme:
+          type: string
+          enum: [system, light, dark]
+          example: dark

@@ -13,11 +13,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.http.Fault;
+import com.roucoux.cairn.adapter.client.config.TelegramClientConfig;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.EnvelopePerformance;
+import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
@@ -68,7 +70,8 @@ class TelegramNotificationAdapterTest {
                         .withHttpClientCustomizer(builder -> builder.version(HttpClient.Version.HTTP_1_1))
                         .build(HttpClientSettings.defaults()))
                 .build();
-        return new TelegramNotificationAdapter(client, properties, new ObjectMapper(), sleeps::add);
+        return new TelegramNotificationAdapter(
+                client, properties, new TelegramClientConfig().telegramMessages(), new ObjectMapper(), sleeps::add);
     }
 
     private static Summary exampleSummary() {
@@ -122,7 +125,7 @@ class TelegramNotificationAdapterTest {
     void sendsTheFormattedMessageAsHtmlToTheConfiguredChat() {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
-        adapter(TOKEN, CHAT_ID).send(exampleSummary());
+        adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary());
 
         wireMock.verify(postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage"))
                 .withRequestBody(equalToJson(
@@ -149,12 +152,14 @@ class TelegramNotificationAdapterTest {
                         envelope(AccountType.SAVINGS, "40000", "-1500.30", null)));
 
         adapter(TOKEN, CHAT_ID)
-                .send(new Summary(
-                        SummaryPeriod.DAY,
-                        LocalDate.of(2026, 8, 14),
-                        LocalDate.of(2026, 8, 14),
-                        performance,
-                        List.of()));
+                .send(
+                        Language.FR,
+                        new Summary(
+                                SummaryPeriod.DAY,
+                                LocalDate.of(2026, 8, 14),
+                                LocalDate.of(2026, 8, 14),
+                                performance,
+                                List.of()));
 
         assertThat(sentText()).isEqualTo("""
                 📊 <b>Cairn · Vendredi 14 août</b>
@@ -181,13 +186,15 @@ class TelegramNotificationAdapterTest {
                 List.of(envelope(AccountType.SAVINGS, "500", "0", "0")));
 
         adapter(TOKEN, CHAT_ID)
-                .send(new Summary(
-                        SummaryPeriod.DAY,
-                        LocalDate.of(2026, 8, 14),
-                        LocalDate.of(2026, 8, 14),
-                        performance,
-                        List.of(new CashOnlyAccount(
-                                "Livret <A&B>", AccountType.SAVINGS, Money.eur(new BigDecimal("500"))))));
+                .send(
+                        Language.FR,
+                        new Summary(
+                                SummaryPeriod.DAY,
+                                LocalDate.of(2026, 8, 14),
+                                LocalDate.of(2026, 8, 14),
+                                performance,
+                                List.of(new CashOnlyAccount(
+                                        "Livret <A&B>", AccountType.SAVINGS, Money.eur(new BigDecimal("500"))))));
 
         assertThat(sentText()).endsWith("<pre>🏦 Livret &lt;A&amp;B&gt; 500 €</pre>");
     }
@@ -221,11 +228,13 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID)
-                .send(recap(
-                        SummaryPeriod.WEEK,
-                        LocalDate.of(2026, 10, 12),
-                        LocalDate.of(2026, 10, 16),
-                        LocalDate.of(2026, 10, 11)));
+                .send(
+                        Language.FR,
+                        recap(
+                                SummaryPeriod.WEEK,
+                                LocalDate.of(2026, 10, 12),
+                                LocalDate.of(2026, 10, 16),
+                                LocalDate.of(2026, 10, 11)));
 
         assertThat(sentText()).isEqualTo(recapText("Semaine du 12 au 16 octobre", "Semaine"));
     }
@@ -235,11 +244,13 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID)
-                .send(recap(
-                        SummaryPeriod.WEEK,
-                        LocalDate.of(2026, 9, 28),
-                        LocalDate.of(2026, 10, 2),
-                        LocalDate.of(2026, 9, 27)));
+                .send(
+                        Language.FR,
+                        recap(
+                                SummaryPeriod.WEEK,
+                                LocalDate.of(2026, 9, 28),
+                                LocalDate.of(2026, 10, 2),
+                                LocalDate.of(2026, 9, 27)));
 
         assertThat(sentText()).isEqualTo(recapText("Semaine du 28 septembre au 2 octobre", "Semaine"));
     }
@@ -249,11 +260,13 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID)
-                .send(recap(
-                        SummaryPeriod.MONTH,
-                        LocalDate.of(2026, 10, 1),
-                        LocalDate.of(2026, 10, 31),
-                        LocalDate.of(2026, 9, 30)));
+                .send(
+                        Language.FR,
+                        recap(
+                                SummaryPeriod.MONTH,
+                                LocalDate.of(2026, 10, 1),
+                                LocalDate.of(2026, 10, 31),
+                                LocalDate.of(2026, 9, 30)));
 
         assertThat(sentText()).isEqualTo(recapText("Octobre 2026", "Mois"));
     }
@@ -263,11 +276,13 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID)
-                .send(recap(
-                        SummaryPeriod.YEAR,
-                        LocalDate.of(2026, 1, 1),
-                        LocalDate.of(2026, 12, 31),
-                        LocalDate.of(2025, 12, 31)));
+                .send(
+                        Language.FR,
+                        recap(
+                                SummaryPeriod.YEAR,
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2026, 12, 31),
+                                LocalDate.of(2025, 12, 31)));
 
         assertThat(sentText()).isEqualTo(recapText("Bilan 2026", "Année"));
     }
@@ -277,13 +292,163 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
 
         adapter(TOKEN, CHAT_ID)
-                .send(recap(
-                        SummaryPeriod.YEAR,
-                        LocalDate.of(2026, 1, 1),
-                        LocalDate.of(2026, 12, 31),
-                        LocalDate.of(2026, 9, 24)));
+                .send(
+                        Language.FR,
+                        recap(
+                                SummaryPeriod.YEAR,
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2026, 12, 31),
+                                LocalDate.of(2026, 9, 24)));
 
         assertThat(sentText()).isEqualTo(recapText("Bilan 2026", "Année (depuis le 24 septembre)"));
+    }
+
+    private static final String EXPECTED_ENGLISH_TEXT = """
+            📊 <b>Cairn · Wednesday 23 September</b>
+
+            💰 Net worth  <b>€372,899</b>
+            📈 Day  <b>+€297</b>  (+0.10%)
+
+            <pre>🟢 PEA      €185,430  +€1,204  +0.61%
+            🟢 PEE      €112,380    +€160  +0.14%
+            🔴 Crypto    €55,079  -€1,067  -1.92%
+            ─────────────────────────────────────
+            🏦 Livret A  €20,000
+            🏦 LDDS          €10</pre>""";
+
+    @Test
+    void anEnglishDailyRecapUsesEnglishWordsAndEuroPrefix() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID).send(Language.EN, exampleSummary());
+
+        assertThat(sentText()).isEqualTo(EXPECTED_ENGLISH_TEXT);
+    }
+
+    private static String englishRecapText(String title, String label) {
+        return """
+                📊 <b>Cairn · %s</b>
+
+                💰 Net worth  <b>€50,000</b>
+                📈 %s  <b>+€1,234</b>  (+2.10%%)
+
+                <pre>🟢 PEA €50,000  +€1,234  +2.10%%</pre>""".formatted(title, label);
+    }
+
+    @Test
+    void anEnglishWeeklyRecapSpanningTwoMonthsNamesBothMonths() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        recap(
+                                SummaryPeriod.WEEK,
+                                LocalDate.of(2026, 9, 28),
+                                LocalDate.of(2026, 10, 2),
+                                LocalDate.of(2026, 9, 27)));
+
+        assertThat(sentText()).isEqualTo(englishRecapText("Week of 28 September to 2 October", "Week"));
+    }
+
+    @Test
+    void anEnglishWeeklyRecapInOneMonthNamesTheDaysOnly() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        recap(
+                                SummaryPeriod.WEEK,
+                                LocalDate.of(2026, 10, 12),
+                                LocalDate.of(2026, 10, 16),
+                                LocalDate.of(2026, 10, 11)));
+
+        assertThat(sentText()).isEqualTo(englishRecapText("Week of 12 to 16 October", "Week"));
+    }
+
+    @Test
+    void anEnglishMonthlyRecapIsTitledWithTheMonthAndYear() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        recap(
+                                SummaryPeriod.MONTH,
+                                LocalDate.of(2026, 10, 1),
+                                LocalDate.of(2026, 10, 31),
+                                LocalDate.of(2026, 9, 30)));
+
+        assertThat(sentText()).isEqualTo(englishRecapText("October 2026", "Month"));
+    }
+
+    @Test
+    void anEnglishYearlyRecapIsTitledReview() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        recap(
+                                SummaryPeriod.YEAR,
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2026, 12, 31),
+                                LocalDate.of(2025, 12, 31)));
+
+        assertThat(sentText()).isEqualTo(englishRecapText("2026 review", "Year"));
+    }
+
+    @Test
+    void anEnglishRecapWhoseHistoryStartsAfterThePeriodSaysSince() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        recap(
+                                SummaryPeriod.YEAR,
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2026, 12, 31),
+                                LocalDate.of(2026, 9, 24)));
+
+        assertThat(sentText()).isEqualTo(englishRecapText("2026 review", "Year (since 24 September)"));
+    }
+
+    @Test
+    void anEnglishTableAbbreviatesLifeInsurance() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage")).willReturn(ok()));
+        Performance performance = new Performance(
+                Optional.of(PerformanceRange.D1),
+                LocalDate.of(2026, 8, 13),
+                LocalDate.of(2026, 8, 14),
+                false,
+                Optional.empty(),
+                Money.eur(new BigDecimal("100000")),
+                Money.eur(new BigDecimal("-1500")),
+                Optional.of(new BigDecimal("-0.0148")),
+                List.of(
+                        envelope(AccountType.LIFE_INSURANCE, "60000", "0.30", "0.000005"),
+                        envelope(AccountType.SAVINGS, "40000", "-1500.30", null)));
+
+        adapter(TOKEN, CHAT_ID)
+                .send(
+                        Language.EN,
+                        new Summary(
+                                SummaryPeriod.DAY,
+                                LocalDate.of(2026, 8, 14),
+                                LocalDate.of(2026, 8, 14),
+                                performance,
+                                List.of()));
+
+        assertThat(sentText()).isEqualTo("""
+                📊 <b>Cairn · Friday 14 August</b>
+
+                💰 Net worth  <b>€100,000</b>
+                📉 Day  <b>-€1,500</b>  (-1.48%)
+
+                <pre>⚪ Life ins. €60,000       €0  0.00%
+                🔴 Savings   €40,000  -€1,500</pre>""");
     }
 
     private String sentText() {
@@ -317,7 +482,7 @@ class TelegramNotificationAdapterTest {
                 .whenScenarioStateIs("retried")
                 .willReturn(ok()));
 
-        adapter(TOKEN, CHAT_ID).send(exampleSummary());
+        adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary());
 
         wireMock.verify(2, postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage")));
         assertThat(sleeps).containsExactly(Duration.ofSeconds(3));
@@ -331,7 +496,7 @@ class TelegramNotificationAdapterTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"parameters\":{\"retry_after\":600}}")));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class);
 
         assertThat(sleeps).containsExactly(Duration.ofSeconds(60));
@@ -345,7 +510,7 @@ class TelegramNotificationAdapterTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"parameters\":{\"retry_after\":1}}")));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class);
 
         wireMock.verify(2, postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage")));
@@ -357,7 +522,7 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage"))
                 .willReturn(aResponse().withStatus(400)));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class);
 
         wireMock.verify(1, postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage")));
@@ -369,7 +534,7 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage"))
                 .willReturn(aResponse().withStatus(401)));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class)
                 .satisfies(failure -> {
                     assertThat(failure.getMessage()).doesNotContain(TOKEN);
@@ -382,7 +547,7 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage"))
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class)
                 .satisfies(failure -> {
                     Throwable current = failure;
@@ -397,7 +562,7 @@ class TelegramNotificationAdapterTest {
 
     @Test
     void noAttemptIsMadeAndNoTokenLeaksWhenTheTokenIsMissing() {
-        assertThatThrownBy(() -> adapter("", CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter("", CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class)
                 .satisfies(failure -> assertThat(failure.getMessage()).doesNotContain(TOKEN));
 
@@ -406,7 +571,7 @@ class TelegramNotificationAdapterTest {
 
     @Test
     void noAttemptIsMadeWhenTheChatIdIsMissing() {
-        assertThatThrownBy(() -> adapter(TOKEN, "").send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, "").send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class);
 
         wireMock.verify(0, postRequestedFor(urlEqualTo("/bot" + ENCODED_TOKEN + "/sendMessage")));
@@ -417,7 +582,7 @@ class TelegramNotificationAdapterTest {
         wireMock.stubFor(post(urlPathTemplate("/bot{token}/sendMessage"))
                 .willReturn(aResponse().withStatus(500)));
 
-        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(exampleSummary()))
+        assertThatThrownBy(() -> adapter(TOKEN, CHAT_ID).send(Language.FR, exampleSummary()))
                 .isInstanceOf(NotificationDeliveryException.class)
                 .satisfies(failure -> assertThat(failure.getMessage()).doesNotContain(TOKEN));
     }

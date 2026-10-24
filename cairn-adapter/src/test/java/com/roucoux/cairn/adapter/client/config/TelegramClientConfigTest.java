@@ -10,9 +10,11 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import java.time.Duration;
+import java.util.Locale;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 import org.springframework.web.client.RestClient;
 
 class TelegramClientConfigTest {
@@ -57,6 +59,15 @@ class TelegramClientConfigTest {
                         .getStatusCode()
                         .is2xxSuccessful())
                 .isTrue();
+    }
+
+    @Test
+    void telegramMessagesResolvesBothLanguagesFromUtf8Bundles() {
+        MessageSource messages = new TelegramClientConfig().telegramMessages();
+
+        assertThat(messages.getMessage("netWorth", null, Locale.FRANCE)).isEqualTo("Patrimoine");
+        assertThat(messages.getMessage("netWorth", null, Locale.UK)).isEqualTo("Net worth");
+        assertThat(messages.getMessage("change.year", null, Locale.FRANCE)).isEqualTo("Année");
     }
 
     private record Body(String chatId, String text) {}
