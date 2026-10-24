@@ -92,8 +92,7 @@ envelope's change to Telegram, with the dashboard's 1D figures. To set it up:
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and put its token in
    `/srv/cairn/.env` as `TELEGRAM_BOT_TOKEN`.
-2. Send the bot any message, then open `https://api.telegram.org/bot<token>/getUpdates` and put
-   `message.chat.id` in `/srv/cairn/.env` as `TELEGRAM_CHAT_ID`.
+2. Open the profile page, Telegram, Connect Telegram, then press Start in Telegram.
 3. Create the push monitor above and put its URL in `/srv/cairn/.env` as `KUMA_PUSH_SUMMARY`.
 
 The weekly (Saturday 09:00), monthly (the 1st, 09:00) and yearly (January 1st, 09:05) recaps reuse the same bot and have no push monitor: a failed send only shows in the worker log, and a recap missed while the worker is down is not sent later.

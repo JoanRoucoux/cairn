@@ -9,6 +9,7 @@ import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.Holding;
 import com.roucoux.cairn.domain.model.Instrument;
 import com.roucoux.cairn.domain.model.Language;
+import com.roucoux.cairn.domain.model.LinkedChat;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
@@ -16,14 +17,17 @@ import com.roucoux.cairn.domain.model.Portfolio;
 import com.roucoux.cairn.domain.model.Preferences;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
+import com.roucoux.cairn.domain.model.Recipient;
 import com.roucoux.cairn.domain.model.Summary;
 import com.roucoux.cairn.domain.model.SummaryPeriod;
+import com.roucoux.cairn.domain.model.TelegramLink;
 import com.roucoux.cairn.domain.model.Theme;
 import com.roucoux.cairn.domain.model.ValuedHolding;
 import com.roucoux.cairn.domain.port.in.GetPerformanceUseCase;
 import com.roucoux.cairn.domain.port.in.GetPortfolioUseCase;
 import com.roucoux.cairn.domain.port.out.LoadPreferencesPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
+import com.roucoux.cairn.domain.port.out.TelegramLinkPort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -63,10 +67,58 @@ class SummaryServiceTest {
     private static final Account LIVRET_A = new Account(UUID.randomUUID(), "Livret A", AccountType.SAVINGS, "Bank");
     private static final Account LDDS = new Account(UUID.randomUUID(), "LDDS", AccountType.SAVINGS, "Bank");
 
+    private static final TelegramLinkPort LINKED =
+            linkTo(new TelegramLink(new LinkedChat(4242L, "@alex", Instant.parse("2026-09-01T10:00:00Z")), null));
+
     private static final LoadPreferencesPort FR_PREFERENCES = () -> new Preferences(Language.FR, Theme.SYSTEM);
 
+    @Test
+    void noRecapIsSentWhenNoChatIsLinked() {
+        List<Summary> sent = new ArrayList<>();
+        TelegramLinkPort unlinked = linkTo(TelegramLink.NONE);
+        SummaryService service = new SummaryService(
+                d1Only(), () -> portfolioOf(List.of()), unlinked, FR_PREFERENCES, into(sent), CLOCK, PARIS);
+
+        service.send();
+        service.send(SummaryPeriod.WEEK);
+
+        assertThat(sent).isEmpty();
+    }
+
+    @Test
+    void theRecipientCarriesTheLinkedChatAndTheStoredLanguage() {
+        List<Recipient> recipients = new ArrayList<>();
+        LoadPreferencesPort english = () -> new Preferences(Language.EN, Theme.DARK);
+
+        new SummaryService(
+                        d1Only(),
+                        () -> portfolioOf(List.of()),
+                        LINKED,
+                        english,
+                        (recipient, summary) -> recipients.add(recipient),
+                        CLOCK,
+                        PARIS)
+                .send();
+
+        assertThat(recipients).containsExactly(new Recipient(4242L, Language.EN));
+    }
+
+    private static TelegramLinkPort linkTo(TelegramLink link) {
+        return new TelegramLinkPort() {
+            @Override
+            public TelegramLink load() {
+                return link;
+            }
+
+            @Override
+            public TelegramLink save(TelegramLink saved) {
+                throw new AssertionError("not expected");
+            }
+        };
+    }
+
     private static SendNotificationPort into(List<Summary> sent) {
-        return (language, summary) -> sent.add(summary);
+        return (recipient, summary) -> sent.add(summary);
     }
 
     @Test
@@ -77,8 +129,9 @@ class SummaryServiceTest {
         new SummaryService(
                         d1Only(),
                         () -> portfolioOf(List.of()),
+                        LINKED,
                         english,
-                        (language, summary) -> languages.add(language),
+                        (recipient, summary) -> languages.add(recipient.language()),
                         CLOCK,
                         PARIS)
                 .send();
@@ -94,8 +147,9 @@ class SummaryServiceTest {
         SummaryService service = new SummaryService(
                 d1Only(),
                 () -> portfolioOf(List.of()),
+                LINKED,
                 preferences,
-                (language, summary) -> languages.add(language),
+                (recipient, summary) -> languages.add(recipient.language()),
                 CLOCK,
                 PARIS);
 
@@ -123,7 +177,8 @@ class SummaryServiceTest {
         };
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), CLOCK, PARIS)
+        new SummaryService(
+                        getPerformance, () -> portfolioOf(List.of()), LINKED, FR_PREFERENCES, into(sent), CLOCK, PARIS)
                 .send();
 
         assertThat(requestedRanges).containsExactly(PerformanceRange.D1);
@@ -183,7 +238,8 @@ class SummaryServiceTest {
         List<Summary> sent = new ArrayList<>();
         Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), clock, PARIS)
+        new SummaryService(
+                        getPerformance, () -> portfolioOf(List.of()), LINKED, FR_PREFERENCES, into(sent), clock, PARIS)
                 .send(period);
 
         assertThat(baselines).containsExactly(baseline);
@@ -220,7 +276,8 @@ class SummaryServiceTest {
         List<Summary> sent = new ArrayList<>();
         Clock clock = Clock.fixed(Instant.parse("2026-10-17T07:00:00Z"), ZoneOffset.UTC);
 
-        new SummaryService(getPerformance, () -> portfolioOf(List.of()), FR_PREFERENCES, into(sent), clock, PARIS)
+        new SummaryService(
+                        getPerformance, () -> portfolioOf(List.of()), LINKED, FR_PREFERENCES, into(sent), clock, PARIS)
                 .send(SummaryPeriod.WEEK);
 
         assertThat(sent).isEmpty();
@@ -250,7 +307,7 @@ class SummaryServiceTest {
         List<Summary> sent = new ArrayList<>();
         SendNotificationPort sendNotification = into(sent);
 
-        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, sendNotification, CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, LINKED, FR_PREFERENCES, sendNotification, CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -266,7 +323,7 @@ class SummaryServiceTest {
                 line(otherSavings, ETF, "10", Optional.of(quote(ETF, "25")))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, LINKED, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts()).isEmpty();
     }
@@ -277,7 +334,7 @@ class SummaryServiceTest {
                 List.of(line(LIVRET_A, EUROS, "20000", Optional.of(par())), line(LDDS, ETF, "10", Optional.empty())));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, LINKED, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -295,7 +352,7 @@ class SummaryServiceTest {
                 line(LIVRET_A, usdEtf, "10", Optional.of(usdQuote))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, LINKED, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(
@@ -312,7 +369,7 @@ class SummaryServiceTest {
                 List.of(line(PEA, EUROS, "300", Optional.of(par())), line(PEA, usdEtf, "10", Optional.of(usdQuote))));
         List<Summary> sent = new ArrayList<>();
 
-        new SummaryService(d1Only(), getPortfolio, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
+        new SummaryService(d1Only(), getPortfolio, LINKED, FR_PREFERENCES, into(sent), CLOCK, PARIS).send();
 
         assertThat(sent.getFirst().cashOnlyAccounts())
                 .containsExactly(

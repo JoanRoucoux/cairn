@@ -1,19 +1,16 @@
 package com.roucoux.cairn.adapter.client.adapter;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
-import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
 import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
+import com.roucoux.cairn.domain.model.Recipient;
 import com.roucoux.cairn.domain.model.Summary;
 import com.roucoux.cairn.domain.model.SummaryPeriod;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -25,95 +22,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 /** Only account names are escaped: any other free text added later needs escaped() or Telegram answers 400. */
 @Component
 public class TelegramNotificationAdapter implements SendNotificationPort {
 
-    private static final Duration MAX_RETRY_AFTER = Duration.ofSeconds(60);
-
-    private final RestClient client;
-    private final TelegramClientProperties properties;
+    private final TelegramBotApi api;
     private final MessageSource messages;
-    private final ObjectMapper objectMapper;
-    private final Sleeper sleeper;
 
     @Autowired
-    public TelegramNotificationAdapter(
-            @Qualifier("telegramRestClient") RestClient client,
-            TelegramClientProperties properties,
-            @Qualifier("telegramMessages") MessageSource messages) {
-        this(client, properties, messages, new ObjectMapper(), Sleeper.THREAD);
-    }
-
-    TelegramNotificationAdapter(
-            RestClient client,
-            TelegramClientProperties properties,
-            MessageSource messages,
-            ObjectMapper objectMapper,
-            Sleeper sleeper) {
-        this.client = client;
-        this.properties = properties;
+    TelegramNotificationAdapter(TelegramBotApi api, @Qualifier("telegramMessages") MessageSource messages) {
+        this.api = api;
         this.messages = messages;
-        this.objectMapper = objectMapper;
-        this.sleeper = sleeper;
     }
 
     @Override
-    public void send(Language language, Summary summary) {
-        requireConfigured();
-        String text = format(language, summary);
-        try {
-            post(text);
-        } catch (TooManyRequests tooManyRequests) {
-            sleeper.sleep(tooManyRequests.retryAfter());
-            try {
-                post(text);
-            } catch (RuntimeException secondFailure) {
-                throw new NotificationDeliveryException("Telegram call failed after one retry on 429");
-            }
-        } catch (RestClientException failure) {
-            throw new NotificationDeliveryException("Telegram call failed");
-        }
-    }
-
-    private void requireConfigured() {
-        if (isBlank(properties.botToken()) || isBlank(properties.chatId())) {
-            throw new NotificationDeliveryException("Telegram is not configured");
-        }
-    }
-
-    private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
-
-    private void post(String text) {
-        try {
-            client.post()
-                    .uri("/bot{token}/sendMessage", properties.botToken())
-                    .body(new SendMessageRequest(properties.chatId(), "HTML", text))
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (HttpClientErrorException.TooManyRequests tooManyRequests) {
-            throw new TooManyRequests(retryAfter(tooManyRequests));
-        }
-    }
-
-    private Duration retryAfter(RestClientResponseException failure) {
-        try {
-            JsonNode body = objectMapper.readTree(failure.getResponseBodyAsString());
-            long seconds = body.path("parameters").path("retry_after").asLong(0);
-            Duration wait = Duration.ofSeconds(seconds);
-            return wait.compareTo(MAX_RETRY_AFTER) > 0 ? MAX_RETRY_AFTER : wait;
-        } catch (Exception unparsable) {
-            return Duration.ZERO;
-        }
+    public void send(Recipient recipient, Summary summary) {
+        api.sendMessage(recipient.chatId(), format(recipient.language(), summary));
     }
 
     private String format(Language language, Summary summary) {
@@ -285,36 +210,5 @@ public class TelegramNotificationAdapter implements SendNotificationPort {
 
     private static BigDecimal percent(BigDecimal ratio) {
         return ratio.multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private record SendMessageRequest(
-            @JsonProperty("chat_id") String chatId,
-            @JsonProperty("parse_mode") String parseMode,
-            String text) {}
-
-    private static final class TooManyRequests extends RuntimeException {
-        private final Duration retryAfter;
-
-        TooManyRequests(Duration retryAfter) {
-            super(null, null, false, false);
-            this.retryAfter = retryAfter;
-        }
-
-        Duration retryAfter() {
-            return retryAfter;
-        }
-    }
-
-    @FunctionalInterface
-    interface Sleeper {
-        Sleeper THREAD = duration -> {
-            try {
-                Thread.sleep(duration);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        };
-
-        void sleep(Duration duration);
     }
 }

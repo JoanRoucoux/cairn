@@ -105,10 +105,10 @@ public class TelegramLinkService implements LinkTelegramUseCase {
     }
 
     private static String truncate(String label) {
-        if (label == null || label.length() <= MAX_LABEL_LENGTH) {
+        if (label == null || label.codePointCount(0, label.length()) <= MAX_LABEL_LENGTH) {
             return label;
         }
-        return label.substring(0, MAX_LABEL_LENGTH);
+        return label.substring(0, label.offsetByCodePoints(0, MAX_LABEL_LENGTH));
     }
 
     private static String hash(String token) {

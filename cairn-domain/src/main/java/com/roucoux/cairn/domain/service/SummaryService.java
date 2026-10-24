@@ -3,11 +3,12 @@ package com.roucoux.cairn.domain.service;
 import com.roucoux.cairn.domain.model.Account;
 import com.roucoux.cairn.domain.model.AccountType;
 import com.roucoux.cairn.domain.model.CashOnlyAccount;
-import com.roucoux.cairn.domain.model.Language;
+import com.roucoux.cairn.domain.model.LinkedChat;
 import com.roucoux.cairn.domain.model.Money;
 import com.roucoux.cairn.domain.model.Performance;
 import com.roucoux.cairn.domain.model.PerformanceRange;
 import com.roucoux.cairn.domain.model.PeriodBounds;
+import com.roucoux.cairn.domain.model.Recipient;
 import com.roucoux.cairn.domain.model.Summary;
 import com.roucoux.cairn.domain.model.SummaryPeriod;
 import com.roucoux.cairn.domain.model.ValuedHolding;
@@ -17,6 +18,7 @@ import com.roucoux.cairn.domain.port.in.SendDailySummaryUseCase;
 import com.roucoux.cairn.domain.port.in.SendPeriodSummaryUseCase;
 import com.roucoux.cairn.domain.port.out.LoadPreferencesPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
+import com.roucoux.cairn.domain.port.out.TelegramLinkPort;
 import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -34,6 +36,7 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
 
     private final GetPerformanceUseCase getPerformance;
     private final GetPortfolioUseCase getPortfolio;
+    private final TelegramLinkPort telegramLink;
     private final LoadPreferencesPort loadPreferences;
     private final SendNotificationPort sendNotification;
     private final Clock clock;
@@ -42,12 +45,14 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
     public SummaryService(
             GetPerformanceUseCase getPerformance,
             GetPortfolioUseCase getPortfolio,
+            TelegramLinkPort telegramLink,
             LoadPreferencesPort loadPreferences,
             SendNotificationPort sendNotification,
             Clock clock,
             ZoneId zone) {
         this.getPerformance = getPerformance;
         this.getPortfolio = getPortfolio;
+        this.telegramLink = telegramLink;
         this.loadPreferences = loadPreferences;
         this.sendNotification = sendNotification;
         this.clock = clock;
@@ -56,9 +61,13 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
 
     @Override
     public void send() {
+        Recipient recipient = recipient();
+        if (recipient == null) {
+            return;
+        }
         LocalDate today = LocalDate.now(clock.withZone(zone));
         sendNotification.send(
-                language(),
+                recipient,
                 new Summary(
                         SummaryPeriod.DAY,
                         today,
@@ -69,6 +78,10 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
 
     @Override
     public void send(SummaryPeriod period) {
+        Recipient recipient = recipient();
+        if (recipient == null) {
+            return;
+        }
         LocalDate today = LocalDate.now(clock.withZone(zone));
         PeriodBounds bounds = period.bounds(today);
         Performance performance = getPerformance.performanceSince(bounds.baseline());
@@ -77,7 +90,7 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
             return;
         }
         sendNotification.send(
-                language(),
+                recipient,
                 new Summary(
                         period,
                         bounds.first(),
@@ -86,8 +99,13 @@ public class SummaryService implements SendDailySummaryUseCase, SendPeriodSummar
                         cashOnlyAccounts(getPortfolio.get().holdings())));
     }
 
-    private Language language() {
-        return loadPreferences.load().language();
+    private Recipient recipient() {
+        LinkedChat chat = telegramLink.load().chat();
+        if (chat == null) {
+            LOG.log(Level.INFO, "summary not sent: no Telegram chat linked");
+            return null;
+        }
+        return new Recipient(chat.chatId(), loadPreferences.load().language());
     }
 
     private static List<CashOnlyAccount> cashOnlyAccounts(List<ValuedHolding> holdings) {

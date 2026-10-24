@@ -46,7 +46,7 @@ The data shown is fictional.
 - **CSV import and export**: the import is all or nothing and reports errors as codes, never sentences. See [docs/portfolio-import.md](docs/portfolio-import.md).
 - **Quote refresh**: an intraday refresh every 15 minutes (EQUITY and ETF on weekdays during market hours, CRYPTO around the clock, at minutes 7, 22, 37 and 52) by the worker, and end-of-day batch jobs for equities, ETFs and funds.
 - **Daily snapshots** of the measured portfolio value, at 23:30 Paris time.
-- **Telegram summary** on weekdays at 19:45 Paris time: net worth, day change and each envelope's change. Recaps of the same layout follow over calendar periods: the week (Saturday 09:00), the month (the 1st, 09:00) and the year (January 1st, 09:05). They apply current quantities to the prices at the start of the period: a line bought during the period counts from the period start, and a line sold during it drops out, so its realized gain is not shown.
+- **Telegram summary** on weekdays at 19:45 Paris time: net worth, day change and each envelope's change. Recaps of the same layout follow over calendar periods: the week (Saturday 09:00), the month (the 1st, 09:00) and the year (January 1st, 09:05). They apply current quantities to the prices at the start of the period: a line bought during the period counts from the period start, and a line sold during it drops out, so its realized gain is not shown. Recaps follow the owner's language, and the chat is connected from the profile page.
 - **Passkeys** (WebAuthn) with a password fallback, sessions stored in PostgreSQL.
 - **Stale-quote detection**: a holding is flagged when its latest quote is older than its asset class allows.
 

@@ -189,6 +189,18 @@ class TelegramLinkServiceTest {
     }
 
     @Test
+    void aLabelIsTruncatedWithoutSplittingAnEmoji() {
+        Fixture fixture = new Fixture();
+        LinkInvitation invitation = fixture.service().start();
+        String emoji = "😀";
+        fixture.commands.add(new StartCommand(99L, "x".repeat(99) + emoji + "y".repeat(10), invitation.token()));
+
+        fixture.service().check();
+
+        assertThat(fixture.link.chat().label()).isEqualTo("x".repeat(99) + emoji);
+    }
+
+    @Test
     void unlinkClearsChatAndPendingToken() {
         Fixture fixture = new Fixture();
         fixture.link = new TelegramLink(

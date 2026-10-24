@@ -33,10 +33,10 @@ class TelegramClientConfigTest {
     }
 
     @Test
-    void buildsAClientOnTheConfiguredBaseUrlWithNoTokenAndNoChatIdBound() {
+    void buildsAClientOnTheConfiguredBaseUrlWithNoTokenBound() {
         server.stubFor(get(urlEqualTo("/health")).willReturn(ok("reached")));
         TelegramClientProperties properties =
-                new TelegramClientProperties(server.baseUrl(), "", "", Duration.ofSeconds(2), Duration.ofSeconds(5));
+                new TelegramClientProperties(server.baseUrl(), "", Duration.ofSeconds(2), Duration.ofSeconds(5));
 
         RestClient client = new TelegramClientConfig().telegramRestClient(properties);
 
@@ -47,13 +47,13 @@ class TelegramClientConfigTest {
     void postsARecordBodyOverHttp11WithoutAnH2cUpgradeFailure() {
         server.stubFor(post(urlEqualTo("/postBody")).willReturn(ok()));
         TelegramClientProperties properties =
-                new TelegramClientProperties(server.baseUrl(), "", "", Duration.ofSeconds(2), Duration.ofSeconds(5));
+                new TelegramClientProperties(server.baseUrl(), "", Duration.ofSeconds(2), Duration.ofSeconds(5));
 
         RestClient client = new TelegramClientConfig().telegramRestClient(properties);
 
         assertThat(client.post()
                         .uri("/postBody")
-                        .body(new Body("42", "hello"))
+                        .body(new Body(42L, "hello"))
                         .retrieve()
                         .toBodilessEntity()
                         .getStatusCode()
@@ -68,7 +68,11 @@ class TelegramClientConfigTest {
         assertThat(messages.getMessage("netWorth", null, Locale.FRANCE)).isEqualTo("Patrimoine");
         assertThat(messages.getMessage("netWorth", null, Locale.UK)).isEqualTo("Net worth");
         assertThat(messages.getMessage("change.year", null, Locale.FRANCE)).isEqualTo("Année");
+        assertThat(messages.getMessage("linked", null, Locale.FRANCE))
+                .isEqualTo("✅ Cairn est connecté. Les récaps arriveront ici.");
+        assertThat(messages.getMessage("linked", null, Locale.UK))
+                .isEqualTo("✅ Cairn is connected. Your recaps will arrive here.");
     }
 
-    private record Body(String chatId, String text) {}
+    private record Body(long chatId, String text) {}
 }
