@@ -99,7 +99,7 @@ The weekly (Saturday 09:00), monthly (the 1st, 09:00) and yearly (January 1st, 0
 
 The bot token never appears in the logs, not even on a failed send: neither `docker logs cairn-worker-1`
 nor the api container's logs may ever show it. Until the chat is linked, recaps are skipped with the INFO line
-`summary not sent: no Telegram chat linked`.
+`summary not sent: no Telegram chat linked`, and the daily one still pings its heartbeat.
 
 ## Reading the logs
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roucoux.cairn.domain.exception.business.TelegramNotConfiguredException;
+import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
 import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.LinkInvitation;
 import com.roucoux.cairn.domain.model.LinkedChat;
@@ -18,9 +19,11 @@ import com.roucoux.cairn.domain.port.out.TelegramBotPort;
 import com.roucoux.cairn.domain.port.out.TelegramLinkPort;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -201,6 +204,52 @@ class TelegramLinkServiceTest {
     }
 
     @Test
+    void aFailedBotUsernameLookupSavesNoPendingToken() {
+        Fixture fixture = new Fixture();
+        LinkedChat chat = new LinkedChat(7L, "Alex", NOW.minusSeconds(60));
+        fixture.link = new TelegramLink(chat, null);
+        TelegramLink before = fixture.link;
+        NotificationDeliveryException failure = new NotificationDeliveryException("getMe failed");
+        fixture.botUsernameFailure = failure;
+
+        assertThatThrownBy(() -> fixture.service().start()).isSameAs(failure);
+
+        assertThat(fixture.link).isSameAs(before);
+        assertThat(fixture.link.pending()).isNull();
+    }
+
+    @Test
+    void aCommandIsMatchedAgainstTheLinkLoadedAfterDraining() {
+        Fixture fixture = new Fixture();
+        fixture.link = new TelegramLink(null, new PendingLink(sha256("old-token"), NOW.plusSeconds(60)));
+        fixture.commands.add(new StartCommand(99L, "Alex", "new-token"));
+        fixture.onDrain =
+                () -> fixture.link = new TelegramLink(null, new PendingLink(sha256("new-token"), NOW.plusSeconds(60)));
+
+        TelegramLinkView view = fixture.service().check();
+
+        LinkedChat expected = new LinkedChat(99L, "Alex", NOW);
+        assertThat(view).isEqualTo(new TelegramLinkView(TelegramLinkStatus.LINKED, expected));
+        assertThat(fixture.confirmations).containsExactly(new Confirmation(99L, Language.FR));
+    }
+
+    @Test
+    void aSecondCheckWithTheSameTokenAfterLinkingDoesNotLinkAgain() {
+        Fixture fixture = new Fixture();
+        LinkInvitation invitation = fixture.service().start();
+        fixture.commands.add(new StartCommand(99L, "Alex", invitation.token()));
+        fixture.service().check();
+        fixture.commands.add(new StartCommand(55L, "Mallory", invitation.token()));
+
+        TelegramLinkView view = fixture.service().check();
+
+        LinkedChat expected = new LinkedChat(99L, "Alex", NOW);
+        assertThat(view).isEqualTo(new TelegramLinkView(TelegramLinkStatus.LINKED, expected));
+        assertThat(fixture.link).isEqualTo(new TelegramLink(expected, null));
+        assertThat(fixture.confirmations).containsExactly(new Confirmation(99L, Language.FR));
+    }
+
+    @Test
     void unlinkClearsChatAndPendingToken() {
         Fixture fixture = new Fixture();
         fixture.link = new TelegramLink(
@@ -215,7 +264,7 @@ class TelegramLinkServiceTest {
         try {
             return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
     }
@@ -229,6 +278,8 @@ class TelegramLinkServiceTest {
         Language language = Language.FR;
         Instant now = NOW;
         int drains;
+        RuntimeException botUsernameFailure;
+        Runnable onDrain = () -> {};
         final List<StartCommand> commands = new ArrayList<>();
         final List<Confirmation> confirmations = new ArrayList<>();
 
@@ -253,12 +304,16 @@ class TelegramLinkServiceTest {
 
                 @Override
                 public String botUsername() {
+                    if (botUsernameFailure != null) {
+                        throw botUsernameFailure;
+                    }
                     return "cairn_bot";
                 }
 
                 @Override
                 public List<StartCommand> drainStartCommands() {
                     drains++;
+                    onDrain.run();
                     List<StartCommand> drained = new ArrayList<>(commands);
                     commands.clear();
                     return drained;
@@ -271,12 +326,12 @@ class TelegramLinkServiceTest {
             };
             Clock clock = new Clock() {
                 @Override
-                public java.time.ZoneId getZone() {
+                public ZoneId getZone() {
                     return ZoneOffset.UTC;
                 }
 
                 @Override
-                public Clock withZone(java.time.ZoneId zone) {
+                public Clock withZone(ZoneId zone) {
                     return this;
                 }
 

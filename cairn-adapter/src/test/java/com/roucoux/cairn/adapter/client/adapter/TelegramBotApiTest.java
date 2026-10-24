@@ -145,6 +145,37 @@ class TelegramBotApiTest {
     }
 
     @Test
+    void aServerErrorOnGetUpdatesIsADeliveryFailureWithoutTheToken() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/getUpdates"))
+                .willReturn(aResponse().withStatus(500)));
+
+        assertThatThrownBy(() -> api(TOKEN).getUpdates(null, 100))
+                .isInstanceOf(NotificationDeliveryException.class)
+                .satisfies(failure -> {
+                    assertThat(failure.getMessage()).doesNotContain(TOKEN);
+                    assertThat(failure.getMessage()).doesNotContain(wireMock.baseUrl());
+                });
+    }
+
+    @Test
+    void aConnectionResetOnGetUpdatesNeverLeaksTheToken() {
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/getUpdates"))
+                .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
+
+        assertThatThrownBy(() -> api(TOKEN).getUpdates(null, 100))
+                .isInstanceOf(NotificationDeliveryException.class)
+                .satisfies(failure -> {
+                    Throwable current = failure;
+                    while (current != null) {
+                        if (current.getMessage() != null) {
+                            assertThat(current.getMessage()).doesNotContain(TOKEN);
+                        }
+                        current = current.getCause();
+                    }
+                });
+    }
+
+    @Test
     void retriesOnceAfterA429ThenSucceeds() {
         wireMock.stubFor(
                 post(urlPathTemplate("/bot{token}/sendMessage"))

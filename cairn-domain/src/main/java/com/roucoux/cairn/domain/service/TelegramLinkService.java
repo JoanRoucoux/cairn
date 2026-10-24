@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 
 public class TelegramLinkService implements LinkTelegramUseCase {
 
@@ -56,20 +57,22 @@ public class TelegramLinkService implements LinkTelegramUseCase {
         byte[] bytes = new byte[TOKEN_BYTES];
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        String botUsername = bot.botUsername();
         Instant expiresAt = clock.instant().plus(TOKEN_TTL);
         TelegramLink current = links.load();
         links.save(new TelegramLink(current.chat(), new PendingLink(hash(token), expiresAt)));
-        return new LinkInvitation(bot.botUsername(), token, expiresAt);
+        return new LinkInvitation(botUsername, token, expiresAt);
     }
 
     @Override
     public TelegramLinkView check() {
         requireConfigured();
+        List<StartCommand> commands = bot.drainStartCommands();
         Instant now = clock.instant();
         TelegramLink current = links.load();
         PendingLink pending = current.pending();
         boolean open = pending != null && now.isBefore(pending.expiresAt());
-        for (StartCommand command : bot.drainStartCommands()) {
+        for (StartCommand command : commands) {
             if (open && matches(pending, command)) {
                 LinkedChat chat = new LinkedChat(command.chatId(), truncate(command.label()), now);
                 TelegramLink linked = links.save(new TelegramLink(chat, null));
