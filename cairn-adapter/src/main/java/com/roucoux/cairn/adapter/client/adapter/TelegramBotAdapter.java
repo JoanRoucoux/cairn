@@ -6,6 +6,7 @@ import com.roucoux.cairn.domain.model.StartCommand;
 import com.roucoux.cairn.domain.port.out.TelegramBotPort;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
@@ -20,6 +21,7 @@ public class TelegramBotAdapter implements TelegramBotPort {
 
     private final TelegramBotApi api;
     private final MessageSource messages;
+    private final ReentrantLock drainLock = new ReentrantLock();
     private volatile String botUsername;
 
     @Autowired
@@ -48,6 +50,15 @@ public class TelegramBotAdapter implements TelegramBotPort {
 
     @Override
     public List<StartCommand> drainStartCommands() {
+        drainLock.lock();
+        try {
+            return drain();
+        } finally {
+            drainLock.unlock();
+        }
+    }
+
+    private List<StartCommand> drain() {
         JsonNode updates = api.getUpdates(null, BATCH_SIZE);
         List<StartCommand> commands = new ArrayList<>();
         long maxUpdateId = -1;
