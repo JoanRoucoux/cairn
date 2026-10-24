@@ -5,4 +5,4 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.telegram")
 public record TelegramClientProperties(
-        String baseUrl, String botToken, String chatId, Duration connectTimeout, Duration readTimeout) {}
+        String baseUrl, String botToken, Duration connectTimeout, Duration readTimeout) {}

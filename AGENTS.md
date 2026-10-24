@@ -259,7 +259,7 @@ portfolio value and its `ACCOUNT_TYPE`/`ASSET_CLASS` ventilations; its heartbeat
 (`0 45 19 * * MON-FRI`), reading `GetPerformanceUseCase.performance(D1)` so its numbers match the
 dashboard's 1J tile; not on weekends, when a stock's day change would just replay Friday's. Its
 heartbeat is the `KUMA_PUSH_SUMMARY` push monitor, interval 73 h (see the push monitors
-section of [docs/operations.md](docs/operations.md) for why 25 h does not fit a weekday-only job). The worker's
+section of [docs/operations.md](docs/operations.md) for why 25 h does not fit a weekday-only job); a recap skipped because no chat is linked still pings it. The worker's
 `PeriodSummaryScheduler` sends three more recaps over calendar periods through `SendPeriodSummaryUseCase`: the
 week Monday to Friday on Saturday (`0 0 9 * * SAT`), the previous month on the 1st (`0 0 9 1 * *`) and the
 previous year on January 1st (`0 5 9 1 1 *`), all Europe/Paris. They read
@@ -269,8 +269,8 @@ absent from both ends, a line bought during it counts from the period start, not
 whose quote history starts after the period is skipped with a WARNING. They have no heartbeat and no env var:
 a failure is logged at ERROR like the daily one, and a run missed while the worker is down is never caught up. `TelegramNotificationAdapter`
 (`cairn-adapter`'s `client/`) is wired in every application, not the worker alone:
-`TelegramClientProperties`' `botToken`/`chatId` carry no validation annotation, so `cairn-api` and
-`cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks them when a
+`TelegramClientProperties`' `botToken` carries no validation annotation, so `cairn-api` and
+`cairn-batch` start without any `TELEGRAM_*` variable set, and the adapter only checks it when a
 send is actually attempted.
 
 **Disk.** `deploy.sh` deletes every Cairn backend image except the deployed tag: `docker image
@@ -340,6 +340,7 @@ holds. A rollback redeploys an already released commit and mints no version.
 - **Without Docker, `cairn-adapter`'s coverage gate fails under `-DskipITs`**: expected, not a regression — its persistence code is only exercised by `*IT` tests.
 - **`cucumber-junit-platform-engine` must stay pinned to a version built against the same `junit-jupiter` line Spring Boot manages** (`cucumber.version` in `cairn-api/pom.xml`): a newer Cucumber needs a newer JUnit Platform than this project's dependency management provides, and fails at test discovery with `NoClassDefFoundError`.
 - **`CucumberIT` always reports "Tests run: 0"** in the Surefire/Failsafe console summary — cosmetic, not a sign the suite didn't run. `cucumber.plugin=pretty,summary` (`junit-platform.properties`) prints the real scenario/step counts right above it.
+- **The API is the bot's only `getUpdates` reader.** A webhook set on the bot by hand makes `getUpdates` answer 409 (linking fails with a 502), and any second poller (a debug script calling `getUpdates`) consumes the `/start` messages before the API sees them.
 - `mvnw` must stay executable on Linux CI (`git update-index --chmod=+x mvnw` if git loses the mode on Windows).
 - GitHub Actions in `.github/workflows/` are pinned by commit SHA — when adding one, pin it the same way.
 - The required status check `ci` is the gate job at the end of `ci.yml`: a new CI job must be added to its `needs`, or its failure will not block a merge.

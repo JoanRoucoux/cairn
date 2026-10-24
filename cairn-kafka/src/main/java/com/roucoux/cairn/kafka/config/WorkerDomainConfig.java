@@ -18,6 +18,7 @@ import com.roucoux.cairn.domain.port.out.RecordQuoteFailurePort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import com.roucoux.cairn.domain.port.out.SaveValuationPort;
 import com.roucoux.cairn.domain.port.out.SendNotificationPort;
+import com.roucoux.cairn.domain.port.out.TelegramLinkPort;
 import com.roucoux.cairn.domain.service.HoldingValuationService;
 import com.roucoux.cairn.domain.service.PerformanceService;
 import com.roucoux.cairn.domain.service.PortfolioService;
@@ -116,11 +117,13 @@ class WorkerDomainConfig {
     SummaryService summaryService(
             GetPerformanceUseCase getPerformance,
             GetPortfolioUseCase getPortfolio,
+            TelegramLinkPort telegramLink,
             LoadPreferencesPort loadPreferences,
             SendNotificationPort sendNotification,
             Clock clock,
             ZoneId zone) {
-        return new SummaryService(getPerformance, getPortfolio, loadPreferences, sendNotification, clock, zone);
+        return new SummaryService(
+                getPerformance, getPortfolio, telegramLink, loadPreferences, sendNotification, clock, zone);
     }
 
     @Bean

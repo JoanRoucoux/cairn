@@ -61,7 +61,6 @@ app:
   telegram:
     base-url: https://api.telegram.org
     bot-token: ${TELEGRAM_BOT_TOKEN:}
-    chat-id: ${TELEGRAM_CHAT_ID:}
     connect-timeout: 3s
     read-timeout: 10s
 

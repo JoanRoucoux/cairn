@@ -200,14 +200,32 @@ class WorkerDomainConfigTest {
                 config.getPerformanceUseCase(getPortfolio, loadQuotes, CLOCK, java.time.ZoneId.of("Europe/Paris"));
         List<com.roucoux.cairn.domain.model.Summary> sent = new ArrayList<>();
         com.roucoux.cairn.domain.port.out.SendNotificationPort sendNotification =
-                (language, summary) -> sent.add(summary);
+                (recipient, summary) -> sent.add(summary);
         com.roucoux.cairn.domain.port.out.LoadPreferencesPort loadPreferences =
                 () -> new com.roucoux.cairn.domain.model.Preferences(
                         com.roucoux.cairn.domain.model.Language.FR, com.roucoux.cairn.domain.model.Theme.SYSTEM);
 
+        com.roucoux.cairn.domain.port.out.TelegramLinkPort telegramLink =
+                new com.roucoux.cairn.domain.port.out.TelegramLinkPort() {
+                    @Override
+                    public com.roucoux.cairn.domain.model.TelegramLink load() {
+                        return new com.roucoux.cairn.domain.model.TelegramLink(
+                                new com.roucoux.cairn.domain.model.LinkedChat(
+                                        4242L, "@alex", java.time.Instant.parse("2026-09-01T10:00:00Z")),
+                                null);
+                    }
+
+                    @Override
+                    public com.roucoux.cairn.domain.model.TelegramLink save(
+                            com.roucoux.cairn.domain.model.TelegramLink link) {
+                        throw new AssertionError("not expected");
+                    }
+                };
+
         com.roucoux.cairn.domain.service.SummaryService summaryService = config.summaryService(
                 getPerformance,
                 getPortfolio,
+                telegramLink,
                 loadPreferences,
                 sendNotification,
                 CLOCK,

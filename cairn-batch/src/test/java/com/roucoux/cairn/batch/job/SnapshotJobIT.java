@@ -86,7 +86,6 @@ class SnapshotJobIT {
     @Test
     void startsUpAndWiresTheTelegramAdapterWithoutAnyTelegramVariableSet() {
         assertThat(System.getenv("TELEGRAM_BOT_TOKEN")).isNull();
-        assertThat(System.getenv("TELEGRAM_CHAT_ID")).isNull();
         assertThat(sendNotification).isNotNull();
     }
 
