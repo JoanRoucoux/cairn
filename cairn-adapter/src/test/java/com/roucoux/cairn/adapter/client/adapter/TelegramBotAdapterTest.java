@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.roucoux.cairn.adapter.client.config.TelegramClientConfig;
 import com.roucoux.cairn.adapter.client.properties.TelegramClientProperties;
 import com.roucoux.cairn.domain.exception.technical.NotificationDeliveryException;
@@ -19,7 +20,12 @@ import com.roucoux.cairn.domain.model.Language;
 import com.roucoux.cairn.domain.model.StartCommand;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -139,6 +145,45 @@ class TelegramBotAdapterTest {
         assertThat(adapter(TOKEN).drainStartCommands()).isEmpty();
 
         wireMock.verify(1, postRequestedFor(urlPathTemplate("/bot{token}/getUpdates")));
+    }
+
+    @Test
+    void concurrentDrainsNeverOverlapTheirGetUpdatesCalls() throws Exception {
+        long delayMillis = 300;
+        wireMock.stubFor(post(urlPathTemplate("/bot{token}/getUpdates"))
+                .willReturn(aResponse()
+                        .withFixedDelay((int) delayMillis)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"ok\":true,\"result\":[]}")));
+        TelegramBotAdapter adapter = adapter(TOKEN);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<List<StartCommand>>> drains = List.of(
+                    executor.submit(() -> {
+                        start.await();
+                        return adapter.drainStartCommands();
+                    }),
+                    executor.submit(() -> {
+                        start.await();
+                        return adapter.drainStartCommands();
+                    }));
+            start.countDown();
+            for (Future<List<StartCommand>> drain : drains) {
+                assertThat(drain.get()).isEmpty();
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        List<Instant> receivedAt = wireMock.getAllServeEvents().stream()
+                .map(ServeEvent::getRequest)
+                .map(request -> request.getLoggedDate().toInstant())
+                .sorted()
+                .toList();
+        assertThat(receivedAt).hasSize(2);
+        assertThat(Duration.between(receivedAt.get(0), receivedAt.get(1)).toMillis())
+                .isGreaterThanOrEqualTo(delayMillis);
     }
 
     @Test
