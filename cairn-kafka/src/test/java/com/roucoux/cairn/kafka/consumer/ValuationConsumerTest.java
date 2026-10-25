@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roucoux.cairn.domain.model.IntradayValuation;
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
+import com.roucoux.cairn.kafka.RefreshCompletedEvents;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -25,37 +26,17 @@ class ValuationConsumerTest {
     private final ValuationConsumer consumer = new ValuationConsumer(recordValuation, CLOCK);
 
     @Test
-    void aRefreshCompletedEnvelopeRecordsOneValuationAtNow() {
-        consumer.onMessage(envelope("refresh.completed"));
+    void aRefreshCompletedEventRecordsOneValuation() {
+        consumer.onRefreshCompleted(RefreshCompletedEvents.sample());
 
         assertThat(recordedAt).containsExactly(NOW);
     }
 
     @Test
-    void aPriceUpdatedEnvelopeIsIgnored() {
-        consumer.onMessage(envelope("price.updated"));
+    void anyOtherRecordRecordsNothing() {
+        consumer.ignore("something else");
+        consumer.ignore(null);
 
         assertThat(recordedAt).isEmpty();
-    }
-
-    @Test
-    void anUnknownTypeIsIgnored() {
-        consumer.onMessage(envelope("something.else"));
-
-        assertThat(recordedAt).isEmpty();
-    }
-
-    @Test
-    void aMalformedMessageIsLoggedAndSkippedRatherThanBlockingThePartition() {
-        consumer.onMessage("not json at all");
-
-        assertThat(recordedAt).isEmpty();
-    }
-
-    private static String envelope(String type) {
-        return """
-                {"id":"11111111-1111-1111-1111-111111111111","type":"%s","version":1,\
-                "occurredAt":"2026-09-24T09:31:00Z","source":"cairn-api","data":{}}\
-                """.formatted(type);
     }
 }

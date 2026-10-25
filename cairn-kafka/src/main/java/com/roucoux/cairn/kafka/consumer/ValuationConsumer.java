@@ -1,21 +1,16 @@
 package com.roucoux.cairn.kafka.consumer;
 
 import com.roucoux.cairn.domain.port.in.RecordValuationUseCase;
+import com.roucoux.cairn.events.RefreshCompletedEvent;
+import com.roucoux.cairn.events.Topics;
 import java.time.Clock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
+@KafkaListener(id = "cairn-valuation", topics = Topics.PORTFOLIO, groupId = "cairn-valuation")
 public class ValuationConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(ValuationConsumer.class);
-    private static final String REFRESH_COMPLETED = "refresh.completed";
-
-    private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
 
     private final RecordValuationUseCase recordValuation;
     private final Clock clock;
@@ -25,22 +20,11 @@ public class ValuationConsumer {
         this.clock = clock;
     }
 
-    @KafkaListener(
-            id = "cairn-valuation",
-            topics = "${app.messaging.kafka.portfolio-topic:cairn.portfolio}",
-            groupId = "cairn-valuation")
-    public void onMessage(String payload) {
-        String type;
-        try {
-            JsonNode envelope = JSON_MAPPER.readTree(payload);
-            type = envelope.path("type").asString(null);
-        } catch (RuntimeException malformed) {
-            log.warn("skipping an unreadable envelope on cairn.portfolio", malformed);
-            return;
-        }
-
-        if (REFRESH_COMPLETED.equals(type)) {
-            recordValuation.record(clock.instant());
-        }
+    @KafkaHandler
+    void onRefreshCompleted(RefreshCompletedEvent event) {
+        recordValuation.record(clock.instant());
     }
+
+    @KafkaHandler(isDefault = true)
+    void ignore(Object other) {}
 }
