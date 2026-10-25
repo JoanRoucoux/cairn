@@ -67,6 +67,35 @@ services:
       kafka:
         condition: service_healthy
 
+  registry:
+    image: apicurio/apicurio-registry:3.3.3
+    environment:
+      APICURIO_STORAGE_KIND: sql
+      APICURIO_STORAGE_SQL_KIND: postgresql
+      APICURIO_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app?currentSchema=registry
+      APICURIO_DATASOURCE_USERNAME: app
+      APICURIO_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      APICURIO_RULES_GLOBAL_COMPATIBILITY: BACKWARD
+      APICURIO_RULES_GLOBAL_VALIDITY: FULL
+    mem_limit: 320m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/health/ready > /dev/null']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      schema:
+        condition: service_completed_successfully
+        required: false
+
   api:
     build: { context: ., dockerfile: cairn-api/Dockerfile }
     environment:

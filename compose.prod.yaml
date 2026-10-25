@@ -57,6 +57,33 @@ services:
       start_interval: 5s
     restart: unless-stopped
 
+  registry:
+    image: apicurio/apicurio-registry:3.3.3
+    environment:
+      APICURIO_STORAGE_KIND: sql
+      APICURIO_STORAGE_SQL_KIND: postgresql
+      APICURIO_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app?currentSchema=registry
+      APICURIO_DATASOURCE_USERNAME: app
+      APICURIO_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      APICURIO_RULES_GLOBAL_COMPATIBILITY: BACKWARD
+      APICURIO_RULES_GLOBAL_VALIDITY: FULL
+    mem_limit: 320m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/health/ready > /dev/null']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   worker:
     image: ghcr.io/joanroucoux/cairn-kafka:${TAG:?TAG must be set}
     environment:
@@ -69,6 +96,7 @@ services:
       KUMA_PUSH_SUMMARY: ${KUMA_PUSH_SUMMARY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      APICURIO_REGISTRY_URL: http://registry:8080/apis/registry/v3
     mem_limit: 512m
     security_opt:
       - no-new-privileges:true
@@ -78,6 +106,8 @@ services:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      registry:
         condition: service_healthy
     restart: unless-stopped
 
@@ -94,6 +124,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError
       - LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
+      - APICURIO_REGISTRY_URL=http://registry:8080/apis/registry/v3
     mem_limit: 640m
     networks:
       - default
@@ -123,6 +154,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      APICURIO_REGISTRY_URL: http://registry:8080/apis/registry/v3
     mem_limit: 512m
     security_opt:
       - no-new-privileges:true

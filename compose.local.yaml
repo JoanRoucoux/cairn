@@ -57,5 +57,29 @@ services:
       timeout: 10s
       retries: 30
 
+  registry:
+    profiles: ['kafka']
+    image: apicurio/apicurio-registry:3.3.3
+    environment:
+      APICURIO_STORAGE_KIND: sql
+      APICURIO_STORAGE_SQL_KIND: postgresql
+      APICURIO_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app?currentSchema=registry
+      APICURIO_DATASOURCE_USERNAME: app
+      APICURIO_DATASOURCE_PASSWORD: app
+      APICURIO_RULES_GLOBAL_COMPATIBILITY: BACKWARD
+      APICURIO_RULES_GLOBAL_VALIDITY: FULL
+    ports:
+      - '8081:8080'
+    labels:
+      org.springframework.boot.ignore: 'true'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/health/ready > /dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      schema-applied:
+        condition: service_started
+
 volumes:
   cairn-local-data:

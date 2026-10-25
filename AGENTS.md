@@ -300,6 +300,8 @@ holds. A rollback redeploys an already released commit and mints no version.
 
 - **A changeset's identity is id + author + file path, and its checksum is its content.** Renaming a changeset file, changing its extension or reformatting it makes Liquibase see an applied changeset as new (and replay it against production) or fail checksum validation. Any such change needs a `databasechangelog` update on every database first, the way `deploy/liquibase-xml-to-sql.sql` did for the XML to SQL conversion: new `filename`, `md5sum = NULL` (Liquibase recomputes a NULL checksum on the next update). The recorded filename is `src/main/resources/db/changelog/changesets/<name>`, as `mvn liquibase:update` runs it.
 
+- **Apicurio Registry 3.3 spellings differ from its 2.x and operator docs.** The global rules are `APICURIO_RULES_GLOBAL_COMPATIBILITY` and `APICURIO_RULES_GLOBAL_VALIDITY` (checked against `GET /apis/registry/v3/admin/rules`; the operator docs show `REGISTRY_RULES_GLOBAL_*`). Readiness is served on the management port, `http://localhost:9000/health/ready`, not on 8080 and not under `/q`. Its tables live in the `registry` schema (changeset 026) through `currentSchema=registry` in the datasource URL; the `cairn-schema` changelog never creates them, the registry does on first start.
+
 - **A killed migration leaves a lock that blocks every later deploy.** Liquibase takes a row in
   `DATABASECHANGELOGLOCK` before applying anything and releases it on exit. A `schema` container
   killed mid-run, by a reboot or a `docker kill`, never releases it: the next deploy waits five
