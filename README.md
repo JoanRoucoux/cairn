@@ -116,6 +116,7 @@ The host, the shared proxy and the monitoring are managed in [infra](https://git
 | Spring Batch | managed by Spring Boot | Scheduled quote and snapshot jobs |
 | Spring for Apache Kafka | managed by Spring Boot | Event publishing and consumption |
 | Apache Kafka | 4.3 | Event broker, KRaft (no ZooKeeper) |
+| Apache Avro, Apicurio Registry | 1.12, 3.3 | Typed event schemas, registered at worker startup |
 | PostgreSQL | 17 | Persistence |
 | Liquibase | managed by Spring Boot | Versioned schema, applied out-of-band |
 | openapi-generator | 7 | Contract-first interfaces and DTOs |

@@ -18,9 +18,9 @@ The core of what `deploy/deploy.sh` does, by hand, once the images are pulled:
 ```bash
 cd /srv/cairn
 sed -i "s|^TAG=.*|TAG=sha-1a2b3c4|" .env
-docker compose -f compose.prod.yaml --profile migrate --profile batch pull schema api batch kafka worker
+docker compose -f compose.prod.yaml --profile migrate --profile batch pull schema api batch kafka worker registry
 docker compose -f compose.prod.yaml --profile migrate run --rm -T schema </dev/null
-docker compose -f compose.prod.yaml up -d --wait postgres kafka worker api
+docker compose -f compose.prod.yaml up -d --wait postgres kafka registry worker api
 ```
 
 The migration runs first, on purpose: `ddl-auto: validate` means a failed migration must block the
@@ -100,6 +100,28 @@ The weekly (Saturday 09:00), monthly (the 1st, 09:00) and yearly (January 1st, 0
 The bot token never appears in the logs, not even on a failed send: neither `docker logs cairn-worker-1`
 nor the api container's logs may ever show it. Until the chat is linked, recaps are skipped with the INFO line
 `summary not sent: no Telegram chat linked`, and the daily one still pings its heartbeat.
+
+## Reading the events
+
+Event payloads on `cairn.prices` and `cairn.portfolio` are Avro binary, so the broker's console
+consumer prints unreadable values. Decode them with `kcat` through the registry's Confluent
+compatible API, from a throwaway container on the production network (`cairn_default`):
+
+```bash
+docker run --rm --network cairn_default edenhill/kcat:1.7.1 \
+  -b kafka:9092 -t cairn.portfolio -C -e -s value=avro -r http://registry:8080/apis/ccompat/v7
+```
+
+`-e` stops at the end of the topic. To list the registered schemas, call the registry from the same
+network (the `worker` container has no `curl`):
+
+```bash
+docker run --rm --network cairn_default curlimages/curl:8.11.1 -s \
+  http://registry:8080/apis/registry/v3/groups/com.roucoux.cairn.events/artifacts
+```
+
+Two artifacts are expected, `PriceUpdatedEvent` and `RefreshCompletedEvent`, registered by the
+worker at startup. The registry is not published on the host.
 
 ## Reading the logs
 
