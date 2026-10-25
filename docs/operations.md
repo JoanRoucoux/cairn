@@ -109,10 +109,10 @@ compatible API, from a throwaway container on the production network (`cairn_def
 
 ```bash
 docker run --rm --network cairn_default edenhill/kcat:1.7.1 \
-  -b kafka:9092 -t cairn.portfolio -C -e -s value=avro -r http://registry:8080/apis/ccompat/v7
+  -b kafka:9092 -t cairn.portfolio -C -e -o -5 -s value=avro -r http://registry:8080/apis/ccompat/v7
 ```
 
-`-e` stops at the end of the topic. To list the registered schemas, call the registry from the same
+`-e` stops at the end of the topic and `-o -5` reads the last five records of each partition; old JSON records may precede the Avro ones for 7 days after the first deploy, which kcat cannot decode. The registry keeps at most 5 database connections (`select count(*) from pg_stat_activity where datname = 'app' and application_name not like 'psql%'` on the `postgres` container). To list the registered schemas, call the registry from the same
 network (the `worker` container has no `curl`):
 
 ```bash

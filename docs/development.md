@@ -92,7 +92,7 @@ cron, not to run continuously.
 
 `kafka` (a single-node KRaft broker), `registry` (Apicurio, which holds the Avro schemas) and `worker` (`cairn-kafka`, which declares the
 `cairn.prices` and `cairn.portfolio` topics, runs the intraday refresh scheduler and consumes
-`refresh.completed` events to record valuation points) come up with the rest of `docker compose up`.
+`RefreshCompletedEvent` events to record valuation points, once `registry` is healthy) come up with the rest of `docker compose up`.
 `batch`, `worker` and `api` publish to the topics through `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`; the
 API publishes only when a quote is entered by hand. Payloads are Avro binary: the broker's own
 console consumer shows the records but not readable values, which is enough to see events flow

@@ -183,7 +183,7 @@ that path, since Spring's generated sign-in page is switched off.
 Only `api` and `web` join `edge`; `web` joins nothing else, since Caddy routes `/api` itself and
 nginx proxies nothing. **`postgres` deliberately stays on the default network**, out of
 reach of every other application sharing the proxy. So do `kafka`, `registry` and `worker`: nothing outside
-this compose project needs to reach either.
+this compose project needs to reach any of them.
 
 The three backend images run as the unprivileged `cairn` user, and `api`, `worker` and `batch` run
 with `no-new-privileges` and every capability dropped. The snippet caps a request body at 1 MB under
@@ -195,18 +195,19 @@ command line. It resolves the Liquibase plugin and the PostgreSQL driver at imag
 
 **`kafka`/`worker`.** `kafka` is a single-node KRaft broker (`apache/kafka`, no ZooKeeper),
 `worker` is `cairn-kafka`'s image: it declares the `cairn.prices`/`cairn.portfolio` topics on
-startup, runs the intraday refresh scheduler and consumes `refresh.completed` events; it has no web
+startup, runs the intraday refresh scheduler and consumes `RefreshCompletedEvent` events; it has no web
 server (`spring.main.web-application-type: none`). `deploy.sh`'s `up`
-argument order (`postgres kafka worker api`) is not a start order and `api` does not depend on
+argument order (`postgres kafka registry worker api`) is not a start order and `api` does not depend on
 `worker`: the worker creates the topics on its first start, and an event published before that is
 dropped and logged. `deploy.sh` pulls/prunes the `cairn-kafka` image alongside the other three.
 
-**`registry`.** Apicurio Registry 3.3.3 (`apicurio/apicurio-registry`), reachable only inside the compose project at `http://registry:8080`, with SQL storage in the `registry` schema of database `app` (changeset 026). `mem_limit` is 320m in `compose.prod.yaml` (214 MiB measured). The `worker` depends on it being healthy and is the only registrar; `deploy.sh` pulls it and starts it with `postgres kafka registry worker api`. The event payloads are Avro binary, so read them with the commands in [docs/operations.md](docs/operations.md), not a plain console consumer.
 **PostgreSQL first, then the
 event**: `QuoteAnnouncementService` publishes only after the caller's transaction has written the
 quote/refresh outcome, never before (the API's `QuoteRecordingService` does the same for a manual
 quote, announcing a `MANUAL` refresh so the worker records a valuation point), so a broker outage can drop an event but never leaves a
 published event pointing at data that was never saved.
+
+**`registry`.** Apicurio Registry 3.3.3 (`apicurio/apicurio-registry`), reachable only inside the compose project at `http://registry:8080`, with SQL storage in the `registry` schema of database `app` (changeset 026). `mem_limit` is 320m in `compose.prod.yaml` (214 MiB measured). The `worker` depends on it being healthy and is the only registrar; `deploy.sh` pulls it and starts it with `postgres kafka registry worker api`. The event payloads are Avro binary, so read them with the commands in [docs/operations.md](docs/operations.md), not a plain console consumer.
 
 `CAIRN_DOMAIN` is set twice, and the two must agree: in `/srv/cairn/.env` (feeding the api
 container's `CAIRN_RP_ID`/`CAIRN_ORIGIN`) and in `/srv/proxy/.env`, written by infra's Ansible
@@ -304,6 +305,7 @@ holds. A rollback redeploys an already released commit and mints no version.
 - **A changeset's identity is id + author + file path, and its checksum is its content.** Renaming a changeset file, changing its extension or reformatting it makes Liquibase see an applied changeset as new (and replay it against production) or fail checksum validation. Any such change needs a `databasechangelog` update on every database first, the way `deploy/liquibase-xml-to-sql.sql` did for the XML to SQL conversion: new `filename`, `md5sum = NULL` (Liquibase recomputes a NULL checksum on the next update). The recorded filename is `src/main/resources/db/changelog/changesets/<name>`, as `mvn liquibase:update` runs it.
 
 - **Apicurio Registry 3.3 spellings differ from its 2.x and operator docs.** The global rules are `APICURIO_RULES_GLOBAL_COMPATIBILITY` and `APICURIO_RULES_GLOBAL_VALIDITY` (checked against `GET /apis/registry/v3/admin/rules`; the operator docs show `REGISTRY_RULES_GLOBAL_*`). Readiness is served on the management port, `http://localhost:9000/health/ready`, not on 8080 and not under `/q`. Its tables live in the `registry` schema (changeset 026) through `currentSchema=registry` in the datasource URL; the `cairn-schema` changelog never creates them, the registry does on first start. Apicurio 3.3.3 exposes no request timeout key, only `retry-count` and `retry-backoff-ms`, so a registry that accepts TCP and never answers is not bounded on the client side.
+- **A registry outage after the first record changes nothing, on both sides.** The Apicurio serializer and deserializer keep a resolved schema in a per-instance fast path cache with no expiry, in front of the resolver cache whose `check-period-ms` (30 s) would otherwise force a registry call; `anExpiredCacheEntrySurvivesARegistryOutage` proves it, so no `fault-tolerant-refresh` key is set.
 - **The worker's registry `RestClient` is forced to HTTP/1.1** (`SchemaRegistrationConfig`): the JDK HTTP client's HTTP/2 upgrade times out against Apicurio. Do not remove the override.
 - **The worker must register byte-identical content.** Producers find a schema by its content, so any difference from `getClassSchema().toString()` (a reformatted or hand-edited copy) makes every producer lookup miss and every publish drop.
 - **Avro 1.12 refuses classes it does not trust.** Call `TrustedEventClasses.register()` before any Avro serialization or deserialization in a new entry point or test; production does it from `KafkaMessagingConfig`.

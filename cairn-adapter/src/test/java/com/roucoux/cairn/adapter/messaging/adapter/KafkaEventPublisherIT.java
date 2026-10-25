@@ -88,6 +88,9 @@ class KafkaEventPublisherIT {
     @Container
     static GenericContainer<?> outageRegistry = newRegistry();
 
+    @Container
+    static GenericContainer<?> expiryRegistry = newRegistry();
+
     private static final List<DefaultKafkaProducerFactory<String, SpecificRecord>> FACTORIES = new ArrayList<>();
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -119,6 +122,7 @@ class KafkaEventPublisherIT {
         }
         registerSchemas(registry);
         registerSchemas(outageRegistry);
+        registerSchemas(expiryRegistry);
     }
 
     @AfterAll
@@ -229,7 +233,11 @@ class KafkaEventPublisherIT {
     void aLaterPublishSucceedsWithoutRestart() throws Exception {
         UUID instrument = UUID.randomUUID();
         KafkaEventPublisher publisher = publisherFor(registryUrl(emptyRegistry));
-        publisher.publish(priceUpdated(UUID.randomUUID()));
+        UUID missed = UUID.randomUUID();
+        publisher.publish(priceUpdated(missed));
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getLevel()).isEqualTo(Level.WARN);
+        assertNothingOnTopic(Topics.PRICES, missed.toString());
         registerSchemas(emptyRegistry);
 
         publisher.publish(priceUpdated(instrument));
@@ -292,6 +300,33 @@ class KafkaEventPublisherIT {
         assertThat(appender.list).isEmpty();
     }
 
+    @Test
+    @Order(9)
+    void anExpiredCacheEntrySurvivesARegistryOutage() throws Exception {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        Map<String, Object> config = producerConfig(registryUrl(expiryRegistry));
+        config.put("apicurio.registry.check-period-ms", 500);
+        DefaultKafkaProducerFactory<String, SpecificRecord> factory = new DefaultKafkaProducerFactory<>(config);
+        FACTORIES.add(factory);
+        KafkaEventPublisher publisher = new KafkaEventPublisher(new KafkaTemplate<>(factory), APPLICATION_NAME);
+        AvroKafkaDeserializer<SpecificRecord> reader = deserializer(expiryRegistry, true);
+        publisher.publish(priceUpdated(first));
+        reader.deserialize(
+                Topics.PRICES, pollMatching(Topics.PRICES, first.toString()).value());
+        expiryRegistry.stop();
+        Thread.sleep(1000);
+
+        long start = System.nanoTime();
+        publisher.publish(priceUpdated(second));
+
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(3));
+        ConsumerRecord<String, byte[]> record = pollMatching(Topics.PRICES, second.toString());
+        PriceUpdatedEvent event = (PriceUpdatedEvent) reader.deserialize(Topics.PRICES, record.value());
+        assertThat(event.getInstrumentId()).isEqualTo(second);
+        assertThat(appender.list).isEmpty();
+    }
+
     private static PriceUpdated priceUpdated(UUID instrument) {
         return new PriceUpdated(new Quote(
                 instrument,
@@ -329,14 +364,19 @@ class KafkaEventPublisherIT {
     }
 
     private static AvroKafkaDeserializer<SpecificRecord> deserializer(GenericContainer<?> container) {
+        return deserializer(container, false);
+    }
+
+    private static AvroKafkaDeserializer<SpecificRecord> deserializer(
+            GenericContainer<?> container, boolean shortCache) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("apicurio.registry.url", registryUrl(container));
+        config.put("apicurio.registry.use-specific-avro-reader", true);
+        if (shortCache) {
+            config.put("apicurio.registry.check-period-ms", 500);
+        }
         AvroKafkaDeserializer<SpecificRecord> deserializer = new AvroKafkaDeserializer<>();
-        deserializer.configure(
-                Map.of(
-                        "apicurio.registry.url",
-                        registryUrl(container),
-                        "apicurio.registry.use-specific-avro-reader",
-                        true),
-                false);
+        deserializer.configure(config, false);
         return deserializer;
     }
 
