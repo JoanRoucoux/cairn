@@ -100,7 +100,7 @@ class RefreshQuotesJobConfigTest {
 
         @Override
         public RefreshReport refreshAll(Set<AssetClass> assetClasses, RefreshTrigger trigger) {
-            return new RefreshReport(0, 0, List.of());
+            return new RefreshReport(0, 0);
         }
 
         List<UUID> calls() {

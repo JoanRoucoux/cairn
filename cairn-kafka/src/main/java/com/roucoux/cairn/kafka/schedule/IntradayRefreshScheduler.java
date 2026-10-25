@@ -44,7 +44,7 @@ class IntradayRefreshScheduler {
     private void refresh(Set<AssetClass> assetClasses) {
         try {
             RefreshReport report = refreshQuotesProvider.getObject().refreshAll(assetClasses, RefreshTrigger.SCHEDULER);
-            if (report.refreshed() > 0 || report.failures().isEmpty()) {
+            if (report.refreshed() > 0 || report.failed() == 0) {
                 heartbeat.ping();
             }
         } catch (RuntimeException e) {
