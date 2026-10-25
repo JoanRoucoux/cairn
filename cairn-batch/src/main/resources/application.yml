@@ -13,12 +13,17 @@ spring:
       observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.apicurio.registry.serde.avro.AvroKafkaSerializer
       properties:
         max.block.ms: 250
         delivery.timeout.ms: 10000
         request.timeout.ms: 5000
         linger.ms: 0
+        apicurio.registry.url: ${APICURIO_REGISTRY_URL:http://localhost:8081/apis/registry/v3}
+        apicurio.registry.artifact-resolver-strategy: io.apicurio.registry.serde.avro.strategy.RecordIdStrategy
+        apicurio.registry.auto-register: false
+        apicurio.registry.retry-count: 0
+        apicurio.registry.retry-backoff-ms: 100
   datasource:
     url: jdbc:postgresql://localhost:5432/app
     username: app
