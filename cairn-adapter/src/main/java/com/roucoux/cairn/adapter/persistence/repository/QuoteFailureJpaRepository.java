@@ -15,8 +15,4 @@ public interface QuoteFailureJpaRepository extends JpaRepository<QuoteFailureEnt
     @Modifying
     @Query("delete from QuoteFailureEntity f where f.occurredAt < :cutoff")
     void deleteByOccurredAtBefore(@Param("cutoff") Instant cutoff);
-
-    default long countAll() {
-        return count();
-    }
 }

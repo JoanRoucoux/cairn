@@ -14,7 +14,6 @@ import com.roucoux.cairn.domain.port.out.FetchQuotePort;
 import com.roucoux.cairn.domain.port.out.LoadInstrumentsPort;
 import com.roucoux.cairn.domain.port.out.SaveQuotePort;
 import java.lang.System.Logger.Level;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -50,7 +49,7 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
     public RefreshReport refreshAll(Set<AssetClass> assetClasses, RefreshTrigger trigger) {
         int refreshed = 0;
         int skipped = 0;
-        List<RefreshReport.Failure> failures = new ArrayList<>();
+        int failed = 0;
 
         for (Instrument instrument : loadInstruments.findRefreshable(assetClasses)) {
             if (!instrument.isRefreshable()) {
@@ -77,11 +76,10 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
                 } catch (RuntimeException recordingFailure) {
                     logRecordingFailure(recordingFailure);
                 }
-                failures.add(new RefreshReport.Failure(
-                        instrument.id(), instrument.name(), instrument.priceSource(), reason));
+                failed++;
             }
         }
-        if (!failures.isEmpty()) {
+        if (failed > 0) {
             try {
                 recordFailure.purgeExpired();
             } catch (RuntimeException purgeFailure) {
@@ -91,9 +89,9 @@ public class QuoteRefreshService implements RefreshQuotesUseCase {
         LOG.log(
                 Level.INFO,
                 "quote refresh %s of %s: %d refreshed, %d skipped, %d failed"
-                        .formatted(trigger, assetClasses, refreshed, skipped, failures.size()));
-        announce.refreshCompleted(assetClasses, refreshed, failures.size(), trigger);
-        return new RefreshReport(refreshed, skipped, List.copyOf(failures));
+                        .formatted(trigger, assetClasses, refreshed, skipped, failed));
+        announce.refreshCompleted(assetClasses, refreshed, failed, trigger);
+        return new RefreshReport(refreshed, failed);
     }
 
     private static void logRecordingFailure(RuntimeException failure) {

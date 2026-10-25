@@ -8,7 +8,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.roucoux.cairn.domain.model.AssetClass;
-import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.RefreshReport;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
 import com.roucoux.cairn.domain.port.in.RefreshQuotesUseCase;
@@ -16,9 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.support.CronExpression;
@@ -26,16 +23,10 @@ import org.springframework.scheduling.support.CronExpression;
 class IntradayRefreshSchedulerTest {
 
     private static final ZoneId PARIS = ZoneId.of(IntradayRefreshScheduler.ZONE);
-    private static final RefreshReport ALL_REFRESHED = new RefreshReport(3, 0, List.of());
-    private static final RefreshReport NOTHING_TO_REFRESH = new RefreshReport(0, 0, List.of());
-    private static final RefreshReport ALL_FAILED = new RefreshReport(
-            0,
-            0,
-            List.of(new RefreshReport.Failure(UUID.randomUUID(), "Bitcoin", PriceSource.COINGECKO, "unavailable")));
-    private static final RefreshReport PARTIAL_SUCCESS = new RefreshReport(
-            2,
-            0,
-            List.of(new RefreshReport.Failure(UUID.randomUUID(), "Bitcoin", PriceSource.COINGECKO, "unavailable")));
+    private static final RefreshReport ALL_REFRESHED = new RefreshReport(3, 0);
+    private static final RefreshReport NOTHING_TO_REFRESH = new RefreshReport(0, 0);
+    private static final RefreshReport ALL_FAILED = new RefreshReport(0, 1);
+    private static final RefreshReport PARTIAL_SUCCESS = new RefreshReport(2, 1);
 
     @SuppressWarnings("unchecked")
     private final ObjectProvider<RefreshQuotesUseCase> refreshQuotesProvider = mock(ObjectProvider.class);

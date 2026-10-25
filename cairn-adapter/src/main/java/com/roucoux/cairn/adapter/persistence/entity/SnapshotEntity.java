@@ -38,8 +38,4 @@ public class SnapshotEntity {
     public Snapshot toDomainWithoutBreakdowns() {
         return new Snapshot(asOf, totalEur, Map.of(), Map.of());
     }
-
-    public LocalDate asOf() {
-        return asOf;
-    }
 }

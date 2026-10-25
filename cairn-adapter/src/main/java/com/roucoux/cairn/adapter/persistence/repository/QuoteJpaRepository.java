@@ -65,8 +65,4 @@ public interface QuoteJpaRepository extends JpaRepository<QuoteEntity, QuoteId> 
             @Param("currency") String currency,
             @Param("source") String source,
             @Param("fetchedAt") Instant fetchedAt);
-
-    default long countAll() {
-        return count();
-    }
 }

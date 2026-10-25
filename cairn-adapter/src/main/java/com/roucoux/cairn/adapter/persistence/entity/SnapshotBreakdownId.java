@@ -26,18 +26,6 @@ public class SnapshotBreakdownId implements Serializable {
         this.breakdownKey = breakdownKey;
     }
 
-    LocalDate asOf() {
-        return asOf;
-    }
-
-    String dimension() {
-        return dimension;
-    }
-
-    String breakdownKey() {
-        return breakdownKey;
-    }
-
     @Override
     public boolean equals(Object other) {
         if (this == other) {

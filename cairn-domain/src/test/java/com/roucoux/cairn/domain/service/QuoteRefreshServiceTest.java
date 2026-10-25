@@ -64,35 +64,35 @@ class QuoteRefreshServiceTest {
         RefreshReport report = service.refreshAll(Set.of(AssetClass.CASH), RefreshTrigger.MANUAL);
 
         assertThat(yahoo.calls()).isEmpty();
-        assertThat(report.skipped()).isEqualTo(1);
         assertThat(report.refreshed()).isZero();
+        assertThat(report.failed()).isZero();
     }
 
     @Test
     void oneFailingInstrumentDoesNotStopTheOthers() {
         FetchQuotePort failing = new FailingPort(PriceSource.YAHOO, ETF2.id());
-        QuoteRefreshService service = service(List.of(failing), List.of(ETF2, ETF));
+        RecordingFailurePort failures = new RecordingFailurePort();
+        QuoteRefreshService service = service(List.of(failing), List.of(ETF2, ETF), failures);
 
         RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
-        assertThat(report.failures())
-                .singleElement()
-                .satisfies(failure -> assertThat(failure.instrumentId()).isEqualTo(ETF2.id()));
+        assertThat(report.failed()).isEqualTo(1);
+        assertThat(failures.recorded()).containsExactly(ETF2.id());
     }
 
     @Test
     void anUnexpectedFailureDoesNotStopTheOthersEither() {
         FetchQuotePort crashing = new CrashingPort(PriceSource.YAHOO, ETF2.id());
-        QuoteRefreshService service = service(List.of(crashing), List.of(ETF2, ETF));
+        RecordingFailurePort failures = new RecordingFailurePort();
+        QuoteRefreshService service = service(List.of(crashing), List.of(ETF2, ETF), failures);
 
         RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
-        assertThat(report.failures()).singleElement().satisfies(failure -> {
-            assertThat(failure.instrumentId()).isEqualTo(ETF2.id());
-            assertThat(failure.message()).isEqualTo("NullPointerException");
-        });
+        assertThat(report.failed()).isEqualTo(1);
+        assertThat(failures.recorded()).containsExactly(ETF2.id());
+        assertThat(failures.messages()).containsExactly("NullPointerException");
     }
 
     @Test
@@ -143,7 +143,7 @@ class QuoteRefreshServiceTest {
         RefreshReport report = service.refreshAll(Set.of(AssetClass.ETF), RefreshTrigger.MANUAL);
 
         assertThat(report.refreshed()).isEqualTo(1);
-        assertThat(report.failures()).hasSize(1);
+        assertThat(report.failed()).isEqualTo(1);
         assertThat(announce.events()).contains("completed:1:1:MANUAL");
     }
 
@@ -320,6 +320,7 @@ class QuoteRefreshServiceTest {
 
     private static final class RecordingFailurePort implements RecordQuoteFailureUseCase {
         private final List<UUID> recorded = new ArrayList<>();
+        private final List<String> messages = new ArrayList<>();
         private int purges;
         private boolean failOnRecord;
         private boolean failOnPurge;
@@ -330,6 +331,7 @@ class QuoteRefreshServiceTest {
                 throw new IllegalStateException("database down");
             }
             recorded.add(instrumentId);
+            messages.add(message);
         }
 
         @Override
@@ -342,6 +344,10 @@ class QuoteRefreshServiceTest {
 
         List<UUID> recorded() {
             return recorded;
+        }
+
+        List<String> messages() {
+            return messages;
         }
 
         int purges() {

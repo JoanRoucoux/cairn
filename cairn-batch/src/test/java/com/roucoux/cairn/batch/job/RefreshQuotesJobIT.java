@@ -219,7 +219,7 @@ class RefreshQuotesJobIT {
         JobExecution execution = jobLauncherTestUtils.launchJob(parameters("CRYPTO"));
 
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
-        assertThat(quotes.countAll()).isEqualTo(1);
+        assertThat(quotes.count()).isEqualTo(1);
     }
 
     @Test
@@ -229,8 +229,8 @@ class RefreshQuotesJobIT {
         JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
 
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
-        assertThat(quotes.countAll()).isEqualTo(2);
-        assertThat(failures.countAll()).isEqualTo(1);
+        assertThat(quotes.count()).isEqualTo(2);
+        assertThat(failures.count()).isEqualTo(1);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Quote>> savedQuotes = ArgumentCaptor.forClass(List.class);
@@ -246,8 +246,8 @@ class RefreshQuotesJobIT {
         JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
 
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
-        assertThat(quotes.countAll()).isEqualTo(1);
-        assertThat(failures.countAll()).isEqualTo(1);
+        assertThat(quotes.count()).isEqualTo(1);
+        assertThat(failures.count()).isEqualTo(1);
     }
 
     @Test
@@ -257,7 +257,7 @@ class RefreshQuotesJobIT {
         JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
 
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
-        assertThat(quotes.countAll()).isEqualTo(1);
+        assertThat(quotes.count()).isEqualTo(1);
     }
 
     @Test
@@ -267,7 +267,7 @@ class RefreshQuotesJobIT {
         JobExecution execution = jobLauncherTestUtils.launchJob(parameters("ETF"));
 
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo("COMPLETED");
-        assertThat(failures.countAll()).isEqualTo(12);
+        assertThat(failures.count()).isEqualTo(12);
     }
 
     @Test
@@ -277,6 +277,6 @@ class RefreshQuotesJobIT {
         jobLauncherTestUtils.launchJob(parameters("ETF"));
         jobLauncherTestUtils.launchJob(parameters("ETF", "runDate", "2026-08-22"));
 
-        assertThat(quotes.countAll()).isEqualTo(2);
+        assertThat(quotes.count()).isEqualTo(2);
     }
 }
