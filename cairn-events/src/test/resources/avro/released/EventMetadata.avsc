@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "EventMetadata",
+  "namespace": "com.roucoux.cairn.events",
+  "fields": [
+    {"name": "id", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "source", "type": "string"}
+  ]
+}

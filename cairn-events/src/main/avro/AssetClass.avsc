@@ -1,0 +1,6 @@
+{
+  "type": "enum",
+  "name": "AssetClass",
+  "namespace": "com.roucoux.cairn.events",
+  "symbols": ["EQUITY", "ETF", "FUND", "CRYPTO", "BOND", "OTHER", "CASH"]
+}

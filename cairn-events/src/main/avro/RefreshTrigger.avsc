@@ -1,0 +1,6 @@
+{
+  "type": "enum",
+  "name": "RefreshTrigger",
+  "namespace": "com.roucoux.cairn.events",
+  "symbols": ["SCHEDULER", "BATCH", "MANUAL"]
+}
