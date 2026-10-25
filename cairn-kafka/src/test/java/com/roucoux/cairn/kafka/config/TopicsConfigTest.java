@@ -2,6 +2,7 @@ package com.roucoux.cairn.kafka.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roucoux.cairn.events.Topics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.TopicConfig;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ class TopicsConfigTest {
     void declaresThePricesTopic() {
         NewTopic topic = config.pricesTopic();
 
-        assertThat(topic.name()).isEqualTo("cairn.prices");
+        assertThat(topic.name()).isEqualTo(Topics.PRICES);
         assertThat(topic.numPartitions()).isEqualTo(1);
         assertThat(topic.replicationFactor()).isEqualTo((short) 1);
         assertThat(topic.configs()).containsEntry(TopicConfig.RETENTION_MS_CONFIG, "604800000");
@@ -24,7 +25,7 @@ class TopicsConfigTest {
     void declaresThePortfolioTopic() {
         NewTopic topic = config.portfolioTopic();
 
-        assertThat(topic.name()).isEqualTo("cairn.portfolio");
+        assertThat(topic.name()).isEqualTo(Topics.PORTFOLIO);
         assertThat(topic.numPartitions()).isEqualTo(1);
         assertThat(topic.replicationFactor()).isEqualTo((short) 1);
         assertThat(topic.configs()).containsEntry(TopicConfig.RETENTION_MS_CONFIG, "604800000");

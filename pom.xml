@@ -12,6 +12,7 @@
 
   <modules>
     <module>cairn-domain</module>
+    <module>cairn-events</module>
     <module>cairn-adapter</module>
     <module>cairn-api</module>
     <module>cairn-schema</module>

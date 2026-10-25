@@ -1,5 +1,6 @@
 package com.roucoux.cairn.kafka.config;
 
+import com.roucoux.cairn.events.Topics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.context.annotation.Bean;
@@ -15,12 +16,12 @@ class TopicsConfig {
 
     @Bean
     NewTopic pricesTopic() {
-        return topic("cairn.prices");
+        return topic(Topics.PRICES);
     }
 
     @Bean
     NewTopic portfolioTopic() {
-        return topic("cairn.portfolio");
+        return topic(Topics.PORTFOLIO);
     }
 
     private static NewTopic topic(String name) {

@@ -65,7 +65,7 @@ flowchart LR
     batch -- publishes --> kafka{{"Kafka<br/>cairn.prices, cairn.portfolio"}}
     worker -- publishes --> kafka
     api -- "manual quote" --> kafka
-    kafka -- "refresh.completed" --> worker
+    kafka -- "RefreshCompletedEvent" --> worker
 
     api -- "instrument search" --> providers
     batch -- "end-of-day refresh" --> providers
@@ -74,7 +74,7 @@ flowchart LR
     worker -- "daily summary" --> telegram[Telegram]
 ```
 
-The API calls the providers only to search a source for an instrument when a line is added. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The batch jobs and the worker publish after a refresh. The API publishes only when a quote is entered by hand: a `price.updated` on `cairn.prices` and a `refresh.completed` with the `MANUAL` trigger on `cairn.portfolio`. The worker consumes `refresh.completed` from `cairn.portfolio` to record a valuation point, so a manual quote gets one too.
+The API calls the providers only to search a source for an instrument when a line is added. The batch jobs and the worker refresh quotes, and which provider answers depends on the instrument's price source. The batch jobs and the worker publish after a refresh. The API publishes only when a quote is entered by hand: a `PriceUpdatedEvent` on `cairn.prices` and a `RefreshCompletedEvent` with the `MANUAL` trigger on `cairn.portfolio`. The worker consumes `RefreshCompletedEvent` from `cairn.portfolio` to record a valuation point, so a manual quote gets one too.
 
 ### Modules
 
@@ -116,11 +116,12 @@ The host, the shared proxy and the monitoring are managed in [infra](https://git
 | Spring Batch | managed by Spring Boot | Scheduled quote and snapshot jobs |
 | Spring for Apache Kafka | managed by Spring Boot | Event publishing and consumption |
 | Apache Kafka | 4.3 | Event broker, KRaft (no ZooKeeper) |
+| Apache Avro, Apicurio Registry | 1.12, 3.3 | Typed event schemas, registered at worker startup |
 | PostgreSQL | 17 | Persistence |
 | Liquibase | managed by Spring Boot | Versioned schema, applied out-of-band |
 | openapi-generator | 7 | Contract-first interfaces and DTOs |
 | springdoc | 3 | Swagger UI, `local` profile only |
-| Testcontainers | 1 | PostgreSQL and Kafka in integration tests |
+| Testcontainers | 1 | PostgreSQL, Kafka and Apicurio in integration tests |
 | WireMock | 3 | Tests of the price provider clients |
 | ArchUnit | 1 | Architecture enforcement |
 | Cucumber | 7 | Business scenarios over real HTTP |

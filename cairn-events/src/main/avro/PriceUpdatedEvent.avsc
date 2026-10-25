@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PriceUpdatedEvent",
+  "namespace": "com.roucoux.cairn.events",
+  "fields": [
+    {"name": "metadata", "type": "com.roucoux.cairn.events.EventMetadata"},
+    {"name": "instrumentId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "asOf", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "price", "type": {"type": "bytes", "logicalType": "decimal", "precision": 28, "scale": 12}},
+    {"name": "currency", "type": "string"},
+    {"name": "priceSource", "type": "com.roucoux.cairn.events.PriceSource"}
+  ]
+}

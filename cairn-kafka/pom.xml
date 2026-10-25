@@ -23,6 +23,8 @@
     <cairn-domain.version>0.1.0-SNAPSHOT</cairn-domain.version>
     <cairn-adapter.version>0.1.0-SNAPSHOT</cairn-adapter.version>
     <cairn-schema.version>0.1.0-SNAPSHOT</cairn-schema.version>
+    <cairn-events.version>0.1.0-SNAPSHOT</cairn-events.version>
+    <apicurio-registry.version>3.3.3</apicurio-registry.version>
 
     <archunit.version>1.5.1</archunit.version>
     <testcontainers.version>1.21.4</testcontainers.version>
@@ -38,6 +40,17 @@
       <groupId>com.roucoux.cairn</groupId>
       <artifactId>cairn-domain</artifactId>
       <version>${cairn-domain.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.roucoux.cairn</groupId>
+      <artifactId>cairn-events</artifactId>
+      <version>${cairn-events.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.apicurio</groupId>
+      <artifactId>apicurio-registry-avro-serde-kafka</artifactId>
+      <version>${apicurio-registry.version}</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>com.roucoux.cairn</groupId>

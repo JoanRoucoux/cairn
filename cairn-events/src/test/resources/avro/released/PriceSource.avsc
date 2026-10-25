@@ -1,0 +1,6 @@
+{
+  "type": "enum",
+  "name": "PriceSource",
+  "namespace": "com.roucoux.cairn.events",
+  "symbols": ["YAHOO", "COINGECKO", "SG_SIRIUS", "AMUNDI", "MANUAL"]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "RefreshCompletedEvent",
+  "namespace": "com.roucoux.cairn.events",
+  "fields": [
+    {"name": "metadata", "type": "com.roucoux.cairn.events.EventMetadata"},
+    {"name": "assetClasses", "type": {"type": "array", "items": "com.roucoux.cairn.events.AssetClass"}},
+    {"name": "refreshed", "type": "int"},
+    {"name": "failed", "type": "int"},
+    {"name": "trigger", "type": "com.roucoux.cairn.events.RefreshTrigger"}
+  ]
+}

@@ -2,23 +2,40 @@ package com.roucoux.cairn.adapter.messaging.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
-import com.roucoux.cairn.adapter.messaging.properties.KafkaMessagingProperties;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.roucoux.cairn.domain.model.AssetClass;
 import com.roucoux.cairn.domain.model.PriceSource;
 import com.roucoux.cairn.domain.model.Quote;
 import com.roucoux.cairn.domain.model.event.PriceUpdated;
 import com.roucoux.cairn.domain.model.event.RefreshCompleted;
 import com.roucoux.cairn.domain.model.event.RefreshTrigger;
+import com.roucoux.cairn.events.PriceUpdatedEvent;
+import com.roucoux.cairn.events.RefreshCompletedEvent;
+import com.roucoux.cairn.events.Topics;
+import com.roucoux.cairn.events.TrustedEventClasses;
+import io.apicurio.registry.serde.avro.AvroKafkaDeserializer;
+import io.apicurio.registry.serde.avro.AvroKafkaSerializer;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -27,165 +44,231 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Testcontainers
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class KafkaEventPublisherIT {
 
-    private static final UUID INSTRUMENT = UUID.randomUUID();
     private static final String APPLICATION_NAME = "cairn-api";
+    private static final String EVENTS_GROUP = "com.roucoux.cairn.events";
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);
-    private static final KafkaMessagingProperties PROPERTIES =
-            new KafkaMessagingProperties("cairn.prices", "cairn.portfolio");
+    private static final String UNREACHABLE_REGISTRY = "http://127.0.0.1:1/apis/registry/v3";
 
     @Container
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.3.1");
 
-    private static JsonMapper json;
+    @Container
+    static GenericContainer<?> registry = newRegistry();
 
-    private static DefaultKafkaProducerFactory<String, String> producerFactory;
-    private static KafkaTemplate<String, String> kafkaTemplate;
+    @Container
+    static GenericContainer<?> emptyRegistry = newRegistry();
 
-    private KafkaEventPublisher publisher;
-    private KafkaConsumer<String, String> consumer;
+    @Container
+    static GenericContainer<?> outageRegistry = newRegistry();
+
+    @Container
+    static GenericContainer<?> expiryRegistry = newRegistry();
+
+    private static final List<DefaultKafkaProducerFactory<String, SpecificRecord>> FACTORIES = new ArrayList<>();
+    private static final HttpClient HTTP = HttpClient.newHttpClient();
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    private final Logger logger = (Logger) LoggerFactory.getLogger(KafkaEventPublisher.class);
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+
+    private KafkaConsumer<String, byte[]> consumer;
+
+    private static GenericContainer<?> newRegistry() {
+        return new GenericContainer<>("apicurio/apicurio-registry:3.3.3")
+                .withExposedPorts(8080, 9000)
+                .waitingFor(Wait.forHttp("/health/ready").forPort(9000).withStartupTimeout(Duration.ofSeconds(120)));
+    }
+
+    private static String registryUrl(GenericContainer<?> container) {
+        return "http://" + container.getHost() + ":" + container.getMappedPort(8080) + "/apis/registry/v3";
+    }
 
     @BeforeAll
-    static void startBrokerAndCreateTopics() throws Exception {
-        json = KafkaEventPublisher.eventMapper();
-        producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class));
-        kafkaTemplate = new KafkaTemplate<>(producerFactory);
+    static void createTopicsAndRegisterSchemas() throws Exception {
+        TrustedEventClasses.register();
         try (Admin admin =
                 Admin.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers()))) {
             admin.createTopics(List.of(
-                            new NewTopic(PROPERTIES.pricesTopic(), 1, (short) 1),
-                            new NewTopic(PROPERTIES.portfolioTopic(), 1, (short) 1)))
+                            new NewTopic(Topics.PRICES, 1, (short) 1), new NewTopic(Topics.PORTFOLIO, 1, (short) 1)))
                     .all()
                     .get();
         }
+        registerSchemas(registry);
+        registerSchemas(outageRegistry);
+        registerSchemas(expiryRegistry);
     }
 
     @AfterAll
-    static void closeTemplate() {
-        producerFactory.destroy();
+    static void closeFactories() {
+        FACTORIES.forEach(DefaultKafkaProducerFactory::destroy);
     }
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaEventPublisher(kafkaTemplate, PROPERTIES, APPLICATION_NAME);
-        consumer = new KafkaConsumer<>(Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                kafka.getBootstrapServers(),
-                ConsumerConfig.GROUP_ID_CONFIG,
-                "kafka-event-publisher-it-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                "earliest",
-                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class,
-                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class));
-        consumer.subscribe(List.of(PROPERTIES.pricesTopic(), PROPERTIES.portfolioTopic()));
+        appender.start();
+        logger.addAppender(appender);
+        logger.setAdditive(false);
+        consumer = new KafkaConsumer<>(
+                Map.of(
+                        ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                        kafka.getBootstrapServers(),
+                        ConsumerConfig.GROUP_ID_CONFIG,
+                        "kafka-event-publisher-it-" + UUID.randomUUID(),
+                        ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                        "earliest"),
+                new StringDeserializer(),
+                new ByteArrayDeserializer());
+        consumer.subscribe(List.of(Topics.PRICES, Topics.PORTFOLIO));
     }
 
     @AfterEach
     void tearDown() {
         consumer.close();
+        logger.detachAppender(appender);
+        logger.setAdditive(true);
     }
 
     @Test
-    void publishesAPriceUpdateOnThePricesTopicKeyedByInstrument() {
-        publisher.publish(new PriceUpdated(new Quote(
-                INSTRUMENT,
-                LocalDate.of(2026, 9, 23),
-                new BigDecimal("2396.17"),
-                "EUR",
-                PriceSource.COINGECKO,
-                Instant.parse("2026-09-23T13:45:02Z"))));
+    @Order(1)
+    void publishesAPriceUpdatedEventReadableWithTheRegistry() {
+        UUID instrument = UUID.randomUUID();
+        KafkaEventPublisher publisher = publisherFor(registryUrl(registry));
 
-        ConsumerRecord<String, String> record =
-                pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("2396.17"));
-        JsonNode envelope = json.readTree(record.value());
-        JsonNode data = envelope.get("data");
+        publisher.publish(priceUpdated(instrument));
 
-        assertThat(record.key()).isEqualTo(INSTRUMENT.toString());
-        assertThat(envelope.get("type").asText()).isEqualTo("price.updated");
-        assertThat(envelope.get("version").asInt()).isEqualTo(1);
-        assertThat(envelope.get("id").asText()).isNotBlank();
-        assertThat(envelope.get("source").asText()).isEqualTo(APPLICATION_NAME);
-        assertThatCode(() -> Instant.parse(envelope.get("occurredAt").asText())).doesNotThrowAnyException();
-
-        assertThat(data.get("instrumentId").asText()).isEqualTo(INSTRUMENT.toString());
-        assertThat(data.get("asOf").asText()).isEqualTo("2026-09-23");
-        assertThat(data.get("price").decimalValue()).isEqualByComparingTo("2396.17");
-        assertThat(data.get("currency").asText()).isEqualTo("EUR");
-        assertThat(data.get("priceSource").asText()).isEqualTo("COINGECKO");
-        assertThat(data.has("fetchedAt")).isFalse();
+        ConsumerRecord<String, byte[]> record = pollMatching(Topics.PRICES, instrument.toString());
+        PriceUpdatedEvent event = (PriceUpdatedEvent) deserializer(registry).deserialize(Topics.PRICES, record.value());
+        assertThat(record.key()).isEqualTo(instrument.toString());
+        assertThat(event.getInstrumentId()).isEqualTo(instrument);
+        assertThat(event.getAsOf()).isEqualTo(LocalDate.of(2026, 10, 23));
+        assertThat(event.getPrice()).isEqualTo(new BigDecimal("0.000000120000"));
+        assertThat(event.getCurrency()).isEqualTo("EUR");
+        assertThat(event.getPriceSource()).isEqualTo(com.roucoux.cairn.events.PriceSource.COINGECKO);
+        assertThat(event.getMetadata().getSource()).isEqualTo(APPLICATION_NAME);
+        assertThat(event.getMetadata().getId()).isNotNull();
+        assertThat(event.getMetadata().getOccurredAt()).isNotNull();
     }
 
     @Test
-    void writesATinyPriceAsPlainDecimalNeverInScientificNotation() {
-        publisher.publish(new PriceUpdated(new Quote(
-                INSTRUMENT,
-                LocalDate.of(2026, 9, 23),
-                new BigDecimal("0.000000120000"),
-                "EUR",
-                PriceSource.COINGECKO,
-                Instant.parse("2026-09-23T13:45:02Z"))));
+    @Order(2)
+    void publishesARefreshCompletedEvent() {
+        KafkaEventPublisher publisher = publisherFor(registryUrl(registry));
 
-        ConsumerRecord<String, String> record =
-                pollMatching(PROPERTIES.pricesTopic(), value -> value.contains("0.000000120000"));
-
-        assertThat(record.value()).contains("0.000000120000");
-    }
-
-    @Test
-    void publishesTheEndOfARefreshOnThePortfolioTopicWithNoKey() {
         publisher.publish(new RefreshCompleted(Set.of(AssetClass.ETF), 7, 1, RefreshTrigger.MANUAL));
 
-        ConsumerRecord<String, String> record =
-                pollMatching(PROPERTIES.portfolioTopic(), value -> value.contains("\"refreshed\":7"));
-        JsonNode envelope = json.readTree(record.value());
-        JsonNode data = envelope.get("data");
-
+        ConsumerRecord<String, byte[]> record = pollMatching(Topics.PORTFOLIO, null);
+        RefreshCompletedEvent event =
+                (RefreshCompletedEvent) deserializer(registry).deserialize(Topics.PORTFOLIO, record.value());
         assertThat(record.key()).isNull();
-        assertThat(envelope.get("type").asText()).isEqualTo("refresh.completed");
-        assertThat(envelope.get("version").asInt()).isEqualTo(1);
-        assertThat(data.get("assetClasses")).extracting(JsonNode::asText).containsExactly("ETF");
-        assertThat(data.get("refreshed").asInt()).isEqualTo(7);
-        assertThat(data.get("failed").asInt()).isEqualTo(1);
-        assertThat(data.get("trigger").asText()).isEqualTo("MANUAL");
+        assertThat(event.getAssetClasses()).containsExactly(com.roucoux.cairn.events.AssetClass.ETF);
+        assertThat(event.getRefreshed()).isEqualTo(7);
+        assertThat(event.getFailed()).isEqualTo(1);
+        assertThat(event.getTrigger()).isEqualTo(com.roucoux.cairn.events.RefreshTrigger.MANUAL);
     }
 
     @Test
+    @Order(3)
+    void anUnregisteredSchemaIsLoggedAndSwallowed() {
+        UUID instrument = UUID.randomUUID();
+        KafkaEventPublisher publisher = publisherFor(registryUrl(emptyRegistry));
+
+        assertThatCode(() -> publisher.publish(priceUpdated(instrument))).doesNotThrowAnyException();
+
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getLevel()).isEqualTo(Level.WARN);
+        assertNothingOnTopic(Topics.PRICES, instrument.toString());
+    }
+
+    @Test
+    @Order(4)
+    void aSchemaRegisteredWithOtherContentIsNeverUsed() throws Exception {
+        UUID instrument = UUID.randomUUID();
+        JsonNode other = JSON.readTree(PriceUpdatedEvent.getClassSchema().toString());
+        ((ObjectNode) other)
+                .withArray("fields")
+                .addObject()
+                .put("name", "note")
+                .putArray("type")
+                .add("null")
+                .add("string");
+        register(emptyRegistry, "PriceUpdatedEvent", JSON.writeValueAsString(other));
+        KafkaEventPublisher publisher = publisherFor(registryUrl(emptyRegistry));
+
+        assertThatCode(() -> publisher.publish(priceUpdated(instrument))).doesNotThrowAnyException();
+
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getLevel()).isEqualTo(Level.WARN);
+        assertNothingOnTopic(Topics.PRICES, instrument.toString());
+    }
+
+    @Test
+    @Order(5)
+    void aLaterPublishSucceedsWithoutRestart() throws Exception {
+        UUID instrument = UUID.randomUUID();
+        KafkaEventPublisher publisher = publisherFor(registryUrl(emptyRegistry));
+        UUID missed = UUID.randomUUID();
+        publisher.publish(priceUpdated(missed));
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getLevel()).isEqualTo(Level.WARN);
+        assertNothingOnTopic(Topics.PRICES, missed.toString());
+        registerSchemas(emptyRegistry);
+
+        publisher.publish(priceUpdated(instrument));
+
+        ConsumerRecord<String, byte[]> record = pollMatching(Topics.PRICES, instrument.toString());
+        PriceUpdatedEvent event =
+                (PriceUpdatedEvent) deserializer(emptyRegistry).deserialize(Topics.PRICES, record.value());
+        assertThat(event.getInstrumentId()).isEqualTo(instrument);
+    }
+
+    @Test
+    @Order(6)
+    void anUnreachableRegistryReturnsWithinThreeSeconds() {
+        KafkaEventPublisher publisher = publisherFor(UNREACHABLE_REGISTRY);
+
+        assertTimeout(Duration.ofSeconds(3), () -> publisher.publish(priceUpdated(UUID.randomUUID())));
+
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list).allSatisfy(line -> assertThat(line.getLevel()).isEqualTo(Level.WARN));
+    }
+
+    @Test
+    @Order(7)
     void neverThrowsWhenTheBrokerIsUnreachableEvenAcrossSeveralEvents() {
-        // Left open, its background thread retries forever and Surefire kills the fork after 30 s.
-        DefaultKafkaProducerFactory<String, String> unreachableFactory = new DefaultKafkaProducerFactory<>(Map.of(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "127.0.0.1:1",
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class,
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class,
-                ProducerConfig.MAX_BLOCK_MS_CONFIG,
-                250));
+        Map<String, Object> config = producerConfig(registryUrl(registry));
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:1");
+        DefaultKafkaProducerFactory<String, SpecificRecord> unreachableFactory =
+                new DefaultKafkaProducerFactory<>(config);
         try {
             KafkaEventPublisher unreachable =
-                    new KafkaEventPublisher(new KafkaTemplate<>(unreachableFactory), PROPERTIES, APPLICATION_NAME);
+                    new KafkaEventPublisher(new KafkaTemplate<>(unreachableFactory), APPLICATION_NAME);
 
             long start = System.nanoTime();
             assertThatCode(() -> {
@@ -201,17 +284,160 @@ class KafkaEventPublisherIT {
         }
     }
 
-    // Every test's fresh group re-reads the whole topic from the start, so match on the value too.
-    private ConsumerRecord<String, String> pollMatching(String topic, Predicate<String> valueMatches) {
-        long deadline = System.nanoTime() + POLL_TIMEOUT.toNanos();
+    @Test
+    @Order(8)
+    void aRegistryOutageAfterAFirstPublishDoesNotSlowPublishing() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        KafkaEventPublisher publisher = publisherFor(registryUrl(outageRegistry));
+        publisher.publish(priceUpdated(first));
+        pollMatching(Topics.PRICES, first.toString());
+        outageRegistry.stop();
+
+        assertTimeout(Duration.ofSeconds(3), () -> publisher.publish(priceUpdated(second)));
+
+        assertThat(pollMatching(Topics.PRICES, second.toString()).key()).isEqualTo(second.toString());
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    @Order(9)
+    void anExpiredCacheEntrySurvivesARegistryOutage() throws Exception {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        Map<String, Object> config = producerConfig(registryUrl(expiryRegistry));
+        config.put("apicurio.registry.check-period-ms", 500);
+        DefaultKafkaProducerFactory<String, SpecificRecord> factory = new DefaultKafkaProducerFactory<>(config);
+        FACTORIES.add(factory);
+        KafkaEventPublisher publisher = new KafkaEventPublisher(new KafkaTemplate<>(factory), APPLICATION_NAME);
+        AvroKafkaDeserializer<SpecificRecord> reader = deserializer(expiryRegistry, true);
+        publisher.publish(priceUpdated(first));
+        reader.deserialize(
+                Topics.PRICES, pollMatching(Topics.PRICES, first.toString()).value());
+        expiryRegistry.stop();
+        Thread.sleep(1000);
+
+        long start = System.nanoTime();
+        publisher.publish(priceUpdated(second));
+
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(3));
+        ConsumerRecord<String, byte[]> record = pollMatching(Topics.PRICES, second.toString());
+        PriceUpdatedEvent event = (PriceUpdatedEvent) reader.deserialize(Topics.PRICES, record.value());
+        assertThat(event.getInstrumentId()).isEqualTo(second);
+        assertThat(appender.list).isEmpty();
+    }
+
+    private static PriceUpdated priceUpdated(UUID instrument) {
+        return new PriceUpdated(new Quote(
+                instrument,
+                LocalDate.of(2026, 10, 23),
+                new BigDecimal("0.000000120000"),
+                "EUR",
+                PriceSource.COINGECKO,
+                Instant.parse("2026-10-23T17:00:00Z")));
+    }
+
+    private static Map<String, Object> producerConfig(String registryUrl) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, AvroKafkaSerializer.class);
+        config.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 250);
+        config.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10000);
+        config.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+        config.put(ProducerConfig.LINGER_MS_CONFIG, 0);
+        config.put("apicurio.registry.url", registryUrl);
+        config.put(
+                "apicurio.registry.artifact-resolver-strategy",
+                "io.apicurio.registry.serde.avro.strategy.RecordIdStrategy");
+        config.put("apicurio.registry.auto-register", false);
+        config.put("apicurio.registry.retry-count", 0);
+        config.put("apicurio.registry.retry-backoff-ms", 100);
+        return config;
+    }
+
+    private static KafkaEventPublisher publisherFor(String registryUrl) {
+        DefaultKafkaProducerFactory<String, SpecificRecord> factory =
+                new DefaultKafkaProducerFactory<>(producerConfig(registryUrl));
+        FACTORIES.add(factory);
+        return new KafkaEventPublisher(new KafkaTemplate<>(factory), APPLICATION_NAME);
+    }
+
+    private static AvroKafkaDeserializer<SpecificRecord> deserializer(GenericContainer<?> container) {
+        return deserializer(container, false);
+    }
+
+    private static AvroKafkaDeserializer<SpecificRecord> deserializer(
+            GenericContainer<?> container, boolean shortCache) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("apicurio.registry.url", registryUrl(container));
+        config.put("apicurio.registry.use-specific-avro-reader", true);
+        if (shortCache) {
+            config.put("apicurio.registry.check-period-ms", 500);
+        }
+        AvroKafkaDeserializer<SpecificRecord> deserializer = new AvroKafkaDeserializer<>();
+        deserializer.configure(config, false);
+        return deserializer;
+    }
+
+    private static void registerSchemas(GenericContainer<?> container) throws Exception {
+        register(
+                container,
+                "PriceUpdatedEvent",
+                PriceUpdatedEvent.getClassSchema().toString());
+        register(
+                container,
+                "RefreshCompletedEvent",
+                RefreshCompletedEvent.getClassSchema().toString());
+    }
+
+    private static void register(GenericContainer<?> container, String artifactId, String schema) throws Exception {
+        Map<String, Object> body = Map.of(
+                "artifactId",
+                artifactId,
+                "artifactType",
+                "AVRO",
+                "firstVersion",
+                Map.of("content", Map.of("content", schema, "contentType", "application/json")));
+        HttpRequest request = HttpRequest.newBuilder(URI.create(
+                        registryUrl(container) + "/groups/" + EVENTS_GROUP + "/artifacts?ifExists=CREATE_VERSION"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).as(response.body()).isBetween(200, 299);
+    }
+
+    private ConsumerRecord<String, byte[]> pollMatching(String topic, String key) {
+        return pollUntil(topic, record -> key == null ? record.key() == null : key.equals(record.key()), POLL_TIMEOUT);
+    }
+
+    private void assertNothingOnTopic(String topic, String key) {
+        assertThatCode(() -> {
+                    ConsumerRecord<String, byte[]> record =
+                            pollUntil(topic, found -> key.equals(found.key()), Duration.ofSeconds(3));
+                    throw new AssertionError("unexpected record " + record.key());
+                })
+                .isInstanceOf(NoRecord.class);
+    }
+
+    private ConsumerRecord<String, byte[]> pollUntil(
+            String topic, Predicate<ConsumerRecord<String, byte[]>> matches, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
-            ConsumerRecords<String, String> polled = consumer.poll(Duration.ofMillis(200));
-            for (ConsumerRecord<String, String> record : polled) {
-                if (record.topic().equals(topic) && valueMatches.test(record.value())) {
+            ConsumerRecords<String, byte[]> polled = consumer.poll(Duration.ofMillis(200));
+            for (ConsumerRecord<String, byte[]> record : polled) {
+                if (record.topic().equals(topic) && matches.test(record)) {
                     return record;
                 }
             }
         }
-        throw new AssertionError("no matching record polled on topic " + topic + " within " + POLL_TIMEOUT);
+        throw new NoRecord("no matching record polled on topic " + topic + " within " + timeout);
+    }
+
+    private static final class NoRecord extends AssertionError {
+        NoRecord(String message) {
+            super(message);
+        }
     }
 }
