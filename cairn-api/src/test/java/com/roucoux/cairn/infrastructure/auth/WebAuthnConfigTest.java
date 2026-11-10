@@ -95,6 +95,7 @@ class WebAuthnConfigTest {
                 new ChangeSessionIdAuthenticationStrategy(), new SignedInSessionLifetime(Duration.ofDays(30)))));
         MockHttpServletRequest request = assertionRequest();
         String before = request.getSession().getId();
+        request.setRequestedSessionId(before);
 
         filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 
