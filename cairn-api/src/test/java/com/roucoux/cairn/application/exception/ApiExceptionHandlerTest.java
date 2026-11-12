@@ -78,4 +78,13 @@ class ApiExceptionHandlerTest {
 
         assertThat(appender.list).isEmpty();
     }
+
+    @Test
+    void answersAConstraintViolationAsABareProblemDetail() {
+        var problem = handler.handleInvalidParameter();
+
+        assertThat(problem.getStatus()).isEqualTo(400);
+        assertThat(problem.getTitle()).isEqualTo("Invalid request parameter");
+        assertThat(problem.getDetail()).isNull();
+    }
 }

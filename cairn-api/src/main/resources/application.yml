@@ -9,6 +9,9 @@ server:
         max-age: 30d
 
 spring:
+  mvc:
+    problemdetails:
+      enabled: true
   application:
     name: cairn-api
   docker:
