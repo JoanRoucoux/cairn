@@ -1,8 +1,10 @@
 package com.roucoux.cairn.application.controller;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -126,5 +128,33 @@ class InstrumentControllerTest {
     void requiresASessionToSearch() throws Exception {
         mockMvc.perform(get("/instruments/search").param("source", "YAHOO").param("query", "apple"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void answersAConstraintViolationAsAProblemDetail() throws Exception {
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "YAHOO")
+                        .param("query", "a")
+                        .with(user("alex")))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void answersAnUnknownSourceAsAProblemDetail() throws Exception {
+        mockMvc.perform(get("/instruments/search")
+                        .param("source", "NOWHERE")
+                        .param("query", "apple")
+                        .with(user("alex")))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void answersAMissingParameterAsAProblemDetail() throws Exception {
+        mockMvc.perform(get("/instruments/search").param("query", "apple").with(user("alex")))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON));
     }
 }

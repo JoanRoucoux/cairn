@@ -6,11 +6,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -429,5 +431,26 @@ class HoldingControllerTest {
                 INSTRUMENT_ID, "Apple Inc.", "US0378331005", "USD", AssetClass.EQUITY, PriceSource.YAHOO, "AAPL", null);
         Account account = new Account(ACCOUNT_ID, "Contoso Trading", AccountType.CTO, "Contoso Securities");
         return new ValuedHolding(holding, instrument, account, Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    void answersAMalformedIdAsAProblemDetail() throws Exception {
+        mockMvc.perform(delete("/holdings/{id}", "not-a-uuid")
+                        .with(user("alex"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void answersAnUnreadableBodyAsAProblemDetail() throws Exception {
+        mockMvc.perform(post("/holdings")
+                        .with(user("alex"))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON));
+        verifyNoInteractions(holdingTransaction);
     }
 }

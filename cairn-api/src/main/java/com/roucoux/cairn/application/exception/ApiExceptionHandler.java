@@ -6,9 +6,7 @@ import com.roucoux.cairn.domain.exception.business.BusinessException;
 import com.roucoux.cairn.domain.exception.business.NotFoundException;
 import com.roucoux.cairn.domain.exception.technical.MarketDataRateLimitedException;
 import com.roucoux.cairn.domain.exception.technical.TechnicalException;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -92,8 +90,10 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    void handleInvalidParameter(HttpServletResponse response) throws IOException {
-        response.sendError(HttpStatus.BAD_REQUEST.value());
+    ProblemDetail handleInvalidParameter() {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Invalid request parameter");
+        return problem;
     }
 
     @ExceptionHandler(LastPasskeyException.class)
