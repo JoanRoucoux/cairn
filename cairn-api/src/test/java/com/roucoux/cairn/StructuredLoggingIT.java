@@ -13,6 +13,7 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -37,6 +38,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
 class StructuredLoggingIT {
+
+    static {
+        LoggingSystem.get(StructuredLoggingIT.class.getClassLoader()).cleanUp();
+    }
 
     @Container
     @ServiceConnection
