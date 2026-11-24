@@ -1,16 +1,19 @@
 package com.roucoux.cairn;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -36,6 +39,10 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(OutputCaptureExtension.class)
 class StructuredLoggingIT {
 
+    static {
+        LoggingSystem.get(StructuredLoggingIT.class.getClassLoader()).cleanUp();
+    }
+
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
@@ -45,7 +52,11 @@ class StructuredLoggingIT {
 
     @Test
     void writesTheUseCaseLineAsEcsJsonWithATraceId(CapturedOutput output) throws Exception {
-        mockMvc.perform(get("/portfolio").with(user("alex"))).andExpect(status().isOk());
+        String traceHeader = mockMvc.perform(get("/portfolio").with(user("alex")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeader("X-Trace-Id");
 
         JsonNode line = Arrays.stream(output.getOut().split("\\R"))
                 .filter(candidate -> candidate.contains("\"useCase\":\"GetPortfolio\""))
@@ -57,7 +68,14 @@ class StructuredLoggingIT {
         assertThat(line.path("outcome").asString()).isEqualTo("success");
         assertThat(line.path("durationMs").isNumber()).isTrue();
         assertThat(line.path("service").path("name").asString()).isEqualTo("cairn-api");
-        assertThat(line.path("traceId").asString()).hasSize(32);
+        assertThat(line.path("traceId").asString()).hasSize(32).isEqualTo(traceHeader);
+    }
+
+    @Test
+    void answersARefusedRequestWithItsTraceId() throws Exception {
+        mockMvc.perform(get("/portfolio"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("X-Trace-Id", matchesPattern("[0-9a-f]{32}")));
     }
 
     @Test
